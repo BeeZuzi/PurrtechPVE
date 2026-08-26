@@ -1,0 +1,17 @@
+name: PurrtechPVE
+version: '${version}'
+description: Custom damage types, armor resistances/weaknesses and trinkets, deeply integrated with MythicMobs.
+authors: [ Purrtech ]
+
+main: eu.purrtech.purrtechPVE.PurrtechPVE
+api-version: '26.2'
+load: POSTWORLD
+softdepend: [ MythicMobs ]
+
+permissions:
+  purrtechpve.admin:
+    description: Manage damage types, item templates and world/PvP/PvE toggles
+    default: op
+  purrtechpve.accessory.use:
+    description: Open your own accessory (trinket) inventory
+    default: true

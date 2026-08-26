@@ -1,0 +1,654 @@
+## Stav implementace
+
+- **Fáze 0 hotová (2026-08-20).** Doporučené výchozí hodnoty ze 4 otázek níže zatím
+  neodsouhlaseny explicitně, ale postupuju podle nich (SQLite, MythicMobs
+  soft-depend, vlastní chest GUI, virtuální accessory sloty) — klidně napiš, pokud
+  chceš některou jinak, přepíšu.
+  - `build.gradle.kts`: shadow plugin, `io.lumine:Mythic-Dist:5.10.0` (`compileOnly`,
+    repo `mvn.lumine.io`), HikariCP + sqlite-jdbc shaded (`org.sqlite` NEreloctovaný,
+    stejný důvod jako u `PurrtechOrders`), JUnit 6 test deps.
+  - `paper-plugin.yml`: `softdepend: [MythicMobs]`, permissions `purrtechpve.admin`
+    (op) a `purrtechpve.accessory.use` (true).
+  - Balíčky `db/` (`Database`+`Schema` se všemi 6 tabulkami z datového modelu níže),
+    `config/` (`WorldToggleSettings`, `AccessorySettings`, `ConfigLoader`), `lang/`
+    (`Messages`, stejný flatten+MiniMessage vzor jako Orders), `config.yml` +
+    `lang/cs.yml`+`lang/en.yml`.
+  - `PurrtechPVE.java`: `onEnable` connectne DB, načte config/lang, zaloguje jestli
+    je MythicMobs nalezen (soft-depend guard přes `isPluginEnabled`), world/pvp/pve
+    toggle stav a accessory sloty.
+  - **Oprava scaffoldu:** `gradle/wrapper/gradle-wrapper.properties` měl vygenerovaný
+    Gradle 9.4.0, se kterým `run-paper` 3.1.0 plugin nejde resolvnout (potřebuje
+    `org.gradle.plugin.api-version` 9.7.0) — přepsáno na 9.7.0 stejně jako
+    `PurrtechOrders`/`PurrtechWheelAddon`.
+  - Ověřeno reálným `runServer` bootem (port 25567, aby to nekolidovalo s tvým živým
+    serverem na 25565) - `./gradlew build` zelené, plugin se zapne/vypne bez
+    výjimky, `purrtechpve.db` se vytvoří se všemi 6 tabulkami schématu.
+- **Fáze 1 hotová (2026-08-20).** `DamageTypeRegistry` (in-memory, natvrdo seedlé
+  všechny typy z "Výchozí seed" níže + fallback `physical`, DB-backý CRUD přijde
+  později spolu s GUI). `DamagePipeline.apply(rawDamage, typeSplitPercent,
+  resistPercentByType)` - čistá funkce beze stavu: rozpočítá raw damage na typové
+  kbelíky (bez configu = 100 % `physical`), na každý aplikuje `1 -
+  clamp(resist)/100` (clamp -200 % až 95 %), sečte zpět, floor na 0. `CombatKind`
+  (PVP/PVE) + `WorldToggleEvaluator.isActive(settings, world, kind)` - globální
+  `worlds.disabled` vyhrává nad vším, pak PvP/PvE má vlastní on/off + vlastní
+  per-world override list. `CombatDamageListener` na `EntityDamageByEntityEvent`
+  (včetně projectily se `shooter` resolvnutým na `LivingEntity`) - určí PVP/PVE
+  podle toho, jestli je útočník/obránce `Player`, mimo hru nechá cokoliv, kde není
+  aspoň jeden `Player` (mob-vs-mob), toggle-gated přes `WorldToggleEvaluator`,
+  zapojený do pipeline. **Bez item šablon (Fáze 2/3) je split/resist zatím vždy
+  prázdný** → efektivně no-op (100 % physical, 0 % resist, damage beze změny) -
+  tahle fáze ověřuje zapojení/toggly, ne reálné číslo poškození; hook body na
+  attacker/defender template lookup jsou označené TODO v `CombatDamageListener`.
+  18 JUnit testů (`DamagePipelineTest`, `WorldToggleEvaluatorTest`,
+  `DamageTypeRegistryTest`), žádné mockování Bukkitu (pipeline i evaluator jsou
+  čistá logika/records). Ověřeno i reálným `runServer` bootem - v logu je vidět
+  všech 19 registrovaných damage typů a listener se zaregistroval bez výjimky.
+  - **Další: Fáze 2** (`ItemTemplate` CRUD přes repository + `ItemRenderer`
+    šablona→lore/PDC + `/pve item give` příkazem, bez GUI zatím).
+
+- **Fáze 2 hotová (2026-08-20).** `ItemTemplate`/`DamageContribution`/`TypeModifier`
+  modely + `ItemTemplateRepository`/`DamageContributionRepository`/
+  `TypeModifierRepository` (SQLite, `INSERT OR REPLACE` upsert na sub-tabulkách).
+  `ItemRenderer` - šablona + její damage contributions/type modifiers → `ItemStack`
+  s lokalizovaným lore (přes `Messages`, tři sekce: poškození při útoku/pasivní
+  bonus/odolnosti-slabiny) a PDC tagy `template_key`+`template_version`
+  (`readStamp()` je připravený hook pro Fázi 3's "je tenhle item pořád aktuální
+  verze"). `ItemTemplateService` - CRUD orchestrace, **každá mutace (damage
+  contribution, type modifier) bumpne šablonino `version`** - ověřeno v testu i
+  živě (v1 create → v4 po 3 úpravách). `/pve item create|delete|list|give|damage
+  set/remove|resist set/remove` přes Brigadier (`purrtechpve.admin`).
+  - **Oprava bugu:** `Schema.java` mělo `damage_type_key` jako FK na
+    `damage_type_definitions(key)`, ale ta tabulka se nikdy neplní
+    (`DamageTypeRegistry` je pořád jen in-memory, Fáze 1) - každé
+    `/pve item damage set`/`resist set` by na živém serveru spadlo na
+    `SQLITE_CONSTRAINT_FOREIGNKEY`. FK odstraněn, validita se řeší v
+    `ItemTemplateService.requireDamageType()` proti in-memory registru; FK
+    integrita se může vrátit až se `DamageTypeRegistry` přesune do DB.
+  - 41 JUnit testů zelených (repozitáře přes reálnou dočasnou SQLite DB, service
+    layer bez mockování - `ItemRenderer` dostane `null`, protože žádný z
+    testovaných methods ho nepoužívá, `renderGiveable()`/skutečné vykreslení
+    `ItemStack`/`ItemMeta` nejde otestovat bez živého serveru, žádný MockBukkit
+    v projektu - stejná konvence jako sourozenecké pluginy).
+  - Ověřeno reálným `runServer` bootem + posloupností konzolových příkazů
+    (create → 2x damage set → resist set → list → damage remove → delete →
+    list) - všechny zprávy i verzování sedí přesně. **Neověřeno živě:**
+    `/pve item give` (potřebuje připojeného hráče, v sandboxu není k dispozici)
+    - kód prošel review a kompiluje, ale skutečné PDC tagy/lore na vydaném
+    itemu chce ještě ověřit ručně s reálným klientem.
+  - **Další: Fáze 3** (`ItemSyncService` - propagace do online inventářů +
+    lazy-touch listenery pro offline/chunk-load cestu + verzování šablon
+    využité prakticky).
+
+- **Fáze 3 hotová (2026-08-21).** Vyřešeno přesné zadání "propsat do oběhu, nebo
+  ne, admin si vybere pokaždé zvlášť" - **editace šablony (`damage set/remove`,
+  `resist set/remove`) sama o sobě NIKDY nesahá na itemy v oběhu**, jen bumpne
+  `version` a zapíše plný snapshot nového stavu (`item_template_snapshot`,
+  ruční `key|amount|mode|context;...` serializace mezi sub-tabulkami, žádná JSON
+  knihovna). Nová oddělená akce `/pve item sync <key>` je jediná věc, co
+  `syncedVersion` dožene na `version` a vyvolá skutečné přerenderování - tím
+  pádem "propaguj/nepropaguj" je čistě otázka toho, jestli admin `sync`
+  zavolal, ne parametr u každé editace.
+  - `ItemTemplate` teď nese `version` (živá editační hlava) i `syncedVersion`
+    (poslední explicitně propsaná verze) - `isFullySynced()` helper.
+  - `ItemTemplateSnapshotRepository`/`TemplateSnapshot` - kompletní stav
+    (display name, base material, custom model data, damage contributions,
+    type modifiers) při KAŽDÉ verzi, ne jen nejnovější - nutné, protože
+    přerenderování musí dohnat stack přesně na `syncedVersion`, což může být
+    starší než živá `item_damage_contribution`/`item_type_modifier` data,
+    pokud mezitím proběhlo víc needitovaných změn.
+  - `ItemRenderer` refaktorován na sdílené privátní jádro + dvě vstupní metody:
+    `render(ItemTemplate, ...)` (vždy nejnovější verze, pro `/pve item give`)
+    a `renderSnapshot(TemplateSnapshot)` (přesně daná historická verze, pro
+    dohánění zaostalých kusů).
+  - `ItemSyncService.resyncAllOnlinePlayers()` (volá command handler po
+    `propagate()`) + `resyncPlayer()` sweepuje main inventář, armor sloty,
+    off-hand a ender chest, porovná PDC `template_version` proti aktuální
+    `syncedVersion`, a pokud je pozadu, přerenderuje stack ze snapshotu se
+    zachováním počtu kusů. `ItemSyncJoinListener` volá totéž na
+    `PlayerJoinEvent` - to je "offline hráč dožene verzi při přihlášení" půlka
+    lazy-touch. **Chunk-load sweep pro itemy v truhlách/na zemi ve světě není
+    implementovaný** - vědomě odloženo, je to samostatná (a složitější) věc
+    než hráčův inventář, poznamenáno jako budoucí rozšíření.
+  - **Oprava bugu:** stejná FK past jako ve Fázi 2, tentokrát na nové
+    `item_template_snapshot.template_id` - zkontrolováno rovnou při psaní,
+    FK jen na `item_templates(id) ON DELETE CASCADE` (validní, ta tabulka se
+    plní), žádná FK na `damage_type_key`.
+  - 50 JUnit testů zelených (přidáno pokrytí snapshot repository + `propagate`/
+    `syncedVersion` sémantiky - nová šablona je triviálně fully-synced, editace
+    samotná `syncedVersion` nikdy nehne, `propagate` ji dožene, snapshot jde
+    dohledat po každém version bumpu).
+  - Ověřeno živě: `runServer` boot + `create → damage set → sync → damage set →
+    list → sync → sync na neexistující klíč` - verze (v1→v2→v3) i `synced`
+    hláška se počtem aktualizovaných itemů (0, protože žádný hráč nebyl
+    připojený) sedí přesně, chyba na neexistující šabloně se ohlásí čistě bez
+    pádu. **Skutečné přerenderování stacku v inventáři online hráče
+    neověřeno** (sandbox nemá připojeného klienta) - kód prošel review a
+    kompiluje, ale doporučuju to při příležitosti zkusit ručně: dát si item,
+    upravit šablonu, `/pve item sync`, zkontrolovat že se lore v inventáři
+    opravdu přepsalo.
+- **Combat pipeline skutečně čte item šablony (2026-08-21, doplněk Fáze 3).**
+  Než MythicMobs bridge, dřív dávalo smysl zavřít mezeru "item data existují,
+  ale nic ve hře je nepoužívá" - `CombatDamageListener`'s `TODO` je pryč.
+  - `DamagePipeline.apply` přepracován: `typedDamage` teď nese **absolutní**
+    částky poškození za typ (ne zlomek rawDamage) - čistší dělba
+    odpovědnosti, split/bonus matematika žije mimo pipeline, pipeline sama
+    jen aplikuje odolnost/slabinu a sečte. (Rozbilo by to zpětnou
+    kompatibilitu API, kdyby to bylo veřejné mimo tenhle plugin, ale je to
+    interní - 8 testů přepsáno na nový kontrakt + 1 nový test na "bonus nad
+    rámec základu, ne náhrada".)
+  - `combat/EquipmentResolver.java` (nové) - čte skutečné nasazené/držené
+    itemy přes `LivingEntity.getEquipment()` (funguje stejně na hráče i
+    vanilla/MythicMobs moby, žádný cast na `Player` nikde) a staví: (a)
+    útočníkovo odchozí typované poškození = split hlavní ruky (jen `WIELDED`
+    kontribuce, fallback 100 % `physical` bez naší zbraně) + `WORN` bonusy ze
+    všech nasazených kusů (helma/plate/legs/boty/off-hand/i hlavní ruka)
+    sečtené do stejných kbelíků; (b) obráncova odolnost = součet
+    `item_type_modifier.percent` napříč vším nasazeným.
+  - `CombatDamageListener` teď volá `EquipmentResolver` místo prázdných map,
+    žádný hardcoded no-op zbytek.
+  - Ověřeno: 51 JUnit testů zelených, `./gradlew build` zelené, živý
+    `runServer` boot bez výjimky s celou novou wiring (vytvoření šablon +
+    damage/resist příkazy proběhly čistě). **Skutečný souboj s reálným
+    vybaveným hráčem neověřen** - sandbox nemá připojeného klienta, takže
+    jestli item split/resist/bonus matematika sedí END-TO-END ve hře (ne jen
+    v unit testech na `DamagePipeline` samotné) chce ruční ověření: vzít
+    fire-sword, praštit mobem, zkontrolovat že se číslo poškození změnilo
+    podle nastavených typů, obléct frost-plate a zkusit, že odolnost na fire
+    skutečně sníží dostávané poškození.
+
+  - **Další: Fáze 4** (MythicMobs bridge - detekce mobů, `mob_damage_profile`,
+    čtení equipmentu moba, obousměrná damage pipeline player↔mob - poznámka:
+    `EquipmentResolver` už dnes funguje mob-agnosticky přes `LivingEntity`,
+    takže hráč-vs-vanilla-mob a mob-vs-hráč case už teď reálně funguje;
+    Fáze 4 přidává jen MythicMobs-specifickou vrstvu - `mob_damage_profile`
+    podle MythicMobs typu a detekci MythicMobs skill-based damage eventů).
+
+- **Fáze 4 hotová, s vědomě zúženým scope (2026-08-21).** Signatury ověřeny
+  přímo z reálného `Mythic-Dist-5.10.0.jar` přes `javap` (ne jen z web
+  javadocu, který u `MobManager` mlčel o `isActiveMob(UUID)` a u
+  `MythicDamageEvent` o `getCaster()`/`getTarget()` - nespolehni se na
+  scraped docs, když máš jar po ruce).
+  - `mythicmobs/MythicMobsBridge.java` (nové, **jediná** třída co smí
+    importovat MythicMobs API) - `isMythicMob(Entity)` přes
+    `MythicBukkit.inst().getMobManager().isActiveMob(uuid)`,
+    `mythicMobInternalName(Entity)` přes `getSkillCaster(uuid)` scasteno na
+    `ActiveMob` → `getType().getInternalName()` (`MobManager` nemá přímé
+    `getActiveMob(UUID)`, jen `isActiveMob`+`getActiveMobs()`+
+    `getSkillCaster()` - tenhle obchvat je jediná cesta k jedné konkrétní
+    aktivní mobě podle UUID). Instance se vytváří **jen** když
+    `isPluginEnabled("MythicMobs")` je `true` (`PurrtechPVE.onEnable`) -
+    jinak zůstává `null` a nikdo se jí nedotkne, takže třída se ani
+    neclassloadne na serveru bez MythicMobs.
+  - `db/MobDamageProfileRepository.java` - CRUD nad `mob_damage_profile`
+    (stejný upsert/remove/find vzor jako `TypeModifierRepository`, teď vrací
+    rovnou `Map<String,Double>` místo listu recordů, protože žádná další pole
+    nejsou potřeba). `/pve mobprofile set|remove|list <mythicMobType>
+    <damageType> [<percent>]` - validace typu poškození proti
+    `DamageTypeRegistry`, žádná validace že `mythicMobType` reálně existuje v
+    MythicMobs configu (schválně - profil se dá připravit dřív, než mob
+    vznikne).
+  - `EquipmentResolver.resolveResistance` teď k odolnosti z vybavení přičítá
+    i `mob_damage_profile`, pokud je `mythicMobsBridge != null` A entita je
+    aktivní MythicMobs mob - čistě aditivní sloučení do stejné mapy, žádné
+    zdvojení výpočtu.
+  - **Vědomě mimo scope: `MythicDamageEvent` (skill-based damage) hook.**
+    Tohle je "damaging mechanic used" event pro MythicMobs skilly (fireball
+    apod.), samostatný od vanilla `EntityDamageByEntityEvent`, který už
+    `CombatDamageListener` zpracovává. Riziko: některé skill mechaniky
+    (např. `damage` mechanic) aplikují poškození TAKÉ přes vanilla cestu, což
+    by při naivním zdvojeném hooku počítalo poškození dvakrát - a bez reálně
+    nainstalovaného MythicMobs s nakonfigurovanými skilly (sandbox to nemá)
+    nejde ověřit, jestli konkrétní mechanika dvojitě spouští, nebo ne. Zkusil
+    jsem najít zavedený vzor u MMOItems (podobný plugin), jejich MythicMobs
+    kompatibilita ale taky nehookuje `MythicDamageEvent` pro staty - jde spíš
+    přes vlastní custom mechaniky. Takže **standardní melee útok moba
+    (nejčastější případ) už funguje** přes `EquipmentResolver`+vanilla event,
+    ale MythicMobs skill-damage (firebally, AoE skilly) zatím naší
+    pipeline neprochází - potřebuje živé otestování se skutečným MythicMobs
+    a nakonfigurovaným skillem, než se do toho pustím, ať nevznikne tichý bug
+    se zdvojeným poškozením.
+  - 56 JUnit testů zelených (přidáno pokrytí `MobDamageProfileRepository`,
+    čistá SQLite logika bez Bukkitu). `MythicMobsBridge`/`EquipmentResolver`
+    samotné netestovatelné bez živého serveru (`MythicMobsBridge` navíc bez
+    reálně nainstalovaného MythicMobs pluginu) - stejná konvence jako
+    předešlé fáze.
+  - Ověřeno živě: `runServer` boot bez MythicMobs nainstalovaného - log
+    potvrzuje "MythicMobs integration: not found, running standalone" (bridge
+    zůstal `null`), a celá `/pve mobprofile set/list/remove` posloupnost
+    proběhla čistě včetně validace neznámého damage typu. **Neověřeno**:
+    cokoliv se skutečným MythicMobs pluginem (detekce moba, mob_damage_profile
+    v reálném souboji, natož skill-damage hook) - potřebuje server s
+    MythicMobs nainstalovaným a nakonfigurovaným mobem.
+  - **Další:** Fáze 5 (trinket/virtuální accessory sloty) nebo Fáze 6 (GUI
+    editor) podle PLAN.md - nebo, pokud chceš, live test s reálným MythicMobs
+    pluginem než půjdu dál, ať se potvrdí že mob detekce/profil skutečně
+    fungují (ne jen že se nic nerozbilo).
+
+- **Fáze 5 hotová (2026-08-21) + oprava důležitého designového nedostatku.**
+  - **Bug objevený a opravený při psaní Fáze 5:** `EquipmentResolver` (Fáze 3.5)
+    četlo damage contributions/type modifiers z **živých** `item_damage_
+    contribution`/`item_type_modifier` tabulek podle šablony, ne podle verze
+    nastřádané na konkrétním kusu. To znamenalo, že `/pve item sync` (Fáze 3)
+    reálně řídilo jen kdy se aktualizuje **lore text**, ale samotný **herní
+    efekt** poškození/odolnosti se vždycky počítal podle nejnovějších dat bez
+    ohledu na to, jestli byla verze propsaná - přesně opačně, než jsi chtěl
+    ("item v oběhu se změní JEN když to pošlu"). Opraveno: `EquipmentResolver`
+    teď čte přes `ItemTemplateSnapshotRepository.find(templateId,
+    stamp.templateVersion())` - přesně tu verzi, kterou má kus napsanou ve
+    svém PDC tagu - takže needitovaná/nepropsaná změna teď má nulový herní
+    dopad na existující kusy, přesně jak má. `allowed_slots`/trinket flag
+    zůstává vědomě **živá** vlastnost (ne verzovaná) - je to pravidlo
+    umístění, ne balance číslo, viz javadoc na `EquipmentResolver`.
+  - `ItemTemplateService.setAllowedSlots(key, slotNames)` - nastaví
+    `allowed_slots` + `is_trinket` (odvozený, `true` pokud seznam neprázdný),
+    bez version bumpu/snapshotu (živá vlastnost). `/pve item slots <key>
+    <slot1,slot2,...|none>` - jména slotů = přesně `EquipmentSlot` enum
+    (`HAND`, `OFF_HAND`, `HEAD`, `CHEST`, `LEGS`, `FEET`) + jména z
+    `accessory-slots` configu. Prázdný seznam = neomezeno (zpětně
+    kompatibilní výchozí stav).
+  - `EquipmentResolver` teď prochází sloty se jmény (ne anonymní pole) a
+    každou WORN kontribuci/modifier filtruje přes `isAllowedInSlot` -
+    šablona bez omezení (`allowedSlots` prázdné) funguje odkudkoliv jako
+    dřív, šablona s omezením jen tam, kam patří.
+  - **Virtuální accessory sloty**: `player_accessory_slots` tabulka +
+    `db/AccessoryRepository.java` (`ItemStack#serializeAsBytes()`/
+    `deserializeBytes()`, žádná vlastní serializace). `/pve accessory`
+    (permission `purrtechpve.accessory.use`, default true) otevře
+    `trinket/AccessoryMenu` - chest GUI velikosti zaokrouhlené na násobek 9,
+    reálné sloty = `accessory-slots` z configu (výchozí RING_1/RING_2/AMULET/
+    BELT), zbytek zamčený šedým sklem. `AccessoryMenuListener` - shift-click a
+    kliky na zamčené sloty zamítnuty (žádný quick-move v v1, bezpečnější proti
+    edge-case bugům), obsah se uloží při zavření GUI. `EquipmentResolver` u
+    `Player` entit tyhle sloty čte stejně jako vanilla vybavení (klíčované
+    jménem slotu, takže `allowedSlots` na ně platí úplně stejně).
+  - **Kvůli permission struktuře jsem musel přesunout `.requires(...)`** z
+    kořenového `/pve` uzlu (byl `purrtechpve.admin` na celém stromu) na
+    jednotlivé podstromy (`item`, `mobprofile` = admin;
+    `accessory` = `purrtechpve.accessory.use`) - jinak by běžný hráč vůbec
+    nedosáhl na `/pve accessory`, protože Brigadier requires() se
+    vyhodnocuje na každé úrovni cesty k uzlu.
+  - 56 JUnit testů pořád zelených (beze změny počtu - `AccessoryRepository`
+    nejde testovat bez živého serveru, protože `ItemStack#serializeAsBytes()`
+    potřebuje skutečnou `CraftItemStack` implementaci, ne jen syrové SQL;
+    stejná mez jako `ItemRenderer`/GUI kód).
+  - Ověřeno živě: `runServer` boot + `create → damage set → slots set →
+    slots clear → accessory (z konzole, správně odmítnuto "jen hráč")` -
+    vše čistě, `player_accessory_slots` tabulka existuje, `allowed_slots`
+    sloupec se správně plní/maže. **Neověřeno**: skutečné otevření/
+    použití accessory GUI reálným hráčem (drag&drop, uložení při zavření,
+    reálný dopad na odolnost/poškození) - sandbox bez klienta. Doporučuju
+    při první příležitosti ručně: `/pve accessory`, dát si trinket s
+    `allowed_slots` omezeným na `RING_1`, položit ho tam, praštit/nechat se
+    praštit a zkontrolovat že bonus/odolnost funguje, pak zavřít GUI a znovu
+    otevřít, ať se potvrdí perzistence.
+  - **Další:** Fáze 6 (GUI editor itemů - všechny taby, rebase drag&drop,
+    publish-to-circulation potvrzovací menu) podle PLAN.md.
+
+- **Fáze 6 hotová (2026-08-21) - GUI editor itemů, poslední fáze původního
+  plánu.** `/pve item edit <key>` otevře jeden 54-slotový chest inventář
+  znovupoužívaný napříč přepínáním tabů (nikdy se nezavírá/neotevírá znovu,
+  kromě kolem chat promptu) - GUI je čistě **druhý vstupní bod do stejné
+  `ItemTemplateService`**, žádná paralelní logika:
+  - **Základ** - náhled aktuálně vyrenderovaného itemu + verze/sync stav.
+    Rebase = drž item v ruce a klikni na náhled (přebírá materiál + custom
+    model data, damage/resist data šablony zůstávají) - stejná akce jako nový
+    příkaz `/pve item setbase <key>` z ruky. **Vědomá odchylka od PLAN.md**:
+    žádné skutečné drag&drop tažení itemu do slotu (`InventoryDragEvent` se
+    v tomhle GUI kompletně zamítá) - "drž v ruce a klikni" dělá to samé s
+    mnohem menším rizikem cursor/partial-stack edge-case bugů.
+  - **Custom Damages** - mřížka všech registrovaných damage typů. Klik otevře
+    chatový prompt (`<částka> <flat|percent> <wielded|worn>` jedním řádkem) -
+    **vědomá odchylka od PLAN.md**: místo anvil/sign textového vstupu jsem
+    zvolil chat capture (`AsyncChatEvent` + jednorázový posluchač na hráče) -
+    spolehlivější pro 3-polní vstup než anvil (žádné XP/item-konzumace
+    kuriozity), scéna se zavře, počká na zprávu, zpracuje a znovu otevře GUI
+    na stejném tabu. Shift-klik smaže wielded i worn najednou.
+  - **Odolnosti/Slabiny** - stejná mřížka, klik = chat prompt jen na
+    procenta (kladné/záporné), shift-klik smaže.
+  - **Trinket sloty** - mřížka 6 vanilla `EquipmentSlot` + nakonfigurovaných
+    accessory slotů, klik přepíná členství (volá stejné
+    `setAllowedSlots` jako `/pve item slots`).
+  - **Uložit & Publikovat** - stavová informace (verze vs. propsaná verze) +
+    jedno tlačítko "Propsat do oběhu teď" (`propagate()` +
+    `resyncAllOnlinePlayers()`). Žádné samostatné "Uložit" tlačítko - každá
+    úprava se ukládá okamžitě při kliknutí/zprávě, stejně jako u
+    příkazové řádky.
+  - Nové: `ItemTemplateService.rebase(key, Material, Integer)` - stejný
+    version-bump+snapshot vzor jako damage/resist (needitovaný rebase nemá
+    žádný efekt na kusy v oběhu, dokud se nepropíše - konzistentní s Fáze 5
+    opravou). `/pve item setbase <key>` (příkazová alternativa ke GUI kliku).
+  - **Bug odchycený při psaní (ne při testování - review vlastního kódu):**
+    lore v Custom Damages tabu tvrdilo "Klik = wielded, Shift+klik = worn,
+    Shift+pravý klik = smazat obojí", ale kód rozlišoval jen shift/ne-shift
+    (žádné pravý/levý klikání) - shift vždycky mazal OBOJÍ, ne nastavoval
+    worn. Ve skutečnosti `worn` šlo nastavit i tak (chat prompt se ptá na
+    kontext jako 3. slovo textu bez ohledu na to, jaký klik ho otevřel), jen
+    lore lhalo o tom, jak se tam dostat. Opraveno - lore teď popisuje
+    skutečné chování, nepoužívaný `context` parametr u `promptDamageContribution`
+    odstraněn.
+  - 59 JUnit testů zelených (přidáno pokrytí `rebase()` a `setAllowedSlots()`
+    including trinket-flag toggle). **GUI klikací/chatový interakční kód
+    (`ItemEditorMenu`, `ItemEditorListener`) nejde jednotkově otestovat**
+    (žádný MockBukkit) a **nebyl vůbec živě vyzkoušený se skutečným
+    připojeným hráčem** - sandbox na to nemá klienta. Ověřil jsem jen: čistý
+    boot s novým listenerem, `/pve item edit`/`/pve item setbase` z konzole
+    se správně odmítnou ("jen hráč", bez pádu), a `rebase()`/`setAllowedSlots()`
+    přes JUnit. **Tohle je zdaleka největší neověřená plocha v celém
+    projektu** - GUI má 5 tabů, kliky na ~19+6+N ikon, chat-prompt round-trip
+    a re-open-menu logiku, což je hodně nových interakčních cest, které jsem
+    nikdy neviděl skutečně běžet. Než na tohle spolehneš, důrazně doporučuju
+    projít ručně: `/pve item edit <key>` → proklikat všech 5 tabů, nastavit
+    damage/resist přes chat prompt (i test 'zrusit' cesty), zkusit rebase
+    (drž item, klikni na náhled), přepnout trinket sloty, kliknout "Propsat
+    do oběhu teď" a zkontrolovat že se GUI nezasekne/nerozbije při žádné
+    kombinaci kliků.
+  - **Vědomě mimo scope (Fáze 6 nedodělané kusy):** Attributes tab (vanilla
+    Bukkit `Attribute` enum + custom staty jako life steal/crit %) - žádný
+    backend pro atributy nikdy nebyl postavený (`item_attribute_modifier`
+    tabulka existuje ve schématu od Fáze 0, ale bez repository/service),
+    takže by to znamenalo stavět celý nový subsystém uprostřed GUI fáze
+    místo GUI nad existujícím. Nechávám jako čistý, jasně ohraničený budoucí
+    krok, ne narychlo dopsaný.
+  - **Zbývá z PLAN.md mimo Fázi 6:** MythicMobs `MythicDamageEvent` skill-
+    damage hook (Fáze 4, vědomě odloženo kvůli riziku zdvojení poškození),
+    Attributes subsystém + GUI tab (viz výše), reálné testování se skutečným
+    MythicMobs pluginem a se skutečným hráčem obecně - to všechno potřebuje
+    prostředí, které tenhle sandbox nemá.
+
+- **ValhallaMMO import (2026-08-21) - mimo původní plán, na žádost.** `/pve
+  item import valhalla <key> <displayName...>` (hráč, čte item z ruky).
+  - **Formát ověřen ze skutečného zdrojáku** (naklonoval jsem
+    `github.com/Athlaeos/ValhallaMMO` a jeho wiki repo, ne odhad z
+    dokumentace): ValhallaMMO ukládá VŠECHNY custom staty itemu do
+    **jednoho stringového PDC tagu** `valhallammo:default_stats` (fallback
+    `valhallammo:actual_stats`), formát `ATRIBUT:hodnota:OPERACE:hidden;...`
+    (`item/ItemAttributesRegistry.java`, metody `serializeStats`/`getStats`).
+    Díky tomu `ValhallaMmoImporter` **nepotřebuje ValhallaMMO nainstalované
+    ani jako dependency** - čte čistě vanilla Bukkit PDC string, žádný
+    import jejich API/tříd, žádný `softdepend`.
+  - Mapování na náš model: `EXTRA_<TYP>_DAMAGE` (flat bonus poškození na
+    hit) → `DamageContribution(FLAT, WIELDED)`; `<TYP>_RESISTANCE` (uloženo
+    jako zlomek, např. `0.25`) → `TypeModifier` v procentech (`×100`).
+    Typy 1:1 kromě `MAGIC` (u nás chybělo - **přidáno do
+    `DamageTypeRegistry` jako nový seed `magic`**) a drobných rozdílů ve
+    jménech (`EXPLOSION`→`explosive`, `BLUDGEONING`→`blunt`,
+    `FREEZING`→`frozen`).
+  - **Vědomě přeskočeno, ne tiše zahozeno:** `DAMAGE_<TYP>` multiplikátory
+    (jiná sémantika než náš model), `CRIT_CHANCE`/`LIFE_STEAL`/`BLEED_*`
+    a cokoliv jiného bez obdoby v našem systému (žádný obecný attribute
+    subsystém, viz Fáze 6 mezera) - hráč dostane zprávu s seznamem
+    přeskočených atributů, ať ví, že import není 100% a co případně doplnit
+    ručně přes GUI/příkazy.
+  - 7 nových JUnit testů na `ValhallaMmoImporter.parse()` (čistý string
+    parsing, žádný Bukkit) - prázdný/malformovaný vstup, mapování damage/
+    resist, více atributů najednou, neediné atributy do `skipped`. Live
+    ověřeno jen že příkaz z konzole čistě selže na "jen hráč" bez pádu -
+    **skutečný import ze skutečného ValhallaMMO itemu neověřen** (sandbox
+    nemá ani připojeného hráče, ani nainstalovaný ValhallaMMO) - PDC formát
+    je ale ověřený přímo z jejich zdrojáku, ne z dokumentace, takže riziko
+    by mělo být nízké, ale doporučuju při první příležitosti zkusit na
+    reálném ValhallaMMO itemu a zkontrolovat že se čísla sedí.
+
+# PurrtechPVE — analýza a implementační plán
+
+Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
+zatím čistý scaffold — `build.gradle.kts` má Java 25 / `paper-api:26.2.build.+`, žádné
+další závislosti). Cíl: systém **custom damage types** na itemech, hluboko propojený s
+MythicMobs, s GUI editorem itemů a šablonovou DB, kde se změna šablony dá volitelně
+propsat do všech itemů v oběhu. Inspirace ValhallaMMO, ale flexibilnější (damage types
+definovatelné za běhu přes GUI/config, ne pevný enum) a bez závislosti na cizím
+stat-frameworku pro trinkety.
+
+## Otázky k potvrzení
+
+Tyhle 4 rozhodnutí zásadně mění zbytek plánu, chci je mít odsouhlasené než začnu Fázi 0:
+
+1. **DB engine:** SQLite (jako `PurrtechOrders`, žádná instalace navíc, HikariCP +
+   shaded sqlite-jdbc) vs MySQL (pokud plánuješ multi-server síť sdílející šablony
+   itemů napříč servery). Doporučuju SQLite pro v1, MySQL jako budoucí volitelná
+   konfigurace stejně jako u Orders.
+2. **MythicMobs — hard nebo soft depend:** Doporučuju **soft-depend** (`softdepend` v
+   `paper-plugin.yml`) — damage types, trinkety, resistance/weakness a GUI editor
+   fungují úplně samostatně i bez MythicMobs nainstalovaného; jen "mob z MythicMobs
+   nosí/dává custom damage" hooky se zapnou navíc, pokud MythicMobs na serveru běží.
+   Bezpečnější než hard depend, nezablokuje to použití pluginu jen na hráč-vs-hráč / hráč-vs-vanilla-mob.
+3. **GUI:** Vlastní vanilla chest `Inventory` GUI (žádná závislost na tvém
+   `PurrTechDisplayGUI`). Editor potřebuje běžné drag&drop chování slotů (přetažení
+   itemu na "base" slot, anvil/sign text input pro čísla) — to je přesně to, co dělá
+   vanilla `Inventory` click handling přirozeně. `DisplayGUI` je naproti tomu postavený
+   na world-anchored display-entity tlačítkách (viz `PurrtechWheelAddon`), což je skvělé
+   pro hráčská "wheel of fortune" menu, ale ne pro admin editor s přetahováním itemů do
+   slotů. Souhlasíš, ať jde samostatně, bez závislosti na DisplayGUI?
+4. **Trinket sloty:** Vanilla equipment sloty (`HAND`, `OFF_HAND`, `HEAD`, `CHEST`,
+   `LEGS`, `FEET`) nestačí na "prsten/amulet/opasek" styl doplňků, který popisuješ.
+   Navrhuju přidat **vlastní virtuální accessory sloty** (např. `RING_1`, `RING_2`,
+   `AMULET`, `BELT` — počet a názvy nastavitelné v configu), s vlastním
+   per-hráč GUI ("otevři si doplňky" přes příkaz/item), uloženým v DB/PDC na hráči.
+   Tohle je bez závislosti na žádném externím Trinkets/Curios-style pluginu (na Paperu
+   nic takového standardně není). Chceš virtuální sloty, nebo jen vanilla equipment sloty?
+
+Níže píšu plán s doporučenými výchozími hodnotami (SQLite, soft-depend, vlastní GUI,
+virtuální accessory sloty) — pokud chceš jinak, řekni a přepíšu.
+
+## Odlišení od ValhallaMMO
+
+- Damage types nejsou pevný enum v kódu, ale **záznamy v DB/configu editovatelné přes
+  GUI** (`damage_type_definitions`) — server admin si může za běhu přidat vlastní typ
+  bez update pluginu.
+- Damage se nepřepisuje jedním číslem/typem, ale **rozpočítává se na více typů
+  současně** (meč může dávat 60 % sečné + 40 % ohnivé) — viz "Výpočet poškození" níže.
+- **Živá synchronizace šablon**: změna šablony itemu se dá volitelně propsat do všech
+  kopií v oběhu (online i offline hráči), s volbou "poslat na všechny" / "jen nové kusy"
+  za každou úpravu zvlášť — ne globální nastavení, admin si vybírá pokaždé.
+- **Rebase základu itemu** přetažením v GUI nebo příkazem z ruky — šablona itemu
+  (Material, custom model data, jméno) se dá kdykoliv vyměnit, aniž by se ztratily
+  navázané damage types/atributy/trinket data.
+- Trinket sloty jsou vlastní virtuální systém, ne závislost na cizím stat frameworku.
+
+## Architektura & tech stack
+
+- Java 25, Paper API `26.2.build.+` (`compileOnly`), `paper-plugin.yml` (`POSTWORLD`).
+- `softdepend: [MythicMobs]` v `paper-plugin.yml`; `compileOnly` na MythicMobs API,
+  veškerý kód co na ni sahá izolovaný v `mythicmobs/` balíčku s runtime `Bukkit.getPluginManager().isPluginEnabled("MythicMobs")`
+  guardem — zbytek pluginu se na ni nesmí odkazovat přímo, ať jde vypnout bez `NoClassDefFoundError`.
+- HikariCP + shaded `sqlite-jdbc` (shadow plugin), stejný vzor jako `PurrtechOrders` —
+  `Database` + `Schema` třídy, migrace při startu.
+- Vlastní `Inventory`-based GUI framework (menu abstrakce + click routing), žádná
+  externí GUI knihovna.
+- Adventure (součást Paperu) pro text/lore komponenty.
+
+## Balíčková struktura (návrh)
+
+```
+eu.purrtech.purrtechpve
+├── PurrtechPVE.java                 (onEnable/onDisable, DI wiring)
+├── config/                          (ConfigLoader, WorldToggleConfig, Messages/lang)
+├── db/                              (Database, Schema, migrace)
+├── damage/
+│   ├── DamageType.java              (registry entry: key, display, DoT flag, ...)
+│   ├── DamageTypeRegistry.java
+│   ├── DamagePipeline.java          (výpočet: split → resist/weakness → sum)
+│   └── DotTask.java                 (bleed/poison-like tick damage)
+├── item/
+│   ├── ItemTemplate.java, ItemTemplateRepository.java
+│   ├── ItemTemplateService.java     (create/edit/rebase/publish-to-circulation)
+│   ├── ItemRenderer.java            (šablona+verze → skutečný ItemStack/lore)
+│   └── ItemSyncService.java         (propagace do online inventářů + lazy-touch pro offline)
+├── trinket/
+│   ├── AccessorySlot.java, PlayerAccessoryInventory.java, AccessoryService.java
+├── mob/
+│   └── MobDamageProfileRepository.java  (resist/weakness podle MythicMobs typu moba)
+├── mythicmobs/
+│   └── MythicMobsBridge.java        (jen tahle třída smí importovat MythicMobs API)
+├── listener/
+│   ├── PlayerCombatListener.java, MobCombatListener.java, EquipmentChangeListener.java
+├── gui/
+│   ├── ItemEditorMenu.java + tabs (BaseTab, DamageTypesTab, AttributesTab, TrinketTab, ResistTab)
+│   └── common/ (Menu, MenuButton, TextInputPrompt přes anvil/sign)
+└── command/                         (/pve item …, /pve damagetype …, /pve world …)
+```
+
+## Datový model
+
+**damage_type_definitions**
+`key (PK, TEXT, např. "frozen"), display_name, icon_material, color,`
+`is_dot (BOOL), dot_period_ticks, dot_tick_percent, sort_order, description`
+
+Výchozí seed (kromě těch, co jsi jmenoval, navrhuju doplnit — klidně některé smaž):
+`fyzické`: tupý (blunt), bodný (piercing), sečný (slashing)
+`živlové`: ohnivé (fire), mrazivé (frozen), bleskové (lightning), kyselinové (acid)
+`temné/světlé`: temné/stínové (shadow), duchovní (spirit), zářivé (radiant), svaté (holy — pokud chceš radiant a holy oddělené)
+`DoT/status`: krvácení (bleed), jed (poison — vlastní, nezávislé na vanilla Poison efektu), výbušné (explosive)
+`ostatní`: psychické (psychic), zvukové (sonic), gravitační (gravity), nekrotické (necrotic)
+
+**item_templates**
+`id (UUID PK), key (TEXT UNIQUE, admin slug), display_name, base_material,`
+`base_item_snapshot (BLOB — serializovaný ItemStack přetaženého/nahraného base itemu),`
+`custom_model_data, is_trinket (BOOL), allowed_slots (TEXT, čárkou oddělené — vanilla i virtuální),`
+`version (INT, inkrementuje se při každé uložené změně), created_at, updated_at, created_by`
+
+**item_damage_contribution** — kolik a jakého typu poškození item dává/přidává
+`template_id, damage_type_key, amount, mode (FLAT | PERCENT_OF_TOTAL),`
+`context (WHEN_WIELDED | WHEN_WORN)` — `WHEN_WIELDED` = počítá se při útoku touhle
+zbraní; `WHEN_WORN` = pasivní bonus, když je item nasazený jako armor/trinket
+(řeší zároveň zadání "trinket může přidávat i damage types").
+
+**item_type_modifier** — odolnost/slabina vůči typu, jen relevantní pro armor/trinket
+`template_id, damage_type_key, percent` (kladné = odolnost, záporné = slabina,
+clampnuté na rozumný rozsah např. -200 % až 95 %, aby nešlo dostat item nesmrtelnosti)
+
+**item_attribute_modifier** — vanilla Bukkit atributy i vlastní staty (life steal %, crit % …)
+`template_id, attribute_key, amount, operation (ADD_NUMBER|ADD_PERCENT|MULTIPLY_PERCENT),`
+`context (WHEN_WIELDED | WHEN_WORN)`
+
+**mob_damage_profile** — odolnosti/slabiny podle MythicMobs typu moba (ne podle konkrétního itemu)
+`mythic_mob_internal_name, damage_type_key, percent`
+
+Instance itemů v oběhu se **needuchovávají jako řádek v DB za kus** (neškáluje se to a
+stejně nejde force-updatovat item v neloadnutém chunku/offline hráči synchronně).
+Místo toho každý vydaný `ItemStack` nese v `PersistentDataContainer`
+`{templateKey, templateVersion}`. `ItemRenderer` z nich dopočítá lore/atributy.
+Když admin uloží změnu šablony a zvolí "propsat do oběhu":
+- online hráči → okamžitě přepočítat inventář/enderchest/equipment (`ItemSyncService`)
+- offline hráči / itemy v chestech v neloadnutých chunkách → **lazy touch**: při
+  `InventoryOpenEvent`/`PlayerJoinEvent`/`ChunkLoadEvent` se porovná uložená
+  `templateVersion` s aktuální a item se přerenderuje, pokud publikace zněla "na
+  všechny". Pokud admin zvolí "jen nové kusy", stará verze zůstává beze změny navždy
+  (`ItemRenderer` bere verzi zaznamenanou na itemu, ne nutně nejnovější).
+
+## Výpočet poškození (pipeline)
+
+1. Vanilla/MythicMobs damage event nastaví "surové" číslo (po enchantech, potion
+   efektech, MythicMobs skillu atd. — tohle číslo neřešíme, necháváme vanille/MM).
+2. Zjistíme šablonu držené zbraně (PDC tag) → `item_damage_contribution` s
+   `context=WHEN_WIELDED` řekne, jak surové číslo rozpočítat na typy (v % nebo flat
+   navíc). Bez custom itemu = 100 % "fyzické" (fallback typ, aby se resist systém dal
+   použít i na vanilla zbraně přes `mob_damage_profile`/armor odolnosti).
+3. Posbíráme odolnosti/slabiny obránce: součet `item_type_modifier` ze všech nasazených
+   armor+trinket kusů (`context` u modifieru se neřeší, odolnost platí vždy když je
+   kus nasazený) + pokud obránce je MythicMobs mob, přičte se `mob_damage_profile`.
+4. Na každý typový "kbelík" aplikujeme `1 - clamp(percent)/100`, kbelíky sečteme zpátky
+   na finální číslo, to se zapíše do damage eventu (`event.setDamage(...)`), stejný
+   princip pro DoT tiky.
+5. Vystřelí se vlastní `PurrtechDamageAppliedEvent` (typ→množství breakdown) — MythicMobs
+   skill podmínky / jiné pluginy si na to můžou navázat vlastní efekty.
+6. Přetrvávající typy (bleed, poison, …) se implementují jako repeating task tagovaný
+   damage typem, který prochází stejnou pipeline (odolnost se přepočítá znovu při
+   každém ticku, kdyby si obránce mezitím sundal armor).
+
+## MythicMobs integrace
+
+- `MythicMobsBridge` (jediná třída importující MythicMobs API): detekce, jestli entita
+  je MythicMobs mob (`MythicBukkit.inst().getMobManager().isActiveMob(entity)`),
+  přečtení jejího MythicMobs typu (pro `mob_damage_profile`) a equipmentu (pokud mob
+  nosí náš item přes MythicMobs `Equipment:` config, poznáme to po stejném PDC tagu).
+- Player → Mythic mob: pipeline výše, `mob_damage_profile` + moba nasazený plugin-item
+  (pokud má) se sečtou pro obranu.
+- Mythic mob → player: pokud mob útočí MythicMobs skillem, hookneme se na
+  `MythicMobs`' damage event (ne jen vanilla `EntityDamageByEntityEvent`, aby to
+  fungovalo i pro skill-based damage bez fyzického zásahu) a stejně tak zjistíme, jestli
+  mob "drží" náš custom item pro určení typu.
+- Volitelně: `MythicCondition`/`MythicMechanic` registrace, aby MythicMobs skilly mohly
+  přímo cílit/podmiňovat na "hráč má aktivní bleed" apod. (Fáze 6+, není nutné pro v1.)
+
+## Config (`config.yml`)
+
+```yaml
+worlds:
+  disabled: []          # admin doplní světy, kde je celý systém vypnutý
+pvp:
+  enabled: true
+  disabled-worlds: []
+pve:
+  enabled: true
+  disabled-worlds: []
+accessory-slots:         # jen pokud potvrdíš virtuální trinket sloty
+  - RING_1
+  - RING_2
+  - AMULET
+  - BELT
+database:
+  type: sqlite           # sqlite | mysql
+```
+Vyhodnocení "je systém aktivní tady" = world není v `worlds.disabled` AND (útok je
+PvP → `pvp.enabled` a world není v `pvp.disabled-worlds`) OR (PvE → obdobně). Pokud
+vypnuté, damage pipeline se přeskočí úplně (vanilla damage number projde beze změny).
+
+## GUI editor itemů
+
+`/pve item edit <key>` otevře chest menu:
+- **Náhledový slot** vlevo nahoře = aktuální renderovaný item. Přetažení jiného itemu
+  sem = rebase (base_material/custom_model_data/jméno se převezme z taženého itemu,
+  damage/attribute/resist data šablony zůstávají). Stejná akce příkazem
+  `/pve item setbase <key>` — vezme item z hráčovy ruky.
+- **Tab lišta** (spodní řádek, named items): Základ | Custom Damages | Attributes |
+  Trinket | Odolnosti/Slabiny | Uložit&Publikovat
+- **Custom Damages tab**: mřížka ikon = všechny `damage_type_definitions`. Klik = anvil
+  text prompt na `amount` + toggle `FLAT/PERCENT` + toggle `WHEN_WIELDED/WHEN_WORN`.
+  Shift-klik = smazat řádek.
+- **Attributes tab**: stejný vzor nad vanilla `Attribute` enum + custom staty (life
+  steal %, crit chance % — vlastní seznam v `AttributeRegistry`, rozšiřitelný).
+- **Trinket tab**: toggle "je trinket", multi-select `allowed_slots` (vanilla i
+  virtuální), zbytek dat se bere ze stejných Damage/Attributes tabů s
+  `context=WHEN_WORN`.
+- **Odolnosti/Slabiny tab**: mřížka damage typů, klik = anvil prompt na `percent`
+  (záporné = slabina). Zobrazeno vždy, i na ne-armor itemech (validace/varování při
+  publikaci, pokud item není armor/trinket a má nastavené resisty — asi k ničemu).
+- **Uložit & Publikovat**: potvrzovací pod-menu — `[Jen nové kusy]` / `[Všechny v
+  oběhu]` / `[Zrušit]`, přesně jak jsi popsal (volba za každou úpravu zvlášť).
+
+## Příkazy (návrh)
+
+`/pve item create <key>`, `/pve item edit <key>`, `/pve item delete <key>`,
+`/pve item give <player> <key>`, `/pve item setbase <key>` (z ruky), `/pve item list`,
+`/pve damagetype create|edit|delete|list`, `/pve mobprofile edit <mythicMobType>`,
+`/pve world disable|enable <world>`, `/pve toggle pvp|pve on|off [world]`, `/pve reload`.
+
+Permission `purrtechpve.admin` na vše výše, `purrtechpve.accessory.use` pro hráče na
+otevření vlastního accessory inventáře (pokud potvrdíš virtuální sloty).
+
+## Fázový plán
+
+- **Fáze 0** — scaffolding: `build.gradle.kts` (shadow, MythicMobs API compileOnly,
+  HikariCP+sqlite-jdbc shaded, jako `PurrtechOrders`), `paper-plugin.yml`
+  (`softdepend: MythicMobs`), balíčková struktura výše, `Database`+`Schema`
+  (všechny tabulky nad), `config.yml`+lang, ověřit `runServer` boot bez výjimky.
+- **Fáze 1** — Damage type registry + `DamagePipeline` (bez GUI/DB CRUD, natvrdo pár
+  testovacích typů) + world/pvp/pve toggle vyhodnocení + listener na vanilla
+  `EntityDamageByEntityEvent` mezi hráči a vanilla moby. JUnit na `DamagePipeline`
+  (split → resist → sum), žádné mockování Bukkitu kde to jde obejít čistou logikou.
+- **Fáze 2** — `ItemTemplate` CRUD přes repository + `ItemRenderer` (šablona→lore/PDC)
+  + `/pve item give` příkazem (bez GUI). Ověřit, že vydaný item nese správný PDC tag a
+  lore odpovídá datům v DB.
+- **Fáze 3** — `ItemSyncService` (propagace do online inventářů + lazy-touch listenery
+  pro offline/chunk-load cestu) + verzování šablon.
+- **Fáze 4** — MythicMobs bridge (soft-depend guard, detekce mobů, `mob_damage_profile`,
+  čtení equipmentu moba) + obousměrná pipeline player↔mob.
+- **Fáze 5** — Trinket/virtuální accessory sloty (pokud potvrzeno) + `WHEN_WORN`
+  aplikace atributů/damage bonusů.
+- **Fáze 6** — GUI editor (všechny taby výše) včetně rebase drag&drop a
+  publish-to-circulation potvrzovacího menu.
+- **Fáze 7** — polish: permissions, `/pve reload`, lang soubory, MythicMobs
+  condition/mechanic hooky (volitelné), end-to-end test na živém `runServer`.
+
+Řekni k otázkám nahoře a jdu na Fázi 0.

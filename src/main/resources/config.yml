@@ -1,0 +1,30 @@
+# PurrtechPVE configuration
+
+# storage.type is currently always sqlite; reserved for a future mysql backend
+storage:
+  type: sqlite
+
+worlds:
+  # worlds where the whole custom damage/resistance/trinket system is disabled
+  disabled: []
+
+pvp:
+  enabled: true
+  disabled-worlds: []
+
+pve:
+  enabled: true
+  disabled-worlds: []
+
+# virtual accessory (trinket) slots, in addition to vanilla equipment slots -
+# an item template can restrict itself to any of these by name
+accessory-slots:
+  - RING_1
+  - RING_2
+  - AMULET
+  - BELT
+
+# cs or en - used for console/non-player senders; players always see
+# messages in their own client language if a translation exists, English
+# otherwise, regardless of this setting
+locale: cs

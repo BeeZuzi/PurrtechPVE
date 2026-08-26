@@ -1,0 +1,47 @@
+prefix: "<gray>[<gold>PVE</gold>]</gray> "
+
+error:
+  player-only: "<red>This command can only be used by a player."
+  no-permission: "<red>You don't have permission to do that."
+  invalid-material: "<red>Unknown item: <white><material></white>"
+  invalid-mode-or-context: "<red>Invalid mode/context - use FLAT/PERCENT_OF_TOTAL and WIELDED/WORN."
+
+system:
+  reloaded: "<green>Configuration reloaded."
+
+item:
+  header:
+    damage: "<gray>Damage on hit:"
+    passive: "<gray>Passive bonus (worn):"
+    resist: "<gray>Resistances / weaknesses:"
+  line:
+    damage-flat: "<white> +<amount> <type>"
+    damage-percent: "<white> +<amount>% <type>"
+    resist: "<green> +<amount>% <type>"
+    weakness: "<red> -<amount>% <type>"
+  created: "<green>Template <white><key></white> created."
+  deleted: "<green>Template <white><key></white> deleted."
+  not-found: "<red>Template <white><key></white> does not exist."
+  duplicate-key: "<red>Template <white><key></white> already exists."
+  unknown-damage-type: "<red>Unknown damage type: <white><type></white>"
+  given: "<green>Gave item <white><key></white> to <white><player></white>."
+  list-empty: "<yellow>No templates created yet."
+  list-entry: "<white><key></white> <gray>(<material>, v<version>)</gray>"
+  damage-set: "<green>Damage <white><type></white> set on template <white><key></white>."
+  damage-removed: "<green>Damage <white><type></white> removed from template <white><key></white>."
+  resist-set: "<green>Resistance/weakness <white><type></white> set on template <white><key></white>."
+  resist-removed: "<green>Resistance/weakness <white><type></white> removed from template <white><key></white>."
+  slots-set: "<green>Template <white><key></white>: allowed slots set to <white><slots></white>."
+  setbase-empty-hand: "<red>Hold the item you want to use as the new base."
+  setbase-done: "<green>Template <white><key></white>: base changed to <white><material></white>."
+  import-no-stats: "<red>The item in hand has no ValhallaMMO data (no default_stats/actual_stats)."
+  import-done: "<green>Template <white><key></white> imported from ValhallaMMO: <white><damage></white> damage types, <white><resist></white> resistances/weaknesses."
+  import-skipped: "<yellow>Skipped (no equivalent here): <white><attributes></white>"
+  synced: "<green>Template <white><key></white> pushed to circulation. Updated <white><count></white> items for online players (offline players catch up on next login)."
+
+mobprofile:
+  set: "<green>Resistance/weakness <white><type></white> set for MythicMobs type <white><mob></white>."
+  removed: "<green>Resistance/weakness <white><type></white> removed for MythicMobs type <white><mob></white>."
+  not-found: "<red>MythicMobs type <white><mob></white> has no <white><type></white> resistance/weakness set."
+  list-empty: "<yellow>MythicMobs type <white><mob></white> has no damage profile set."
+  list-entry: "<white><type></white> <gray>(<percent> %)</gray>"

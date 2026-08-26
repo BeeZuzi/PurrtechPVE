@@ -1,0 +1,47 @@
+prefix: "<gray>[<gold>PVE</gold>]</gray> "
+
+error:
+  player-only: "<red>Tenhle příkaz může použít jen hráč."
+  no-permission: "<red>Na tohle nemáš oprávnění."
+  invalid-material: "<red>Neznámý item: <white><material></white>"
+  invalid-mode-or-context: "<red>Neplatný mode/context - použij FLAT/PERCENT_OF_TOTAL a WIELDED/WORN."
+
+system:
+  reloaded: "<green>Konfigurace znovu načtena."
+
+item:
+  header:
+    damage: "<gray>Poškození při útoku:"
+    passive: "<gray>Pasivní bonus (nasazeno):"
+    resist: "<gray>Odolnosti / slabiny:"
+  line:
+    damage-flat: "<white> +<amount> <type>"
+    damage-percent: "<white> +<amount>% <type>"
+    resist: "<green> +<amount>% <type>"
+    weakness: "<red> -<amount>% <type>"
+  created: "<green>Šablona <white><key></white> vytvořena."
+  deleted: "<green>Šablona <white><key></white> smazána."
+  not-found: "<red>Šablona <white><key></white> neexistuje."
+  duplicate-key: "<red>Šablona <white><key></white> už existuje."
+  unknown-damage-type: "<red>Neznámý typ poškození: <white><type></white>"
+  given: "<green>Předmět <white><key></white> předán hráči <white><player></white>."
+  list-empty: "<yellow>Zatím nejsou vytvořené žádné šablony."
+  list-entry: "<white><key></white> <gray>(<material>, v<version>)</gray>"
+  damage-set: "<green>Poškození <white><type></white> nastaveno na šabloně <white><key></white>."
+  damage-removed: "<green>Poškození <white><type></white> odebráno ze šablony <white><key></white>."
+  resist-set: "<green>Odolnost/slabina <white><type></white> nastavena na šabloně <white><key></white>."
+  resist-removed: "<green>Odolnost/slabina <white><type></white> odebrána ze šablony <white><key></white>."
+  slots-set: "<green>Šablona <white><key></white>: povolené sloty nastaveny na <white><slots></white>."
+  setbase-empty-hand: "<red>Drž v ruce item, který chceš použít jako nový základ."
+  setbase-done: "<green>Šablona <white><key></white>: základ změněn na <white><material></white>."
+  import-no-stats: "<red>Item v ruce nemá žádná ValhallaMMO data (žádné default_stats/actual_stats)."
+  import-done: "<green>Šablona <white><key></white> naimportována z ValhallaMMO: <white><damage></white> typů poškození, <white><resist></white> odolností/slabin."
+  import-skipped: "<yellow>Přeskočené (nemají u nás obdobu): <white><attributes></white>"
+  synced: "<green>Šablona <white><key></white> propsána do oběhu. Aktualizováno <white><count></white> itemů u online hráčů (offline hráči doženou verzi při příštím přihlášení)."
+
+mobprofile:
+  set: "<green>Odolnost/slabina <white><type></white> nastavena pro MythicMobs typ <white><mob></white>."
+  removed: "<green>Odolnost/slabina <white><type></white> odebrána pro MythicMobs typ <white><mob></white>."
+  not-found: "<red>MythicMobs typ <white><mob></white> nemá nastavenou odolnost/slabinu <white><type></white>."
+  list-empty: "<yellow>MythicMobs typ <white><mob></white> nemá nastavený žádný damage profil."
+  list-entry: "<white><type></white> <gray>(<percent> %)</gray>"

@@ -1,0 +1,495 @@
+package eu.purrtech.purrtechPVE.command;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.tree.LiteralCommandNode;
+import eu.purrtech.purrtechPVE.PurrtechPVE;
+import eu.purrtech.purrtechPVE.gui.ItemEditorMenu;
+import eu.purrtech.purrtechPVE.gui.ItemEditorTab;
+import eu.purrtech.purrtechPVE.item.DamageContribution;
+import eu.purrtech.purrtechPVE.item.DamageMode;
+import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
+import eu.purrtech.purrtechPVE.item.ItemTemplate;
+import eu.purrtech.purrtechPVE.item.ItemTemplateService;
+import eu.purrtech.purrtechPVE.item.ModifierContext;
+import eu.purrtech.purrtechPVE.item.TemplateNotFoundException;
+import eu.purrtech.purrtechPVE.item.TypeModifier;
+import eu.purrtech.purrtechPVE.item.UnknownDamageTypeException;
+import eu.purrtech.purrtechPVE.trinket.AccessoryMenu;
+import eu.purrtech.purrtechPVE.valhalla.ValhallaMmoImporter;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
+import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import org.bukkit.Material;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * {@code /pve item ...} - template CRUD + give, command-line only (Fáze 2,
+ * ahead of the GUI editor in a later phase).
+ */
+public final class PveCommand {
+
+    private static final String PERMISSION = "purrtechpve.admin";
+
+    private PveCommand() {
+    }
+
+    public static LiteralCommandNode<CommandSourceStack> create(PurrtechPVE plugin) {
+        return Commands.literal("pve")
+                .then(Commands.literal("item")
+                        .requires(source -> source.getSender().hasPermission(PERMISSION))
+                        .then(Commands.literal("create")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .then(Commands.argument("material", StringArgumentType.word())
+                                                .then(Commands.argument("displayName", StringArgumentType.greedyString())
+                                                        .executes(ctx -> createTemplate(plugin, ctx))))))
+                        .then(Commands.literal("delete")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .executes(ctx -> deleteTemplate(plugin, ctx))))
+                        .then(Commands.literal("list")
+                                .executes(ctx -> listTemplates(plugin, ctx)))
+                        .then(Commands.literal("import")
+                                .then(Commands.literal("valhalla")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("displayName", StringArgumentType.greedyString())
+                                                        .executes(ctx -> importFromValhalla(plugin, ctx))))))
+                        .then(Commands.literal("edit")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .executes(ctx -> editTemplate(plugin, ctx))))
+                        .then(Commands.literal("setbase")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .executes(ctx -> setBaseFromHand(plugin, ctx))))
+                        .then(Commands.literal("give")
+                                .then(Commands.argument("player", ArgumentTypes.player())
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .executes(ctx -> giveTemplate(plugin, ctx)))))
+                        .then(Commands.literal("sync")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .executes(ctx -> syncTemplate(plugin, ctx))))
+                        .then(Commands.literal("damage")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("damageType", StringArgumentType.word())
+                                                        .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
+                                                                .then(Commands.argument("mode", StringArgumentType.word())
+                                                                        .then(Commands.argument("context", StringArgumentType.word())
+                                                                                .executes(ctx -> setDamageContribution(plugin, ctx))))))))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("damageType", StringArgumentType.word())
+                                                        .then(Commands.argument("context", StringArgumentType.word())
+                                                                .executes(ctx -> removeDamageContribution(plugin, ctx)))))))
+                        .then(Commands.literal("resist")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("damageType", StringArgumentType.word())
+                                                        .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
+                                                                .executes(ctx -> setTypeModifier(plugin, ctx))))))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("damageType", StringArgumentType.word())
+                                                        .executes(ctx -> removeTypeModifier(plugin, ctx))))))
+                        .then(Commands.literal("slots")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .then(Commands.argument("slots", StringArgumentType.greedyString())
+                                                .executes(ctx -> setAllowedSlots(plugin, ctx))))))
+                .then(Commands.literal("accessory")
+                        .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
+                        .executes(ctx -> openAccessoryMenu(plugin, ctx)))
+                .then(Commands.literal("mobprofile")
+                        .requires(source -> source.getSender().hasPermission(PERMISSION))
+                        .then(Commands.literal("set")
+                                .then(Commands.argument("mythicMobType", StringArgumentType.word())
+                                        .then(Commands.argument("damageType", StringArgumentType.word())
+                                                .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
+                                                        .executes(ctx -> setMobProfile(plugin, ctx))))))
+                        .then(Commands.literal("remove")
+                                .then(Commands.argument("mythicMobType", StringArgumentType.word())
+                                        .then(Commands.argument("damageType", StringArgumentType.word())
+                                                .executes(ctx -> removeMobProfile(plugin, ctx)))))
+                        .then(Commands.literal("list")
+                                .then(Commands.argument("mythicMobType", StringArgumentType.word())
+                                        .executes(ctx -> listMobProfile(plugin, ctx)))))
+                .build();
+    }
+
+    private static int createTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        String key = StringArgumentType.getString(ctx, "key");
+        String materialArg = StringArgumentType.getString(ctx, "material");
+        String displayName = StringArgumentType.getString(ctx, "displayName");
+
+        Material material = Material.matchMaterial(materialArg);
+        if (material == null) {
+            sender.sendMessage(plugin.getMessages().render(localeOf(plugin, sender), "error.invalid-material",
+                    Placeholder.unparsed("material", materialArg)));
+            return 0;
+        }
+
+        String createdBy = sender instanceof Player player ? player.getUniqueId().toString() : "console";
+        try {
+            plugin.getItemTemplateService().create(key, material, displayName, createdBy);
+        } catch (DuplicateTemplateKeyException e) {
+            sender.sendMessage(plugin.getMessages().render(localeOf(plugin, sender), "item.duplicate-key",
+                    Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(localeOf(plugin, sender), "item.created",
+                Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int deleteTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        String key = StringArgumentType.getString(ctx, "key");
+        boolean deleted = plugin.getItemTemplateService().delete(key);
+        String messageKey = deleted ? "item.deleted" : "item.not-found";
+        sender.sendMessage(plugin.getMessages().render(localeOf(plugin, sender), messageKey, Placeholder.unparsed("key", key)));
+        return deleted ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    private static int listTemplates(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        List<ItemTemplate> templates = plugin.getItemTemplateService().listAll();
+        if (templates.isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.list-empty"));
+            return Command.SINGLE_SUCCESS;
+        }
+        for (ItemTemplate template : templates) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.list-entry",
+                    Placeholder.unparsed("key", template.key()),
+                    Placeholder.unparsed("material", template.baseMaterial().name()),
+                    Placeholder.unparsed("version", String.valueOf(template.version()))));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int importFromValhalla(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+            return 0;
+        }
+        Locale locale = player.locale();
+        String key = StringArgumentType.getString(ctx, "key");
+        String displayName = StringArgumentType.getString(ctx, "displayName");
+
+        ItemStack held = player.getInventory().getItemInMainHand();
+        Optional<String> rawStats = ValhallaMmoImporter.readRawStats(held);
+        if (rawStats.isEmpty()) {
+            player.sendMessage(plugin.getMessages().render(locale, "item.import-no-stats"));
+            return 0;
+        }
+
+        ValhallaMmoImporter.ImportResult result = ValhallaMmoImporter.parse(rawStats.get());
+        try {
+            plugin.getItemTemplateService().create(key, held.getType(), displayName,
+                    player.getUniqueId().toString());
+        } catch (DuplicateTemplateKeyException e) {
+            player.sendMessage(plugin.getMessages().render(locale, "item.duplicate-key", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        for (DamageContribution c : result.contributions()) {
+            plugin.getItemTemplateService().setDamageContribution(key, c.damageTypeKey(), c.amount(), c.mode(), c.context());
+        }
+        for (TypeModifier m : result.modifiers()) {
+            plugin.getItemTemplateService().setTypeModifier(key, m.damageTypeKey(), m.percent());
+        }
+
+        player.sendMessage(plugin.getMessages().render(locale, "item.import-done",
+                Placeholder.unparsed("key", key),
+                Placeholder.unparsed("damage", String.valueOf(result.contributions().size())),
+                Placeholder.unparsed("resist", String.valueOf(result.modifiers().size()))));
+        if (!result.skipped().isEmpty()) {
+            player.sendMessage(plugin.getMessages().render(locale, "item.import-skipped",
+                    Placeholder.unparsed("attributes", String.join(", ", result.skipped()))));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int editTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+            return 0;
+        }
+        String key = StringArgumentType.getString(ctx, "key");
+        if (plugin.getItemTemplateService().findByKey(key).isEmpty()) {
+            player.sendMessage(plugin.getMessages().render(player.locale(), "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        ItemEditorMenu.open(plugin, player, key, ItemEditorTab.BASE);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setBaseFromHand(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+            return 0;
+        }
+        String key = StringArgumentType.getString(ctx, "key");
+        Locale locale = player.locale();
+
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (held.getType() == Material.AIR) {
+            player.sendMessage(plugin.getMessages().render(locale, "item.setbase-empty-hand"));
+            return 0;
+        }
+        Integer customModelData = held.hasItemMeta() && held.getItemMeta().hasCustomModelData()
+                ? held.getItemMeta().getCustomModelData() : null;
+
+        try {
+            plugin.getItemTemplateService().rebase(key, held.getType(), customModelData);
+        } catch (TemplateNotFoundException e) {
+            player.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        player.sendMessage(plugin.getMessages().render(locale, "item.setbase-done",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("material", held.getType().name())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int giveTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+
+        List<Player> targets = ctx.getArgument("player", PlayerSelectorArgumentResolver.class).resolve(ctx.getSource());
+        if (targets.isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "error.player-only"));
+            return 0;
+        }
+
+        ItemStack stack;
+        try {
+            stack = plugin.getItemTemplateService().renderGiveable(key);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+
+        for (Player target : targets) {
+            target.getInventory().addItem(stack.clone());
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.given",
+                Placeholder.unparsed("key", key),
+                Placeholder.unparsed("player", targets.size() == 1 ? targets.get(0).getName() : targets.size() + "x")));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * The explicit "push to circulation now" action: edits alone (damage/resist set-remove)
+     * never touch already-issued items, only this does - see {@link ItemTemplateService#propagate}.
+     */
+    private static int syncTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+
+        try {
+            plugin.getItemTemplateService().propagate(key);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+
+        int touched = plugin.getItemSyncService().resyncAllOnlinePlayers();
+        sender.sendMessage(plugin.getMessages().render(locale, "item.synced",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("count", String.valueOf(touched))));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setDamageContribution(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+        double amount = DoubleArgumentType.getDouble(ctx, "amount");
+
+        DamageMode mode = parseEnum(DamageMode.class, StringArgumentType.getString(ctx, "mode"));
+        ModifierContext context = parseEnum(ModifierContext.class, StringArgumentType.getString(ctx, "context"));
+        if (mode == null || context == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "error.invalid-mode-or-context"));
+            return 0;
+        }
+
+        try {
+            plugin.getItemTemplateService().setDamageContribution(key, damageType, amount, mode, context);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        } catch (UnknownDamageTypeException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-damage-type", Placeholder.unparsed("type", damageType)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.damage-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("type", damageType)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeDamageContribution(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+        ModifierContext context = parseEnum(ModifierContext.class, StringArgumentType.getString(ctx, "context"));
+        if (context == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "error.invalid-mode-or-context"));
+            return 0;
+        }
+
+        try {
+            plugin.getItemTemplateService().removeDamageContribution(key, damageType, context);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.damage-removed",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("type", damageType)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setTypeModifier(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+        double percent = DoubleArgumentType.getDouble(ctx, "percent");
+
+        try {
+            plugin.getItemTemplateService().setTypeModifier(key, damageType, percent);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        } catch (UnknownDamageTypeException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-damage-type", Placeholder.unparsed("type", damageType)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.resist-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("type", damageType)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeTypeModifier(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+
+        try {
+            plugin.getItemTemplateService().removeTypeModifier(key, damageType);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.resist-removed",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("type", damageType)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setAllowedSlots(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String rawSlots = StringArgumentType.getString(ctx, "slots");
+
+        List<String> slotNames = "none".equalsIgnoreCase(rawSlots.trim())
+                ? List.of()
+                : Arrays.stream(rawSlots.split(",")).map(s -> s.trim().toUpperCase(Locale.ROOT)).filter(s -> !s.isEmpty()).toList();
+
+        try {
+            plugin.getItemTemplateService().setAllowedSlots(key, slotNames);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.slots-set",
+                Placeholder.unparsed("key", key),
+                Placeholder.unparsed("slots", slotNames.isEmpty() ? "-" : String.join(", ", slotNames))));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int openAccessoryMenu(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+            return 0;
+        }
+        AccessoryMenu.open(player, plugin.getAccessorySettings(), plugin.getAccessoryRepository());
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setMobProfile(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String mythicMobType = StringArgumentType.getString(ctx, "mythicMobType");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+        double percent = DoubleArgumentType.getDouble(ctx, "percent");
+
+        if (plugin.getDamageTypeRegistry().find(damageType).isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-damage-type", Placeholder.unparsed("type", damageType)));
+            return 0;
+        }
+        plugin.getMobDamageProfileRepository().upsert(mythicMobType, damageType, percent);
+        sender.sendMessage(plugin.getMessages().render(locale, "mobprofile.set",
+                Placeholder.unparsed("mob", mythicMobType), Placeholder.unparsed("type", damageType)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeMobProfile(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String mythicMobType = StringArgumentType.getString(ctx, "mythicMobType");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+
+        boolean removed = plugin.getMobDamageProfileRepository().remove(mythicMobType, damageType);
+        String messageKey = removed ? "mobprofile.removed" : "mobprofile.not-found";
+        sender.sendMessage(plugin.getMessages().render(locale, messageKey,
+                Placeholder.unparsed("mob", mythicMobType), Placeholder.unparsed("type", damageType)));
+        return removed ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    private static int listMobProfile(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String mythicMobType = StringArgumentType.getString(ctx, "mythicMobType");
+
+        Map<String, Double> profile = plugin.getMobDamageProfileRepository().findByMob(mythicMobType);
+        if (profile.isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "mobprofile.list-empty", Placeholder.unparsed("mob", mythicMobType)));
+            return Command.SINGLE_SUCCESS;
+        }
+        for (Map.Entry<String, Double> entry : profile.entrySet()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "mobprofile.list-entry",
+                    Placeholder.unparsed("type", entry.getKey()), Placeholder.unparsed("percent", String.valueOf(entry.getValue()))));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static <E extends Enum<E>> E parseEnum(Class<E> type, String raw) {
+        try {
+            return Enum.valueOf(type, raw.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static Locale localeOf(PurrtechPVE plugin, CommandSender sender) {
+        return sender instanceof Player player ? player.locale() : plugin.getDefaultLocale();
+    }
+}
