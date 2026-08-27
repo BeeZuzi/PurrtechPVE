@@ -13,6 +13,8 @@ import eu.purrtech.purrtechPVE.gui.ItemEditorTab;
 import eu.purrtech.purrtechPVE.gui.ItemListMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorTab;
+import eu.purrtech.purrtechPVE.gui.ArmorClassMenu;
+import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
@@ -132,10 +134,30 @@ public final class PveCommand {
                         .then(Commands.literal("slots")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .then(Commands.argument("slots", StringArgumentType.greedyString())
-                                                .executes(ctx -> setAllowedSlots(plugin, ctx))))))
+                                                .executes(ctx -> setAllowedSlots(plugin, ctx)))))
+                        .then(Commands.literal("armor")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .then(Commands.argument("armorClass", StringArgumentType.word())
+                                                .executes(ctx -> setItemArmorClass(plugin, ctx))))))
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
+                .then(Commands.literal("armorclass")
+                        .requires(source -> source.getSender().hasPermission(PERMISSION))
+                        .then(Commands.literal("set")
+                                .then(Commands.argument("armorClass", StringArgumentType.word())
+                                        .then(Commands.argument("damageType", StringArgumentType.word())
+                                                .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
+                                                        .executes(ctx -> setArmorClassProfile(plugin, ctx))))))
+                        .then(Commands.literal("remove")
+                                .then(Commands.argument("armorClass", StringArgumentType.word())
+                                        .then(Commands.argument("damageType", StringArgumentType.word())
+                                                .executes(ctx -> removeArmorClassProfile(plugin, ctx)))))
+                        .then(Commands.literal("list")
+                                .then(Commands.argument("armorClass", StringArgumentType.word())
+                                        .executes(ctx -> listArmorClassProfile(plugin, ctx))))
+                        .then(Commands.literal("menu")
+                                .executes(ctx -> openArmorClassMenu(plugin, ctx))))
                 .then(Commands.literal("mobprofile")
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .then(Commands.literal("set")
@@ -588,6 +610,124 @@ public final class PveCommand {
         sender.sendMessage(plugin.getMessages().render(locale, "item.enchant-removed",
                 Placeholder.unparsed("key", key), Placeholder.unparsed("enchantment", resolvedKey)));
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setItemArmorClass(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String armorClassArg = StringArgumentType.getString(ctx, "armorClass");
+
+        if ("none".equalsIgnoreCase(armorClassArg)) {
+            try {
+                plugin.getItemTemplateService().setArmorClass(key, null);
+            } catch (TemplateNotFoundException e) {
+                sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+                return 0;
+            }
+            sender.sendMessage(plugin.getMessages().render(locale, "item.armor-cleared", Placeholder.unparsed("key", key)));
+            return Command.SINGLE_SUCCESS;
+        }
+
+        ArmorClass armorClass = parseArmorClass(armorClassArg);
+        if (armorClass == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-armor-class",
+                    Placeholder.unparsed("class", armorClassArg)));
+            return 0;
+        }
+        try {
+            plugin.getItemTemplateService().setArmorClass(key, armorClass);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.armor-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("class", armorClass.name())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setArmorClassProfile(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String armorClassArg = StringArgumentType.getString(ctx, "armorClass");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+        double percent = DoubleArgumentType.getDouble(ctx, "percent");
+
+        ArmorClass armorClass = parseArmorClass(armorClassArg);
+        if (armorClass == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-armor-class",
+                    Placeholder.unparsed("class", armorClassArg)));
+            return 0;
+        }
+        if (plugin.getDamageTypeRegistry().find(damageType).isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-damage-type", Placeholder.unparsed("type", damageType)));
+            return 0;
+        }
+        plugin.getArmorClassProfileRepository().upsert(armorClass.name(), damageType, percent);
+        sender.sendMessage(plugin.getMessages().render(locale, "armorclass.set",
+                Placeholder.unparsed("class", armorClass.name()), Placeholder.unparsed("type", damageType)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeArmorClassProfile(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String armorClassArg = StringArgumentType.getString(ctx, "armorClass");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+
+        ArmorClass armorClass = parseArmorClass(armorClassArg);
+        if (armorClass == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-armor-class",
+                    Placeholder.unparsed("class", armorClassArg)));
+            return 0;
+        }
+        boolean removed = plugin.getArmorClassProfileRepository().remove(armorClass.name(), damageType);
+        String messageKey = removed ? "armorclass.removed" : "armorclass.not-found";
+        sender.sendMessage(plugin.getMessages().render(locale, messageKey,
+                Placeholder.unparsed("class", armorClass.name()), Placeholder.unparsed("type", damageType)));
+        return removed ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    private static int listArmorClassProfile(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String armorClassArg = StringArgumentType.getString(ctx, "armorClass");
+
+        ArmorClass armorClass = parseArmorClass(armorClassArg);
+        if (armorClass == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-armor-class",
+                    Placeholder.unparsed("class", armorClassArg)));
+            return 0;
+        }
+        Map<String, Double> profile = plugin.getArmorClassProfileRepository().findByArmorClass(armorClass.name());
+        if (profile.isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "armorclass.list-empty",
+                    Placeholder.unparsed("class", armorClass.name())));
+            return Command.SINGLE_SUCCESS;
+        }
+        for (Map.Entry<String, Double> entry : profile.entrySet()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "armorclass.list-entry",
+                    Placeholder.unparsed("type", entry.getKey()), Placeholder.unparsed("percent", String.valueOf(entry.getValue()))));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int openArmorClassMenu(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+            return 0;
+        }
+        ArmorClassMenu.open(plugin, player, ArmorClass.LIGHT);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static ArmorClass parseArmorClass(String raw) {
+        try {
+            return ArmorClass.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private static int setAllowedSlots(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {

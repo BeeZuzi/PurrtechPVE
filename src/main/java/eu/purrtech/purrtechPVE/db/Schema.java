@@ -38,6 +38,7 @@ final class Schema {
                         custom_model_data INTEGER,
                         is_trinket INTEGER NOT NULL DEFAULT 0,
                         allowed_slots TEXT,
+                        armor_class TEXT,
                         version INTEGER NOT NULL DEFAULT 1,
                         synced_version INTEGER NOT NULL DEFAULT 1,
                         created_at INTEGER NOT NULL,
@@ -46,6 +47,10 @@ final class Schema {
                     )
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_templates_key ON item_templates(key)");
+            // item_templates already has production data on servers that ran this plugin before
+            // armor_class existed - see the enchantments migration below for why CREATE TABLE IF
+            // NOT EXISTS alone isn't enough there.
+            addColumnIfMissing(connection, "item_templates", "armor_class", "TEXT");
 
             // Full computed state at every version a template has ever had - not just the
             // current one. Needed so a stack that was deliberately NOT pushed to circulation
@@ -121,6 +126,21 @@ final class Schema {
                         damage_type_key TEXT NOT NULL,
                         percent REAL NOT NULL,
                         PRIMARY KEY (mythic_mob_internal_name, damage_type_key)
+                    )
+                    """);
+
+            // Resistance/weakness granted by an armor_class (LIGHT/MEDIUM/HEAVY - see the
+            // ArmorClass enum) itself, applied to every equipped piece tagged with that class on
+            // top of that piece's own item_type_modifier rows (see EquipmentResolver). Live/
+            // global config, not versioned/snapshotted - same treatment as mob_damage_profile
+            // above, for the same reason: it's a rule about a whole category, not a stat baked
+            // into one specific item.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS armor_class_profile (
+                        armor_class TEXT NOT NULL,
+                        damage_type_key TEXT NOT NULL,
+                        percent REAL NOT NULL,
+                        PRIMARY KEY (armor_class, damage_type_key)
                     )
                     """);
 

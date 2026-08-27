@@ -34,7 +34,7 @@ class ItemTemplateSnapshotRepositoryTest {
         repository = new ItemTemplateSnapshotRepository(database);
 
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "fire-sword", "Plamenný meč", Material.IRON_SWORD,
-                null, false, List.of(), 1, 1, 0L, 0L, "console");
+                null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
     }

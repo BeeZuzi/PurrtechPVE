@@ -60,7 +60,7 @@ public final class ItemTemplateService {
         }
         long now = System.currentTimeMillis();
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, baseMaterial, customModelData,
-                false, List.of(), 1, 1, now, now, createdBy);
+                false, List.of(), null, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
         snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of()));
         return template;
@@ -146,7 +146,24 @@ public final class ItemTemplateService {
     public ItemTemplate setAllowedSlots(String key, List<String> slotNames) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.baseMaterial(),
-                template.customModelData(), !slotNames.isEmpty(), List.copyOf(slotNames), template.version(),
+                template.customModelData(), !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(), template.version(),
+                template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+        templateRepository.update(updated);
+        return updated;
+    }
+
+    /**
+     * Which of the 3 fixed armor weight classes this template belongs to (or {@code null} for
+     * non-armor). Same live-classification treatment as {@link #setAllowedSlots} - the class
+     * itself doesn't bump version; what resistance/weakness that class actually grants lives in
+     * {@code armor_class_profile} (see {@code ArmorClassProfileRepository}) and applies
+     * immediately, already-issued items included, exactly like {@code mob_damage_profile} does
+     * for MythicMobs mob types.
+     */
+    public ItemTemplate setArmorClass(String key, ArmorClass armorClass) {
+        ItemTemplate template = requireTemplate(key);
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.baseMaterial(),
+                template.customModelData(), template.trinket(), template.allowedSlots(), armorClass, template.version(),
                 template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
@@ -159,8 +176,8 @@ public final class ItemTemplateService {
     public ItemTemplate rebase(String key, Material newBaseMaterial, Integer newCustomModelData) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate withNewBase = new ItemTemplate(template.id(), template.key(), template.displayName(), newBaseMaterial,
-                newCustomModelData, template.trinket(), template.allowedSlots(), template.version(), template.syncedVersion(),
-                template.createdAt(), template.updatedAt(), template.createdBy());
+                newCustomModelData, template.trinket(), template.allowedSlots(), template.armorClass(), template.version(),
+                template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(withNewBase);
     }
 

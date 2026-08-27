@@ -18,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -210,5 +211,24 @@ class ItemTemplateServiceTest {
         service.create("a", Material.STICK, "A", "console");
         service.create("b", Material.STICK, "B", "console");
         assertEquals(2, service.listAll().size());
+    }
+
+    @Test
+    void setArmorClassIsALiveClassificationAndDoesNotBumpVersion() {
+        service.create("iron-vest", Material.IRON_CHESTPLATE, "Iron Vest", "console");
+        ItemTemplate tagged = service.setArmorClass("iron-vest", ArmorClass.MEDIUM);
+
+        assertEquals(ArmorClass.MEDIUM, tagged.armorClass());
+        assertEquals(1, tagged.version(), "armor class is a live classification, not a stat - no version bump");
+
+        ItemTemplate cleared = service.setArmorClass("iron-vest", null);
+        assertNull(cleared.armorClass());
+        assertEquals(1, cleared.version());
+    }
+
+    @Test
+    void newTemplateHasNoArmorClassByDefault() {
+        ItemTemplate created = service.create("plain-item", Material.STICK, "Plain", "console");
+        assertNull(created.armorClass());
     }
 }

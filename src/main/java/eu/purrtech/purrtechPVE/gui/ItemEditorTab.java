@@ -5,6 +5,7 @@ public enum ItemEditorTab {
     DAMAGE,
     RESIST,
     TRINKET,
+    ARMOR_CLASS,
     MOBS,
     PUBLISH
 }

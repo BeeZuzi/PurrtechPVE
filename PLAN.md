@@ -772,6 +772,71 @@
     addEnchant` jsou ale ověřené (kompilace proti reálné 1.21.11 API +
     JUnit na repository vrstvě).
 
+- **3 typy armoru: lehký/střední/těžký + jejich benefity (2026-08-27),
+  na žádost.** Zavírá i mezeru, na kterou jsem narazil dřív (ValhallaMMO
+  `LIGHT_ARMOR`/`HEAVY_ARMOR` byly na seznamu "bez obdoby" - teď obdoba
+  existuje).
+  - **Nový enum `ArmorClass`** (LIGHT/MEDIUM/HEAVY) - fixní, 3 hodnoty,
+    ne rozšiřitelné adminem (přesně jak jsi popsal). Přidán jako nové
+    pole na `ItemTemplate` (`armor_class` sloupec), stejné live/
+    neverzované zacházení jako `allowedSlots`/trinket flag - přiřazení
+    typu armoru itemu NEBUMPuje verzi, není to "stat", je to klasifikace
+    (`ItemTemplateService.setArmorClass`). **Migrace**: `item_templates`
+    už má produkční data, takže stejný `addColumnIfMissing` mechanismus
+    jako u enchantů - ověřeno na ručně sestavené DB se starým schématem
+    (bez `armor_class` sloupce) + reálnými daty, boot proběhl čistě,
+    sloupec se přidal.
+  - **Benefity typu armoru jsou oddělené od konkrétního itemu** - nová
+    tabulka `armor_class_profile` (armor_class, damage_type_key, percent),
+    stejný vzor jako `mob_damage_profile`: live/globální config, aplikuje
+    se OKAMŽITĚ na všechny kusy daného typu armoru, i ty už vydané, beze
+    změny verze. `EquipmentResolver.resolveResistance` teď ke každému
+    nasazenému kusu, kromě jeho vlastních `item_type_modifier` řádků,
+    přičte i profil jeho typu armoru (pokud má nějaký nastavený).
+    Zatím jen odolnosti/slabiny (ne damage bonus) - řekni, pokud chceš
+    i to.
+  - **"Někde v menu"**: dvě místa. (1) Nový tab "Typ armoru" v
+    `ItemEditorMenu` (mezi Trinket a MythicMobs) - 4 volby (Žádný/
+    Lehký/Střední/Těžký), radio-select styl jako u trinket slotů, s
+    tlačítkem co otevře (2) nové samostatné GUI `ArmorClassMenu`
+    (`/pve armorclass menu`) - 3 taby (Lehký/Střední/Těžký), v každém
+    mřížka všech damage typů s klik=nastavit procenta (odolnost/slabina)
+    přes chat prompt, shift+klik=smazat - přesně stejný vzor jako RESIST
+    tab v `ItemEditorMenu`, jen napojený na `armor_class_profile` místo
+    na konkrétní šablonu. Taky příkazy `/pve item armor <key> <light|
+    medium|heavy|none>` a `/pve armorclass set|remove|list`.
+  - **"Medium = vanilla vzhled, light/heavy = custom"**: tohle nevyžaduje
+    žádný nový kód - už existující nástroje (base materiál + custom
+    model data, nastavitelné v Základ tabu) stačí. Medium prostě necháš
+    na normálním vanilla armor materiálu (`IRON_CHESTPLATE` apod.),
+    light/heavy postavíš na jiném základu + custom model data pro
+    resource-pack vzhled. Info o tomhle je i přímo v novém tabu.
+  - **Chyba nalezená a opravená při živém ověřování**: `Placeholder.
+    unparsed("armorClass", ...)` shazovalo KAŽDÝ příkaz, co ho použil,
+    na `IllegalArgumentException: Tag name must match pattern
+    [!?#]?[a-z0-9_-]*` - MiniMessage tag jména musí být malými
+    písmeny, `armorClass` (camelCase) není platné. Přejmenováno na
+    `class` (jednoslovné, malými písmeny, stejná konvence jako `mob`/
+    `type`/`key` v celém projektu) - tohle je přesně ten druh chyby,
+    který jednotkové testy nechytí (nedotýká se DB/logiky, jen za běhu
+    sestaveného MiniMessage template), proto to teprve živé ověření
+    odhalilo.
+  - 8 nových JUnit testů (`ArmorClassProfileRepositoryTest` - CRUD,
+    `ItemTemplateServiceTest`/`ItemTemplateRepositoryTest` - armor
+    class se ukládá, výchozí `null`, nebumpuje verzi). 128 testů
+    celkem zelených.
+  - **Ověřeno živě**: boot na starém schématu (migrace), `/pve item
+    armor` nastavení/vyčištění, `/pve armorclass set/list`, neplatný
+    typ armoru správně odmítnut, a přímá SQL kontrola potvrdila
+    `armor_class` sloupec i `armor_class_profile` řádky přesně
+    odpovídají tomu, co bylo zadáno přes příkazy.
+  - **Neověřeno**: `EquipmentResolver`'s promítnutí profilu do
+    skutečného souboje (žádný unit test pro `EquipmentResolver` v
+    projektu vůbec neexistuje - stejná konvence jako u item setů/mob
+    profilů, potřebuje živého hráče v souboji) a samotné GUI (nový tab
+    + `ArmorClassMenu`) klikací interakce - stejné omezení jako
+    všechny ostatní menu v tomhle projektu.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

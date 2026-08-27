@@ -1,5 +1,6 @@
 package eu.purrtech.purrtechPVE.db;
 
+import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import org.bukkit.Material;
 
@@ -27,8 +28,8 @@ public final class ItemTemplateRepository {
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT INTO item_templates
                          (id, key, display_name, base_material, custom_model_data, is_trinket, allowed_slots,
-                          version, synced_version, created_at, updated_at, created_by)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                          armor_class, version, synced_version, created_at, updated_at, created_by)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             bind(statement, template);
             statement.executeUpdate();
@@ -42,7 +43,7 @@ public final class ItemTemplateRepository {
              PreparedStatement statement = connection.prepareStatement("""
                      UPDATE item_templates
                      SET key = ?, display_name = ?, base_material = ?, custom_model_data = ?, is_trinket = ?,
-                         allowed_slots = ?, version = ?, synced_version = ?, updated_at = ?
+                         allowed_slots = ?, armor_class = ?, version = ?, synced_version = ?, updated_at = ?
                      WHERE id = ?
                      """)) {
             statement.setString(1, template.key());
@@ -55,10 +56,11 @@ public final class ItemTemplateRepository {
             }
             statement.setInt(5, template.trinket() ? 1 : 0);
             statement.setString(6, String.join(",", template.allowedSlots()));
-            statement.setInt(7, template.version());
-            statement.setInt(8, template.syncedVersion());
-            statement.setLong(9, template.updatedAt());
-            statement.setString(10, template.id().toString());
+            statement.setString(7, template.armorClass() != null ? template.armorClass().name() : null);
+            statement.setInt(8, template.version());
+            statement.setInt(9, template.syncedVersion());
+            statement.setLong(10, template.updatedAt());
+            statement.setString(11, template.id().toString());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to update item template " + template.key(), e);
@@ -122,11 +124,12 @@ public final class ItemTemplateRepository {
         }
         statement.setInt(6, template.trinket() ? 1 : 0);
         statement.setString(7, String.join(",", template.allowedSlots()));
-        statement.setInt(8, template.version());
-        statement.setInt(9, template.syncedVersion());
-        statement.setLong(10, template.createdAt());
-        statement.setLong(11, template.updatedAt());
-        statement.setString(12, template.createdBy());
+        statement.setString(8, template.armorClass() != null ? template.armorClass().name() : null);
+        statement.setInt(9, template.version());
+        statement.setInt(10, template.syncedVersion());
+        statement.setLong(11, template.createdAt());
+        statement.setLong(12, template.updatedAt());
+        statement.setString(13, template.createdBy());
     }
 
     private ItemTemplate map(ResultSet rs) throws SQLException {
@@ -138,6 +141,9 @@ public final class ItemTemplateRepository {
         int customModelData = rs.getInt("custom_model_data");
         Integer customModelDataBoxed = rs.wasNull() ? null : customModelData;
 
+        String armorClassRaw = rs.getString("armor_class");
+        ArmorClass armorClass = armorClassRaw == null ? null : ArmorClass.valueOf(armorClassRaw);
+
         return new ItemTemplate(
                 UUID.fromString(rs.getString("id")),
                 rs.getString("key"),
@@ -146,6 +152,7 @@ public final class ItemTemplateRepository {
                 customModelDataBoxed,
                 rs.getInt("is_trinket") != 0,
                 allowedSlots,
+                armorClass,
                 rs.getInt("version"),
                 rs.getInt("synced_version"),
                 rs.getLong("created_at"),

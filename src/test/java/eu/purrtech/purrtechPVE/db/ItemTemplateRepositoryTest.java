@@ -1,5 +1,6 @@
 package eu.purrtech.purrtechPVE.db;
 
+import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import org.bukkit.Material;
 import org.junit.jupiter.api.AfterEach;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ItemTemplateRepositoryTest {
@@ -36,7 +38,7 @@ class ItemTemplateRepositoryTest {
     private ItemTemplate sample(String key) {
         long now = 1_700_000_000_000L;
         return new ItemTemplate(UUID.randomUUID(), key, "Plamenný meč", Material.IRON_SWORD, null,
-                false, List.of("HAND"), 1, 1, now, now, "console");
+                false, List.of("HAND"), null, 1, 1, now, now, "console");
     }
 
     @Test
@@ -97,5 +99,20 @@ class ItemTemplateRepositoryTest {
     @Test
     void deleteOfUnknownKeyReturnsFalse() {
         assertFalse(repository.delete("does-not-exist"));
+    }
+
+    @Test
+    void armorClassRoundTripsAndDefaultsToNull() {
+        ItemTemplate plain = sample("plain-item");
+        repository.insert(plain);
+        assertNull(repository.findByKey("plain-item").orElseThrow().armorClass());
+
+        ItemTemplate withClass = new ItemTemplate(UUID.randomUUID(), "heavy-plate", "Heavy Plate", Material.NETHERITE_CHESTPLATE,
+                null, false, List.of(), ArmorClass.HEAVY, 1, 1, 0L, 0L, "console");
+        repository.insert(withClass);
+        assertEquals(ArmorClass.HEAVY, repository.findByKey("heavy-plate").orElseThrow().armorClass());
+
+        repository.update(withClass.withBumpedVersion(1L));
+        assertEquals(ArmorClass.HEAVY, repository.findByKey("heavy-plate").orElseThrow().armorClass());
     }
 }

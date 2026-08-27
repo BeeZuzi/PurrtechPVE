@@ -52,7 +52,7 @@ class ItemSetServiceTest {
 
     private void createTemplate(String key) {
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, key, Material.IRON_HELMET,
-                null, false, List.of(), 1, 1, 0L, 0L, "console");
+                null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         templateRepository.insert(template);
     }
 

@@ -45,12 +45,22 @@ item:
   bulk-import-done: "<green>Hromadný import z ValhallaMMO: <white><imported></white> naimportováno, <white><failed></white> přeskočeno, celkem nalezeno <white><total></white> (celkem přeneseno <white><enchants></white> enchantů)."
   bulk-import-failed-items: "<yellow>Přeskočené itemy: <white><items></white>"
   synced: "<green>Šablona <white><key></white> propsána do oběhu. Aktualizováno <white><count></white> itemů u online hráčů (offline hráči doženou verzi při příštím přihlášení)."
+  unknown-armor-class: "<red>Neznámý typ armoru: <white><class></white> (použij light, medium, heavy nebo none)"
+  armor-set: "<green>Typ armoru <white><class></white> nastaven na šabloně <white><key></white>."
+  armor-cleared: "<green>Typ armoru odebrán ze šablony <white><key></white>."
 
 mobprofile:
   set: "<green>Odolnost/slabina <white><type></white> nastavena pro MythicMobs typ <white><mob></white>."
   removed: "<green>Odolnost/slabina <white><type></white> odebrána pro MythicMobs typ <white><mob></white>."
   not-found: "<red>MythicMobs typ <white><mob></white> nemá nastavenou odolnost/slabinu <white><type></white>."
   list-empty: "<yellow>MythicMobs typ <white><mob></white> nemá nastavený žádný damage profil."
+  list-entry: "<white><type></white> <gray>(<percent> %)</gray>"
+
+armorclass:
+  set: "<green>Odolnost/slabina <white><type></white> nastavena pro typ armoru <white><class></white>."
+  removed: "<green>Odolnost/slabina <white><type></white> odebrána pro typ armoru <white><class></white>."
+  not-found: "<red>Typ armoru <white><class></white> nemá nastavenou odolnost/slabinu <white><type></white>."
+  list-empty: "<yellow>Typ armoru <white><class></white> nemá nastavené žádné benefity."
   list-entry: "<white><type></white> <gray>(<percent> %)</gray>"
 
 set:

@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE.gui;
 
 import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.damage.DamageType;
+import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
@@ -42,8 +43,9 @@ public final class ItemEditorMenu {
     private static final int TAB_DAMAGE = 1;
     private static final int TAB_RESIST = 2;
     private static final int TAB_TRINKET = 3;
-    private static final int TAB_MOBS = 4;
-    private static final int TAB_PUBLISH = 5;
+    private static final int TAB_ARMOR_CLASS = 4;
+    private static final int TAB_MOBS = 5;
+    private static final int TAB_PUBLISH = 6;
     private static final int CLOSE_SLOT = 8;
     private static final int PREVIEW_SLOT = 13;
     private static final int PUBLISH_BUTTON_SLOT = 22;
@@ -82,6 +84,7 @@ public final class ItemEditorMenu {
             case DAMAGE -> renderDamage(plugin, inventory, templateKey);
             case RESIST -> renderResist(plugin, inventory, templateKey);
             case TRINKET -> renderTrinket(plugin, inventory, templateKey);
+            case ARMOR_CLASS -> renderArmorClass(plugin, inventory, templateKey);
             case MOBS -> renderMobs(plugin, inventory, templateKey);
             case PUBLISH -> renderPublish(plugin, inventory, templateKey);
         }
@@ -92,6 +95,7 @@ public final class ItemEditorMenu {
         inventory.setItem(TAB_DAMAGE, tabIcon(Material.BLAZE_POWDER, "Custom Damages", active == ItemEditorTab.DAMAGE));
         inventory.setItem(TAB_RESIST, tabIcon(Material.SHIELD, "Odolnosti / Slabiny", active == ItemEditorTab.RESIST));
         inventory.setItem(TAB_TRINKET, tabIcon(Material.NAME_TAG, "Trinket sloty", active == ItemEditorTab.TRINKET));
+        inventory.setItem(TAB_ARMOR_CLASS, tabIcon(Material.IRON_CHESTPLATE, "Typ armoru", active == ItemEditorTab.ARMOR_CLASS));
         inventory.setItem(TAB_MOBS, tabIcon(Material.ZOMBIE_HEAD, "MythicMobs", active == ItemEditorTab.MOBS));
         inventory.setItem(TAB_PUBLISH, tabIcon(Material.EMERALD, "Uložit & Publikovat", active == ItemEditorTab.PUBLISH));
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, Component.text("Zavřít", NamedTextColor.RED)));
@@ -348,6 +352,61 @@ public final class ItemEditorMenu {
         };
     }
 
+    // ---- ARMOR_CLASS ----
+
+    private static void renderArmorClass(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
+        ArmorClass current = template.armorClass();
+
+        armorClassOption(inventory, CONTENT_START, null, "Žádný", Material.BARRIER, current);
+        armorClassOption(inventory, CONTENT_START + 1, ArmorClass.LIGHT, "Lehký", Material.LEATHER_CHESTPLATE, current);
+        armorClassOption(inventory, CONTENT_START + 2, ArmorClass.MEDIUM, "Střední", Material.IRON_CHESTPLATE, current);
+        armorClassOption(inventory, CONTENT_START + 3, ArmorClass.HEAVY, "Těžký", Material.NETHERITE_CHESTPLATE, current);
+
+        List<Component> infoLore = new ArrayList<>();
+        infoLore.add(Component.text("Medium = vypadá jako vanilla armor.", NamedTextColor.GRAY));
+        infoLore.add(Component.text("Light/Heavy = vlastní vzhled (base +", NamedTextColor.GRAY));
+        infoLore.add(Component.text("custom model data v Základ tabu).", NamedTextColor.GRAY));
+        infoLore.add(Component.empty());
+        infoLore.add(Component.text("Klik: upravit benefity všech typů armoru", NamedTextColor.YELLOW));
+        ItemStack info = named(Material.WRITABLE_BOOK, Component.text("Benefity typů armoru", NamedTextColor.AQUA));
+        ItemMeta infoMeta = info.getItemMeta();
+        infoMeta.lore(infoLore);
+        info.setItemMeta(infoMeta);
+        inventory.setItem(PREVIEW_SLOT, info);
+    }
+
+    private static void armorClassOption(Inventory inventory, int slot, ArmorClass value, String label, Material material, ArmorClass current) {
+        boolean selected = value == current;
+        NamedTextColor color = selected ? NamedTextColor.GREEN : NamedTextColor.GRAY;
+        String mark = selected ? "✔ " : "";
+        ItemStack icon = named(material, Component.text(mark + label, color));
+        ItemMeta meta = icon.getItemMeta();
+        meta.lore(List.of(Component.text("Klik: nastavit", NamedTextColor.YELLOW)));
+        icon.setItemMeta(meta);
+        inventory.setItem(slot, icon);
+    }
+
+    private static void handleArmorClassClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
+        if (slot == PREVIEW_SLOT) {
+            ArmorClass current = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow().armorClass();
+            ArmorClassMenu.open(plugin, player, current != null ? current : ArmorClass.LIGHT);
+            return;
+        }
+        int index = slot - CONTENT_START;
+        if (index < 0 || index > 3) {
+            return;
+        }
+        ArmorClass newValue = switch (index) {
+            case 1 -> ArmorClass.LIGHT;
+            case 2 -> ArmorClass.MEDIUM;
+            case 3 -> ArmorClass.HEAVY;
+            default -> null;
+        };
+        plugin.getItemTemplateService().setArmorClass(holder.templateKey(), newValue);
+        render(plugin, holder.getInventory(), holder.templateKey(), ItemEditorTab.ARMOR_CLASS);
+    }
+
     // ---- MOBS ----
 
     private static void renderMobs(PurrtechPVE plugin, Inventory inventory, String templateKey) {
@@ -501,6 +560,7 @@ public final class ItemEditorMenu {
             case TAB_DAMAGE -> switchTab(plugin, player, holder, ItemEditorTab.DAMAGE);
             case TAB_RESIST -> switchTab(plugin, player, holder, ItemEditorTab.RESIST);
             case TAB_TRINKET -> switchTab(plugin, player, holder, ItemEditorTab.TRINKET);
+            case TAB_ARMOR_CLASS -> switchTab(plugin, player, holder, ItemEditorTab.ARMOR_CLASS);
             case TAB_MOBS -> switchTab(plugin, player, holder, ItemEditorTab.MOBS);
             case TAB_PUBLISH -> switchTab(plugin, player, holder, ItemEditorTab.PUBLISH);
             case CLOSE_SLOT -> player.closeInventory();
@@ -510,6 +570,7 @@ public final class ItemEditorMenu {
                     case DAMAGE -> handleDamageClick(plugin, player, holder, slot, shift);
                     case RESIST -> handleResistClick(plugin, player, holder, slot, shift);
                     case TRINKET -> handleTrinketClick(plugin, player, holder, slot);
+                    case ARMOR_CLASS -> handleArmorClassClick(plugin, player, holder, slot);
                     case MOBS -> handleMobsClick(plugin, player, holder, slot, shift);
                     case PUBLISH -> handlePublishClick(plugin, player, holder, slot);
                 }

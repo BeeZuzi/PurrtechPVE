@@ -2,12 +2,14 @@ package eu.purrtech.purrtechPVE.combat;
 
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.AccessoryRepository;
+import eu.purrtech.purrtechPVE.db.ArmorClassProfileRepository;
 import eu.purrtech.purrtechPVE.db.ItemSetDamageThresholdRepository;
 import eu.purrtech.purrtechPVE.db.ItemSetMemberRepository;
 import eu.purrtech.purrtechPVE.db.ItemSetModifierThresholdRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
+import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemRenderer;
@@ -24,6 +26,7 @@ import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +63,12 @@ import java.util.UUID;
  * Thresholds are cumulative - a wearer with 4 set pieces gets every
  * threshold's bonus whose {@code pieceCount} is 4 or fewer, not just the
  * highest one, matching how tiered set bonuses conventionally work.
+ *
+ * <p>Armor class bonuses: a piece tagged with one of the 3 fixed {@code
+ * ArmorClass} values (LIGHT/MEDIUM/HEAVY) additionally gets whatever
+ * resistance/weakness {@code armor_class_profile} defines for that class,
+ * on top of its own {@code item_type_modifier} rows - live/global, like
+ * {@code mob_damage_profile}, not versioned per item.
  */
 public final class EquipmentResolver {
 
@@ -71,6 +80,7 @@ public final class EquipmentResolver {
     private final ItemTemplateRepository templateRepository;
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final MobDamageProfileRepository mobDamageProfileRepository;
+    private final ArmorClassProfileRepository armorClassProfileRepository;
     private final AccessoryRepository accessoryRepository;
     private final ItemSetMemberRepository setMemberRepository;
     private final ItemSetDamageThresholdRepository setDamageThresholdRepository;
@@ -81,6 +91,7 @@ public final class EquipmentResolver {
     public EquipmentResolver(ItemTemplateRepository templateRepository,
                               ItemTemplateSnapshotRepository snapshotRepository,
                               MobDamageProfileRepository mobDamageProfileRepository,
+                              ArmorClassProfileRepository armorClassProfileRepository,
                               AccessoryRepository accessoryRepository,
                               ItemSetMemberRepository setMemberRepository,
                               ItemSetDamageThresholdRepository setDamageThresholdRepository,
@@ -90,6 +101,7 @@ public final class EquipmentResolver {
         this.templateRepository = templateRepository;
         this.snapshotRepository = snapshotRepository;
         this.mobDamageProfileRepository = mobDamageProfileRepository;
+        this.armorClassProfileRepository = armorClassProfileRepository;
         this.accessoryRepository = accessoryRepository;
         this.setMemberRepository = setMemberRepository;
         this.setDamageThresholdRepository = setDamageThresholdRepository;
@@ -218,10 +230,20 @@ public final class EquipmentResolver {
                 .orElse(List.of());
     }
 
+    /** The item's own type modifiers, plus its armor class's profile (if it has one) - see ArmorClass's javadoc. */
     private List<TypeModifier> modifiersAllowedIn(ItemStack stack, String slotName) {
         return resolvedItemOf(stack)
                 .filter(item -> isAllowedInSlot(item.template(), slotName))
-                .map(item -> item.snapshot().typeModifiers())
+                .map(item -> {
+                    ArmorClass armorClass = item.template().armorClass();
+                    if (armorClass == null) {
+                        return item.snapshot().typeModifiers();
+                    }
+                    List<TypeModifier> combined = new ArrayList<>(item.snapshot().typeModifiers());
+                    armorClassProfileRepository.findByArmorClass(armorClass.name())
+                            .forEach((type, percent) -> combined.add(new TypeModifier(type, percent)));
+                    return combined;
+                })
                 .orElse(List.of());
     }
 

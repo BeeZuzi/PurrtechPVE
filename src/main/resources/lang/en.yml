@@ -45,12 +45,22 @@ item:
   bulk-import-done: "<green>ValhallaMMO bulk import: <white><imported></white> imported, <white><failed></white> skipped, out of <white><total></white> found (<white><enchants></white> enchantments carried over in total)."
   bulk-import-failed-items: "<yellow>Skipped items: <white><items></white>"
   synced: "<green>Template <white><key></white> pushed to circulation. Updated <white><count></white> items for online players (offline players catch up on next login)."
+  unknown-armor-class: "<red>Unknown armor class: <white><class></white> (use light, medium, heavy, or none)"
+  armor-set: "<green>Armor class <white><class></white> set on template <white><key></white>."
+  armor-cleared: "<green>Armor class cleared from template <white><key></white>."
 
 mobprofile:
   set: "<green>Resistance/weakness <white><type></white> set for MythicMobs type <white><mob></white>."
   removed: "<green>Resistance/weakness <white><type></white> removed for MythicMobs type <white><mob></white>."
   not-found: "<red>MythicMobs type <white><mob></white> has no <white><type></white> resistance/weakness set."
   list-empty: "<yellow>MythicMobs type <white><mob></white> has no damage profile set."
+  list-entry: "<white><type></white> <gray>(<percent> %)</gray>"
+
+armorclass:
+  set: "<green>Resistance/weakness <white><type></white> set for armor class <white><class></white>."
+  removed: "<green>Resistance/weakness <white><type></white> removed for armor class <white><class></white>."
+  not-found: "<red>Armor class <white><class></white> has no <white><type></white> resistance/weakness set."
+  list-empty: "<yellow>Armor class <white><class></white> has no benefits set."
   list-entry: "<white><type></white> <gray>(<percent> %)</gray>"
 
 set:

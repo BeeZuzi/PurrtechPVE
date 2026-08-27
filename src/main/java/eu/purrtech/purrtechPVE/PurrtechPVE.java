@@ -7,6 +7,7 @@ import eu.purrtech.purrtechPVE.config.ConfigLoader;
 import eu.purrtech.purrtechPVE.config.WorldToggleSettings;
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.AccessoryRepository;
+import eu.purrtech.purrtechPVE.db.ArmorClassProfileRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.Database;
 import eu.purrtech.purrtechPVE.db.ItemSetDamageThresholdRepository;
@@ -51,6 +52,7 @@ public final class PurrtechPVE extends JavaPlugin {
     private ItemEditorListener itemEditorListener;
     private MythicMobsBridge mythicMobsBridge;
     private MobEquipmentRepository mobEquipmentRepository;
+    private ArmorClassProfileRepository armorClassProfileRepository;
 
     @Override
     public void onEnable() {
@@ -72,6 +74,7 @@ public final class PurrtechPVE extends JavaPlugin {
         TypeModifierRepository typeModifierRepository = new TypeModifierRepository(database);
         TemplateEnchantmentRepository enchantmentRepository = new TemplateEnchantmentRepository(database);
         mobDamageProfileRepository = new MobDamageProfileRepository(database);
+        armorClassProfileRepository = new ArmorClassProfileRepository(database);
         accessoryRepository = new AccessoryRepository(database);
         mobEquipmentRepository = new MobEquipmentRepository(database);
         ItemSetRepository itemSetRepository = new ItemSetRepository(database);
@@ -127,7 +130,7 @@ public final class PurrtechPVE extends JavaPlugin {
             }
         }
         EquipmentResolver equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
-                mobDamageProfileRepository, accessoryRepository, itemSetMemberRepository,
+                mobDamageProfileRepository, armorClassProfileRepository, accessoryRepository, itemSetMemberRepository,
                 itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, mythicMobsBridge);
 
         getLogger().info("MythicMobs integration: " + (mythicMobsBridge != null ? "enabled" : "not found, running standalone"));
@@ -209,5 +212,9 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public MobEquipmentRepository getMobEquipmentRepository() {
         return mobEquipmentRepository;
+    }
+
+    public ArmorClassProfileRepository getArmorClassProfileRepository() {
+        return armorClassProfileRepository;
     }
 }
