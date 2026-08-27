@@ -1,5 +1,6 @@
 package eu.purrtech.purrtechPVE.damage;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -31,19 +32,27 @@ public final class DamagePipeline {
      *                            from worn armor + trinkets (+ mob damage profile); missing keys are treated as 0%
      */
     public static double apply(double rawDamage, Map<String, Double> typedDamage, Map<String, Double> resistPercentByType) {
+        return applyDetailed(rawDamage, typedDamage, resistPercentByType).total();
+    }
+
+    /** Same calculation as {@link #apply}, but also exposes the post-resist amount per type - e.g. for combat feedback UI. */
+    public static Result applyDetailed(double rawDamage, Map<String, Double> typedDamage, Map<String, Double> resistPercentByType) {
         if (rawDamage <= 0) {
-            return rawDamage;
+            return new Result(rawDamage, Map.of());
         }
 
         Map<String, Double> typed = normalize(typedDamage, rawDamage);
         Map<String, Double> resists = resistPercentByType == null ? Map.of() : resistPercentByType;
 
+        Map<String, Double> perType = new LinkedHashMap<>();
         double total = 0.0;
         for (Map.Entry<String, Double> bucket : typed.entrySet()) {
             double resistPercent = clamp(resists.getOrDefault(bucket.getKey(), 0.0));
-            total += bucket.getValue() * (1 - resistPercent / 100.0);
+            double finalAmount = bucket.getValue() * (1 - resistPercent / 100.0);
+            perType.merge(bucket.getKey(), finalAmount, Double::sum);
+            total += finalAmount;
         }
-        return Math.max(0.0, total);
+        return new Result(Math.max(0.0, total), perType);
     }
 
     private static Map<String, Double> normalize(Map<String, Double> typedDamage, double rawDamage) {
@@ -55,5 +64,9 @@ public final class DamagePipeline {
 
     public static double clamp(double resistPercent) {
         return Math.max(MIN_RESIST_PERCENT, Math.min(MAX_RESIST_PERCENT, resistPercent));
+    }
+
+    /** @param perType post-resist damage amount per damage type key - sums to {@code total} (barring the floor-at-0 on total). */
+    public record Result(double total, Map<String, Double> perType) {
     }
 }

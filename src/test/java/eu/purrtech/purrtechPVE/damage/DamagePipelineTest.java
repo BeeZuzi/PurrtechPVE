@@ -91,4 +91,34 @@ class DamagePipelineTest {
         assertEquals(0.0, DamagePipeline.apply(0.0, Map.of("fire", 1.0), Map.of("fire", -100.0)), DELTA);
         assertEquals(-5.0, DamagePipeline.apply(-5.0, Map.of("fire", 1.0), Map.of("fire", -100.0)), DELTA);
     }
+
+    @Test
+    void applyDetailedExposesPostResistAmountPerType() {
+        Map<String, Double> typed = Map.of("slashing", 6.0, "fire", 4.0);
+        Map<String, Double> resist = Map.of("slashing", 50.0);
+
+        DamagePipeline.Result result = DamagePipeline.applyDetailed(10.0, typed, resist);
+
+        assertEquals(7.0, result.total(), DELTA);
+        assertEquals(3.0, result.perType().get("slashing"), DELTA);
+        assertEquals(4.0, result.perType().get("fire"), DELTA);
+    }
+
+    @Test
+    void applyDetailedPerTypeSumsBackToTotal() {
+        Map<String, Double> typed = Map.of("fire", 4.0, "frozen", 3.0, "lightning", 3.0);
+        Map<String, Double> resist = Map.of("fire", 25.0, "frozen", -10.0);
+
+        DamagePipeline.Result result = DamagePipeline.applyDetailed(10.0, typed, resist);
+
+        double sum = result.perType().values().stream().mapToDouble(Double::doubleValue).sum();
+        assertEquals(result.total(), sum, DELTA);
+    }
+
+    @Test
+    void applyDetailedOnNonPositiveRawDamageHasEmptyBreakdown() {
+        DamagePipeline.Result result = DamagePipeline.applyDetailed(0.0, Map.of("fire", 1.0), Map.of());
+        assertEquals(0.0, result.total(), DELTA);
+        assertEquals(Map.of(), result.perType());
+    }
 }

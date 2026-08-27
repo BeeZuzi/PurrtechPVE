@@ -128,6 +128,57 @@ final class Schema {
                         PRIMARY KEY (player_uuid, slot_name)
                     )
                     """);
+
+            // Set definitions are treated as live/global config, like mob_damage_profile and
+            // item_templates.allowed_slots - not versioned/snapshotted per item stack, since a
+            // set bonus is a rule about "how many pieces are currently worn", not a stat baked
+            // into any one item.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_sets (
+                        id TEXT PRIMARY KEY,
+                        key TEXT NOT NULL UNIQUE,
+                        display_name TEXT NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    )
+                    """);
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_item_sets_key ON item_sets(key)");
+
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_set_members (
+                        set_id TEXT NOT NULL REFERENCES item_sets(id) ON DELETE CASCADE,
+                        template_id TEXT NOT NULL REFERENCES item_templates(id) ON DELETE CASCADE,
+                        PRIMARY KEY (set_id, template_id)
+                    )
+                    """);
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_item_set_members_template ON item_set_members(template_id)");
+
+            // piece_count is NOT predetermined - the admin adds whichever thresholds they want
+            // (1 piece, 2 pieces, 5 pieces, ...), each with its own independent bonus. Thresholds
+            // are cumulative at combat time: wearing enough pieces for a higher threshold keeps
+            // every lower threshold's bonus active too (see EquipmentResolver).
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_set_threshold_damage (
+                        set_id TEXT NOT NULL REFERENCES item_sets(id) ON DELETE CASCADE,
+                        piece_count INTEGER NOT NULL,
+                        damage_type_key TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        mode TEXT NOT NULL,
+                        PRIMARY KEY (set_id, piece_count, damage_type_key)
+                    )
+                    """);
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_item_set_threshold_damage_set ON item_set_threshold_damage(set_id)");
+
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_set_threshold_modifier (
+                        set_id TEXT NOT NULL REFERENCES item_sets(id) ON DELETE CASCADE,
+                        piece_count INTEGER NOT NULL,
+                        damage_type_key TEXT NOT NULL,
+                        percent REAL NOT NULL,
+                        PRIMARY KEY (set_id, piece_count, damage_type_key)
+                    )
+                    """);
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_item_set_threshold_modifier_set ON item_set_threshold_modifier(set_id)");
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize database schema", e);
         }

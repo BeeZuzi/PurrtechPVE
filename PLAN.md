@@ -381,13 +381,111 @@
     ručně přes GUI/příkazy.
   - 7 nových JUnit testů na `ValhallaMmoImporter.parse()` (čistý string
     parsing, žádný Bukkit) - prázdný/malformovaný vstup, mapování damage/
-    resist, více atributů najednou, neediné atributy do `skipped`. Live
-    ověřeno jen že příkaz z konzole čistě selže na "jen hráč" bez pádu -
-    **skutečný import ze skutečného ValhallaMMO itemu neověřen** (sandbox
-    nemá ani připojeného hráče, ani nainstalovaný ValhallaMMO) - PDC formát
-    je ale ověřený přímo z jejich zdrojáku, ne z dokumentace, takže riziko
-    by mělo být nízké, ale doporučuju při první příležitosti zkusit na
-    reálném ValhallaMMO itemu a zkontrolovat že se čísla sedí.
+    resist, více atributů najednou, neediné atributy do `skipped`.
+  - **Dodatek (2026-08-26) - reálně ověřeno na skutečném ValhallaMMO
+    pluginu.** Stáhl jsem `ValhallaMMO_1.10.3.jar` (Modrinth, kompatibilní
+    přímo s 26.2), nainstaloval vedle PurrtechPVE - oba naběhly bez
+    konfliktu. Přes jejich `/valhalla drop stone_warhammer 1 <x> <y> <z>
+    world` jsem vyhodil jejich reálný předdefinovaný item do světa a
+    dočasným debug příkazem (smazán po ověření) spustil na něm skutečný
+    `ValhallaMmoImporter`. Výsledek na reálném itemu: `raw PDC string:
+    EXTRA_BLUDGEONING_DAMAGE:7.0:ADD_NUMBER:false;GENERIC_ATTACK_SPEED:1.0:...`
+    → `contribution: blunt 7.0 FLAT WIELDED`, `skipped: [GENERIC_ATTACK_SPEED,
+    KNOCKBACK, STUN_CHANCE]` - přesně sedí s jejich `items.json` (7.0) a
+    s naší mapovací tabulkou. **Vedlejší zjištění**: v tomhle testovacím
+    prostředí se nenačtené/nedržené chunky rychle odgruntí, takže vyhozené
+    itemy zmizí z `World#getEntities()`, dokud chunk násilně nedržíš
+    (`/forceload add`) - proto první 4 pokusy vypadaly jako selhání, i když
+    `/valhalla drop` fungoval pokaždé. Import je tedy reálně ověřený, ne jen
+    podle zdrojáku.
+
+- **Ikony damage typů + action bar combat feedback (2026-08-27), na žádost.**
+  - `DamageType` dostal nové pole `icon` - jeden Unicode znak z bloků, které
+    Minecraftí výchozí font vykresluje spolehlivě už od starých verzí (Misc
+    Symbols U+2600-26FF, Dingbats, řecká písmena, šipky) - žádný resource
+    pack není potřeba, na rozdíl od plnobarevných emoji, která se spolehlivě
+    nevykreslují. Všech 20 typů má vlastní odlišnou ikonu (např. ❄ mrazivé,
+    ⚡ bleskové, ☠ jed, ☀ zářivé, ✝ svaté, Ψ psychické) - test
+    `everySeededTypeHasADistinctNonBlankIcon` hlídá, že žádná není prázdná
+    ani duplicitní. Ikony se navíc propsaly i do GUI editoru (Custom
+    Damages/Odolnosti taby teď ukazují ikonu před názvem typu).
+  - `DamagePipeline.applyDetailed(...)` - nová varianta vedle `apply(...)`,
+    která kromě celkového čísla vrací i **rozpad podle typu PO aplikaci
+    odolnosti** (`Result(total, perType)`) - přesně to, co je potřeba
+    zobrazit ("kolik" reálně prošlo, ne syrové číslo před odolností).
+    `apply(...)` zůstal beze změny chování, jen teď interně volá
+    `applyDetailed(...).total()`.
+  - `combat/DamageFeedback.java` - poskládá `ikona částka  ikona částka`
+    (např. "❄ 3  ♨ 1.5") jako Adventure `Component`, nuly/záporná čísla
+    (typ, co se úplně odolal) se vynechávají.
+  - `CombatDamageListener` teď po každém zpracovaném zásahu pošle přes
+    `Player#sendActionBar` rozpad **oběma stranám, pokud jsou hráči** -
+    útočník vidí, co právě udělil, obránce vidí, co právě dostal (stejná
+    čísla, jen jiná barva - červená pro dostané, žlutá pro udělené).
+    Mobové (MythicMobs i vanilla) action bar logicky nedostanou.
+  - 9 nových JUnit testů (`DamagePipelineTest` na `applyDetailed`,
+    `DamageFeedbackTest` na renderování Component - **tohle šlo plně
+    otestovat i bez živého serveru**, protože Adventure `Component`/jeho
+    serializery jsou čistá knihovna nezávislá na Bukkitu, na rozdíl od
+    `ItemStack`/`ItemMeta` jinde v projektu). 75 testů celkem zelených.
+  - Ověřeno živě: `runServer` boot bez výjimky s novou signaturou
+    `CombatDamageListener` (3 parametry místo 2), a ručně jsem zkontroloval,
+    že všech 20 ikon jsou skutečně jednotlivé BMP code-pointy (žádné
+    rozbité surrogate páry, žádná duplicita) přes `hex(ord(...))`.
+    **Neověřeno**: jak se ikony reálně vykreslí v klientovi téhle konkrétní
+    (fiktivní budoucí) verze 26.2, a jak vypadá/čte se action bar zpráva při
+    skutečném souboji - obojí potřebuje připojeného hráče, což sandbox nemá.
+    Použité Unicode bloky mají dlouhou historii spolehlivého vykreslení v MC
+    klientech, ale 100% jistotu pro tuhle přesnou verzi to nedává - doporučuju
+    zkusit `/pve item give` na sebe a nechat se/mobem praštit, ať se potvrdí
+    že ikony vypadají dobře a ne jako prázdné čtverečky.
+
+- **Item sety s tiered bonusy (2026-08-27), na žádost.** Sety jsou vlastní
+  koncept oddělený od item šablon - itemy do nich jen PATŘÍ (`item_set_
+  members`), samotný bonus je vlastnost setu, ne itemu.
+  - **Datový model**: `item_sets` (key/displayName), `item_set_members`
+    (set↔template many-to-many), `item_set_threshold_damage` a `item_set_
+    threshold_modifier` (`piece_count` NENÍ předem daný enum ani sloupec s
+    pevnou sadou hodnot - je to prostě INTEGER, admin přidává libovolné
+    prahy podle potřeby, přesně jak jsi chtěl "nebude to tam předem dané").
+    Stejně jako `mob_damage_profile`/`allowed_slots`, sety jsou **live/
+    globální config, ne verzované per kus** - bonus setu je pravidlo "kolik
+    kusů je zrovna nasazeno", ne statistika napečená do konkrétního itemu.
+  - **Prahy jsou kumulativní**: hráč se 4 kusy setu dostane bonus za 1, 2, 3
+    I 4 kusy najednou (ne jen nejvyšší dosažený) - běžná konvence u
+    tiered set bonusů, řekl bych že je to i to, co jsi popisoval ("když
+    bude mít 2 tak tam může být zase něco jiného" - obojí platí zároveň).
+  - `ItemSetService` - CRUD setu, správa členů (`addMember`/`removeMember`
+    podle template klíče), CRUD prahů poškození/odolnosti podle počtu kusů.
+  - `EquipmentResolver` rozšířen - při počítání odchozího poškození i
+    odolnosti teď navíc spočítá, kolik nasazených kusů (napříč vanilla sloty
+    I virtuálními accessory sloty, stejně jako u WORN bonusů) patří do
+    kterého setu, a přičte bonusy všech prahů, které jsou splněné.
+  - **Příkazová řádka**: `/pve set create|delete|list|edit|addmember|
+    removemember`, `/pve set threshold damage set/remove`, `/pve set
+    threshold resist set/remove`.
+  - **GUI** (`/pve set edit <key>`, `gui/SetEditorMenu.java`) - tab "Itemy v
+    setu" (mřížka členů, klik=odebrat, "+ Přidat item" otevře výběr ze VŠECH
+    už vytvořených šablon, které v setu ještě nejsou - přesně "otevřeti to
+    menu s itemy který už jsou vytvořené" jak jsi chtěl) a tab "Prahy bonusů"
+    (mřížka existujících prahů seřazená podle počtu kusů, "+ Přidat práh"
+    otevře chatový prompt `<počet kusů> damage|resist <typ> <hodnota>
+    [flat|percent]` - počet kusů se zadává na místě, nic není předem dané).
+  - 27 nových JUnit testů (4 repository třídy + `ItemSetService` - CRUD,
+    duplicitní klíč, cizí klíče, kumulativní řazení prahů, kaskádové mazání).
+    102 testů celkem zelených.
+  - Ověřeno živě: celá příkazová posloupnost (2× create item → create set →
+    2× addmember → damage threshold → resist threshold → list ukazuje
+    "dragon-set (2 itemů)" → `/pve set edit` z konzole správně odmítnuto →
+    remove threshold → removemember → delete → list prázdný) proběhla
+    přesně podle očekávání, žádná výjimka, všechny 4 nové tabulky v DB
+    existují. **Neověřeno**: samotné GUI (`SetEditorMenu`) klikací interakce
+    se skutečným hráčem - stejné omezení jako u `ItemEditorMenu`, sandbox
+    nemá klienta. Doporučuju vyzkoušet `/pve set edit` naživo - proklikat
+    přidání/odebrání itemů přes "+ Přidat item", přidat práh přes chat
+    prompt, a hlavně reálně ověřit v souboji, že se bonus setu opravdu
+    projeví v action baru (viz předchozí feature) až budeš mít nasazený
+    dostatečný počet kusů.
 
 # PurrtechPVE — analýza a implementační plán
 

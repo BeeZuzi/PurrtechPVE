@@ -158,7 +158,7 @@ public final class ItemEditorMenu {
             lore.add(Component.text("a wielded/worn do chatu)", NamedTextColor.YELLOW));
             lore.add(Component.text("Shift+klik: smazat obojí (wielded i worn)", NamedTextColor.RED));
 
-            ItemStack icon = named(iconFor(type.key()), Component.text(type.displayName(), NamedTextColor.AQUA));
+            ItemStack icon = named(iconFor(type.key()), Component.text(type.icon() + " " + type.displayName(), NamedTextColor.AQUA));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
@@ -238,7 +238,7 @@ public final class ItemEditorMenu {
             lore.add(Component.text("Klik: nastavit (kladné = odolnost, záporné = slabina)", NamedTextColor.YELLOW));
             lore.add(Component.text("Shift+klik: smazat", NamedTextColor.RED));
 
-            ItemStack icon = named(iconFor(type.key()), Component.text(type.displayName(), NamedTextColor.AQUA));
+            ItemStack icon = named(iconFor(type.key()), Component.text(type.icon() + " " + type.displayName(), NamedTextColor.AQUA));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);

@@ -1,10 +1,13 @@
 package eu.purrtech.purrtechPVE.listener;
 
 import eu.purrtech.purrtechPVE.combat.CombatKind;
+import eu.purrtech.purrtechPVE.combat.DamageFeedback;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
 import eu.purrtech.purrtechPVE.combat.WorldToggleEvaluator;
 import eu.purrtech.purrtechPVE.config.WorldToggleSettings;
 import eu.purrtech.purrtechPVE.damage.DamagePipeline;
+import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -22,18 +25,24 @@ import java.util.Map;
  * EquipmentResolver} reads the attacker's/defender's actual equipped item
  * templates (both are just {@link LivingEntity} here, so this already works
  * for vanilla mobs - no MythicMobs-specific code needed for the split/resist
- * math itself) and feeds the result through {@link DamagePipeline}.
- * MythicMobs-specific hooking (its own damage event for skill-based damage,
- * mob damage profiles, detecting MythicMobs-equipped items) is Fáze 4.
+ * math itself) and feeds the result through {@link DamagePipeline}. Whichever
+ * side is a {@link Player} gets an action bar breakdown of the hit via
+ * {@link DamageFeedback} - attacker sees what they dealt, defender sees what
+ * they took, same numbers either way. MythicMobs-specific hooking (its own
+ * damage event for skill-based damage, mob damage profiles, detecting
+ * MythicMobs-equipped items) is Fáze 4.
  */
 public final class CombatDamageListener implements Listener {
 
     private final WorldToggleSettings worldToggles;
     private final EquipmentResolver equipmentResolver;
+    private final DamageTypeRegistry damageTypeRegistry;
 
-    public CombatDamageListener(WorldToggleSettings worldToggles, EquipmentResolver equipmentResolver) {
+    public CombatDamageListener(WorldToggleSettings worldToggles, EquipmentResolver equipmentResolver,
+                                 DamageTypeRegistry damageTypeRegistry) {
         this.worldToggles = worldToggles;
         this.equipmentResolver = equipmentResolver;
+        this.damageTypeRegistry = damageTypeRegistry;
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -59,7 +68,15 @@ public final class CombatDamageListener implements Listener {
 
         Map<String, Double> typedDamage = equipmentResolver.resolveOutgoingTypedDamage(attacker, event.getDamage());
         Map<String, Double> resistance = equipmentResolver.resolveResistance(defender);
-        event.setDamage(DamagePipeline.apply(event.getDamage(), typedDamage, resistance));
+        DamagePipeline.Result result = DamagePipeline.applyDetailed(event.getDamage(), typedDamage, resistance);
+        event.setDamage(result.total());
+
+        if (defender instanceof Player defenderPlayer) {
+            defenderPlayer.sendActionBar(DamageFeedback.render(result.perType(), damageTypeRegistry, NamedTextColor.RED));
+        }
+        if (attacker instanceof Player attackerPlayer) {
+            attackerPlayer.sendActionBar(DamageFeedback.render(result.perType(), damageTypeRegistry, NamedTextColor.YELLOW));
+        }
     }
 
     private LivingEntity resolveAttacker(EntityDamageByEntityEvent event) {

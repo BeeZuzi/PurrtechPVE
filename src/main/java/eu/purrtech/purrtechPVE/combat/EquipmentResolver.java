@@ -2,6 +2,9 @@ package eu.purrtech.purrtechPVE.combat;
 
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.AccessoryRepository;
+import eu.purrtech.purrtechPVE.db.ItemSetDamageThresholdRepository;
+import eu.purrtech.purrtechPVE.db.ItemSetMemberRepository;
+import eu.purrtech.purrtechPVE.db.ItemSetModifierThresholdRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
@@ -12,6 +15,8 @@ import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
 import eu.purrtech.purrtechPVE.item.TemplateSnapshot;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
+import eu.purrtech.purrtechPVE.itemset.SetThresholdDamage;
+import eu.purrtech.purrtechPVE.itemset.SetThresholdModifier;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobsBridge;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -23,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Reads {@link ItemTemplate} data off a {@link LivingEntity}'s actual
@@ -39,7 +45,8 @@ import java.util.Optional;
  * already-issued items, matching {@code ItemTemplateService}'s versioning
  * contract exactly (only the {@code allowedSlots}/trinket restriction is
  * treated as live template config rather than a pinned stat, since it's a
- * placement rule, not a balance number).
+ * placement rule, not a balance number - set thresholds are the same way,
+ * see {@code ItemSetService}).
  *
  * <p>Player attackers/defenders also fold in their virtual accessory slots
  * (see {@code trinket}) alongside vanilla equipment; other entities (mobs)
@@ -47,6 +54,12 @@ import java.util.Optional;
  * MythicMobs-type {@code mob_damage_profile}, if {@code mythicMobsBridge} is
  * non-null (only constructed when MythicMobs is actually installed) and the
  * entity is one of its mobs.
+ *
+ * <p>Set bonuses: every equipped piece's template is checked against {@code
+ * item_set_members} to count how many pieces of each set are currently worn.
+ * Thresholds are cumulative - a wearer with 4 set pieces gets every
+ * threshold's bonus whose {@code pieceCount} is 4 or fewer, not just the
+ * highest one, matching how tiered set bonuses conventionally work.
  */
 public final class EquipmentResolver {
 
@@ -59,6 +72,9 @@ public final class EquipmentResolver {
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final MobDamageProfileRepository mobDamageProfileRepository;
     private final AccessoryRepository accessoryRepository;
+    private final ItemSetMemberRepository setMemberRepository;
+    private final ItemSetDamageThresholdRepository setDamageThresholdRepository;
+    private final ItemSetModifierThresholdRepository setModifierThresholdRepository;
     private final ItemRenderer renderer;
     private final MythicMobsBridge mythicMobsBridge;
 
@@ -66,12 +82,18 @@ public final class EquipmentResolver {
                               ItemTemplateSnapshotRepository snapshotRepository,
                               MobDamageProfileRepository mobDamageProfileRepository,
                               AccessoryRepository accessoryRepository,
+                              ItemSetMemberRepository setMemberRepository,
+                              ItemSetDamageThresholdRepository setDamageThresholdRepository,
+                              ItemSetModifierThresholdRepository setModifierThresholdRepository,
                               ItemRenderer renderer,
                               MythicMobsBridge mythicMobsBridge) {
         this.templateRepository = templateRepository;
         this.snapshotRepository = snapshotRepository;
         this.mobDamageProfileRepository = mobDamageProfileRepository;
         this.accessoryRepository = accessoryRepository;
+        this.setMemberRepository = setMemberRepository;
+        this.setDamageThresholdRepository = setDamageThresholdRepository;
+        this.setModifierThresholdRepository = setModifierThresholdRepository;
         this.renderer = renderer;
         this.mythicMobsBridge = mythicMobsBridge;
     }
@@ -80,7 +102,7 @@ public final class EquipmentResolver {
      * The held weapon's WIELDED contributions split rawDamage into typed buckets (100% {@link
      * DamageTypeRegistry#FALLBACK_PHYSICAL} if the held item has none/isn't one of our templates); every equipped
      * piece's WORN contributions (respecting each template's allowedSlots restriction, if any) are added as bonus
-     * damage on top of that split, merged into the same buckets.
+     * damage on top of that split, merged into the same buckets, and so are any active set-threshold bonuses.
      */
     public Map<String, Double> resolveOutgoingTypedDamage(LivingEntity attacker, double rawDamage) {
         EntityEquipment equipment = attacker.getEquipment();
@@ -101,10 +123,20 @@ public final class EquipmentResolver {
             }
         }
 
-        for (Map.Entry<String, ItemStack> entry : allEquippedPieces(attacker, equipment).entrySet()) {
+        Map<String, ItemStack> pieces = allEquippedPieces(attacker, equipment);
+        for (Map.Entry<String, ItemStack> entry : pieces.entrySet()) {
             for (DamageContribution c : contributionsAllowedIn(entry.getValue(), entry.getKey())) {
                 if (c.context() == ModifierContext.WORN) {
                     typed.merge(c.damageTypeKey(), resolveAmount(c, rawDamage), Double::sum);
+                }
+            }
+        }
+
+        for (Map.Entry<UUID, Integer> setCount : countEquippedSetPieces(pieces).entrySet()) {
+            for (SetThresholdDamage t : setDamageThresholdRepository.findBySet(setCount.getKey())) {
+                if (t.pieceCount() <= setCount.getValue()) {
+                    double amount = t.mode() == DamageMode.PERCENT_OF_TOTAL ? rawDamage * t.amount() / 100.0 : t.amount();
+                    typed.merge(t.damageTypeKey(), amount, Double::sum);
                 }
             }
         }
@@ -113,16 +145,26 @@ public final class EquipmentResolver {
 
     /**
      * Sum of item_type_modifier percent across every equipped piece respecting allowedSlots (positive resists,
-     * negative weakens), plus the entity's MythicMobs mob_damage_profile if it is one of its mobs.
+     * negative weakens), plus any active set-threshold resistance bonuses, plus the entity's MythicMobs
+     * mob_damage_profile if it is one of its mobs.
      */
     public Map<String, Double> resolveResistance(LivingEntity defender) {
         Map<String, Double> resist = new HashMap<>();
 
         EntityEquipment equipment = defender.getEquipment();
         if (equipment != null) {
-            for (Map.Entry<String, ItemStack> entry : allEquippedPieces(defender, equipment).entrySet()) {
+            Map<String, ItemStack> pieces = allEquippedPieces(defender, equipment);
+            for (Map.Entry<String, ItemStack> entry : pieces.entrySet()) {
                 for (TypeModifier modifier : modifiersAllowedIn(entry.getValue(), entry.getKey())) {
                     resist.merge(modifier.damageTypeKey(), modifier.percent(), Double::sum);
+                }
+            }
+
+            for (Map.Entry<UUID, Integer> setCount : countEquippedSetPieces(pieces).entrySet()) {
+                for (SetThresholdModifier t : setModifierThresholdRepository.findBySet(setCount.getKey())) {
+                    if (t.pieceCount() <= setCount.getValue()) {
+                        resist.merge(t.damageTypeKey(), t.percent(), Double::sum);
+                    }
                 }
             }
         }
@@ -134,6 +176,17 @@ public final class EquipmentResolver {
         }
 
         return resist;
+    }
+
+    /** How many equipped pieces belong to each set - counts physical pieces, so two rings of the same set template count as 2. */
+    private Map<UUID, Integer> countEquippedSetPieces(Map<String, ItemStack> equippedPieces) {
+        Map<UUID, Integer> counts = new HashMap<>();
+        for (ItemStack stack : equippedPieces.values()) {
+            resolvedItemOf(stack).ifPresent(item ->
+                    setMemberRepository.findSetIdsContainingTemplate(item.template().id())
+                            .forEach(setId -> counts.merge(setId, 1, Integer::sum)));
+        }
+        return counts;
     }
 
     /** Vanilla equipment slots + (for players) virtual accessory slots, keyed by slot name for allowedSlots checks. */

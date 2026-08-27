@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -9,6 +10,8 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.gui.ItemEditorMenu;
 import eu.purrtech.purrtechPVE.gui.ItemEditorTab;
+import eu.purrtech.purrtechPVE.gui.SetEditorMenu;
+import eu.purrtech.purrtechPVE.gui.SetEditorTab;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
@@ -18,6 +21,9 @@ import eu.purrtech.purrtechPVE.item.ModifierContext;
 import eu.purrtech.purrtechPVE.item.TemplateNotFoundException;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import eu.purrtech.purrtechPVE.item.UnknownDamageTypeException;
+import eu.purrtech.purrtechPVE.itemset.DuplicateSetKeyException;
+import eu.purrtech.purrtechPVE.itemset.ItemSet;
+import eu.purrtech.purrtechPVE.itemset.ItemSetNotFoundException;
 import eu.purrtech.purrtechPVE.trinket.AccessoryMenu;
 import eu.purrtech.purrtechPVE.valhalla.ValhallaMmoImporter;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -123,6 +129,54 @@ public final class PveCommand {
                         .then(Commands.literal("list")
                                 .then(Commands.argument("mythicMobType", StringArgumentType.word())
                                         .executes(ctx -> listMobProfile(plugin, ctx)))))
+                .then(Commands.literal("set")
+                        .requires(source -> source.getSender().hasPermission(PERMISSION))
+                        .then(Commands.literal("create")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .then(Commands.argument("displayName", StringArgumentType.greedyString())
+                                                .executes(ctx -> createSet(plugin, ctx)))))
+                        .then(Commands.literal("delete")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .executes(ctx -> deleteSet(plugin, ctx))))
+                        .then(Commands.literal("list")
+                                .executes(ctx -> listSets(plugin, ctx)))
+                        .then(Commands.literal("edit")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .executes(ctx -> editSet(plugin, ctx))))
+                        .then(Commands.literal("addmember")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .then(Commands.argument("templateKey", StringArgumentType.word())
+                                                .executes(ctx -> addSetMember(plugin, ctx)))))
+                        .then(Commands.literal("removemember")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .then(Commands.argument("templateKey", StringArgumentType.word())
+                                                .executes(ctx -> removeSetMember(plugin, ctx)))))
+                        .then(Commands.literal("threshold")
+                                .then(Commands.literal("damage")
+                                        .then(Commands.literal("set")
+                                                .then(Commands.argument("key", StringArgumentType.word())
+                                                        .then(Commands.argument("pieceCount", IntegerArgumentType.integer(1))
+                                                                .then(Commands.argument("damageType", StringArgumentType.word())
+                                                                        .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
+                                                                                .then(Commands.argument("mode", StringArgumentType.word())
+                                                                                        .executes(ctx -> setSetDamageThreshold(plugin, ctx))))))))
+                                        .then(Commands.literal("remove")
+                                                .then(Commands.argument("key", StringArgumentType.word())
+                                                        .then(Commands.argument("pieceCount", IntegerArgumentType.integer(1))
+                                                                .then(Commands.argument("damageType", StringArgumentType.word())
+                                                                        .executes(ctx -> removeSetDamageThreshold(plugin, ctx)))))))
+                                .then(Commands.literal("resist")
+                                        .then(Commands.literal("set")
+                                                .then(Commands.argument("key", StringArgumentType.word())
+                                                        .then(Commands.argument("pieceCount", IntegerArgumentType.integer(1))
+                                                                .then(Commands.argument("damageType", StringArgumentType.word())
+                                                                        .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
+                                                                                .executes(ctx -> setSetModifierThreshold(plugin, ctx)))))))
+                                        .then(Commands.literal("remove")
+                                                .then(Commands.argument("key", StringArgumentType.word())
+                                                        .then(Commands.argument("pieceCount", IntegerArgumentType.integer(1))
+                                                                .then(Commands.argument("damageType", StringArgumentType.word())
+                                                                        .executes(ctx -> removeSetModifierThreshold(plugin, ctx)))))))))
                 .build();
     }
 
@@ -479,6 +533,195 @@ public final class PveCommand {
                     Placeholder.unparsed("type", entry.getKey()), Placeholder.unparsed("percent", String.valueOf(entry.getValue()))));
         }
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static int createSet(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String displayName = StringArgumentType.getString(ctx, "displayName");
+
+        try {
+            plugin.getItemSetService().create(key, displayName);
+        } catch (DuplicateSetKeyException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "set.duplicate-key", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "set.created", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int deleteSet(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        String key = StringArgumentType.getString(ctx, "key");
+        boolean deleted = plugin.getItemSetService().delete(key);
+        String messageKey = deleted ? "set.deleted" : "set.not-found";
+        sender.sendMessage(plugin.getMessages().render(localeOf(plugin, sender), messageKey, Placeholder.unparsed("key", key)));
+        return deleted ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    private static int listSets(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        List<ItemSet> sets = plugin.getItemSetService().listAll();
+        if (sets.isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "set.list-empty"));
+            return Command.SINGLE_SUCCESS;
+        }
+        for (ItemSet set : sets) {
+            sender.sendMessage(plugin.getMessages().render(locale, "set.list-entry",
+                    Placeholder.unparsed("key", set.key()),
+                    Placeholder.unparsed("members", String.valueOf(plugin.getItemSetService().members(set.key()).size()))));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int editSet(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+            return 0;
+        }
+        String key = StringArgumentType.getString(ctx, "key");
+        if (plugin.getItemSetService().findByKey(key).isEmpty()) {
+            player.sendMessage(plugin.getMessages().render(player.locale(), "set.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        SetEditorMenu.open(plugin, player, key, SetEditorTab.MEMBERS);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int addSetMember(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String templateKey = StringArgumentType.getString(ctx, "templateKey");
+
+        try {
+            plugin.getItemSetService().addMember(key, templateKey);
+        } catch (ItemSetNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "set.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", templateKey)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "set.member-added",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("item", templateKey)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeSetMember(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String templateKey = StringArgumentType.getString(ctx, "templateKey");
+
+        try {
+            plugin.getItemSetService().removeMember(key, templateKey);
+        } catch (ItemSetNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "set.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", templateKey)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "set.member-removed",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("item", templateKey)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setSetDamageThreshold(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        int pieceCount = IntegerArgumentType.getInteger(ctx, "pieceCount");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+        double amount = DoubleArgumentType.getDouble(ctx, "amount");
+        DamageMode mode = parseEnum(DamageMode.class, StringArgumentType.getString(ctx, "mode"));
+        if (mode == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "error.invalid-mode-or-context"));
+            return 0;
+        }
+
+        try {
+            plugin.getItemSetService().setDamageThreshold(key, pieceCount, damageType, amount, mode);
+        } catch (ItemSetNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "set.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        } catch (UnknownDamageTypeException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-damage-type", Placeholder.unparsed("type", damageType)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "set.damage-threshold-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("count", String.valueOf(pieceCount)),
+                Placeholder.unparsed("type", damageType)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeSetDamageThreshold(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        int pieceCount = IntegerArgumentType.getInteger(ctx, "pieceCount");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+
+        boolean removed;
+        try {
+            removed = plugin.getItemSetService().removeDamageThreshold(key, pieceCount, damageType);
+        } catch (ItemSetNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "set.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        String messageKey = removed ? "set.damage-threshold-removed" : "set.threshold-not-found";
+        sender.sendMessage(plugin.getMessages().render(locale, messageKey,
+                Placeholder.unparsed("key", key), Placeholder.unparsed("count", String.valueOf(pieceCount)),
+                Placeholder.unparsed("type", damageType)));
+        return removed ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    private static int setSetModifierThreshold(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        int pieceCount = IntegerArgumentType.getInteger(ctx, "pieceCount");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+        double percent = DoubleArgumentType.getDouble(ctx, "percent");
+
+        try {
+            plugin.getItemSetService().setModifierThreshold(key, pieceCount, damageType, percent);
+        } catch (ItemSetNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "set.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        } catch (UnknownDamageTypeException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-damage-type", Placeholder.unparsed("type", damageType)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "set.resist-threshold-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("count", String.valueOf(pieceCount)),
+                Placeholder.unparsed("type", damageType)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeSetModifierThreshold(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        int pieceCount = IntegerArgumentType.getInteger(ctx, "pieceCount");
+        String damageType = StringArgumentType.getString(ctx, "damageType");
+
+        boolean removed;
+        try {
+            removed = plugin.getItemSetService().removeModifierThreshold(key, pieceCount, damageType);
+        } catch (ItemSetNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "set.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        String messageKey = removed ? "set.resist-threshold-removed" : "set.threshold-not-found";
+        sender.sendMessage(plugin.getMessages().render(locale, messageKey,
+                Placeholder.unparsed("key", key), Placeholder.unparsed("count", String.valueOf(pieceCount)),
+                Placeholder.unparsed("type", damageType)));
+        return removed ? Command.SINGLE_SUCCESS : 0;
     }
 
     private static <E extends Enum<E>> E parseEnum(Class<E> type, String raw) {

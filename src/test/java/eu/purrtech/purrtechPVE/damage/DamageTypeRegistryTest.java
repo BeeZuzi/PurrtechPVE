@@ -34,4 +34,15 @@ class DamageTypeRegistryTest {
         assertTrue(registry.find("poison").orElseThrow().dot());
         assertFalse(registry.find("slashing").orElseThrow().dot());
     }
+
+    @Test
+    void everySeededTypeHasADistinctNonBlankIcon() {
+        DamageTypeRegistry registry = new DamageTypeRegistry();
+        java.util.Map<String, DamageType> all = registry.all();
+        java.util.Set<String> icons = new java.util.HashSet<>();
+        for (DamageType type : all.values()) {
+            assertFalse(type.icon() == null || type.icon().isBlank(), "missing icon for " + type.key());
+            assertTrue(icons.add(type.icon()), "duplicate icon '" + type.icon() + "' reused for " + type.key());
+        }
+    }
 }
