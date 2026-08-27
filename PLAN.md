@@ -963,6 +963,54 @@
     reálný zásah - sleduj, jestli se objeví "CRIT! " v action baru a
     jestli cíl dostává periodické tiky poškození po zásahu.
 
+- **DAMAGE tab: "Add" tlačítko místo výpisu všech typů (2026-08-27), na
+  žádost.** Čistě GUI featura - žádná změna schématu/service/repository.
+  Flat vs. procentuální poškození (`DamageMode.FLAT` /
+  `PERCENT_OF_TOTAL`) přitom v projektu existovalo už dřív a bylo plně
+  zapojené (`EquipmentResolver`, `ItemRenderer`, `/pve item damage set`
+  konzolový příkaz) - jen se to v `ItemEditorMenu`'s DAMAGE tabu dalo
+  vybrat jen napsáním "flat"/"percent" jako druhé slovo do chatového
+  promptu, což bylo snadné přehlédnout. Teď je to v tom promptu
+  explicitně vysvětlené (přidán řádek "flat = pevné číslo, percent = %
+  z celkového poškození útoku" + příklad na obojí).
+  - DAMAGE tab už nevypisuje všech ~19 registrovaných typů poškození
+    najednou - zobrazí jen ty, co item už má nastavené (`wielded` a/nebo
+    `worn`), a za posledním z nich zelené tlačítko "+ Přidat poškození".
+  - Klik na "Add" přepne tab do režimu výběru (nové pole
+    `ItemEditorHolder.damageTypePickerOpen`) - stejný tab, stejná
+    inventář, jen se místo nastavených typů vypíšou ty NEnastavené;
+    v PREVIEW_SLOT je "Zpět" šipka místo náhledu itemu. Klik na typ tam
+    i klik na už nastavený typ v běžném zobrazení vede do stejného
+    chatového promptu (`<částka> <flat|percent> <wielded|worn>`) - Add
+    jen řeší VÝBĚR typu, ne flat/percent (to zůstává v chatu, jak bylo).
+  - Shift+klik na už nastavený typ maže obojí (wielded i worn) stejně
+    jako dřív; RESIST tab a ostatní taby beze změny (výslovně žádáno jen
+    pro "damages").
+  - Refaktoring: `render(...)` teď bere `ItemEditorHolder` místo
+    `(templateKey, tab)` zvlášť, aby `renderDamage` měla přístup k
+    picker-flagu - všech 13 volajících míst upraveno mechanicky, žádná
+    změna chování mimo DAMAGE tab.
+  - Žádná nová perzistence, žádná migrace, žádné nové JUnit testy (tahle
+    třída nemá testy vůbec - GUI dotýkající se živého `ItemStack`/
+    `Inventory` se v projektu ověřuje jen přes `runServer`, ne přes
+    JUnit, stejná konvence jako u všech předchozích GUI tabů). 152 testů
+    beze změny, čistý `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Ověřeno živě**: `runServer` boot na čerstvé DB proběhl čistě,
+    plugin se povolil bez chyby (`Damage types registered: [...]`
+    vypsáno správně). Konzolové ověření přes skriptovanou příkazovou
+    sekvenci (`pve item create` → `pve item damage set ... flat/percent
+    ...` → `pve item list`) se nepodařilo kvůli tomu, že JLine konzole
+    při přijímání víc řádků najednou přes pipe zkomolí první příkaz
+    (nesouvisí s touhle změnou - stejné selhání i s 15s prodlevou po
+    "Done", a NPE je čistě ve vanilla `Commands.executeCommandInContext`,
+    žádný `eu.purrtech` frame ve stack trace). Samotný GUI Add/picker
+    flow navíc stejně jde vyzkoušet jen kliknutím připojeného hráče, což
+    tenhle sandbox nikdy neměl k dispozici - **nedá se ověřit v
+    sandboxu**: skutečné otevření DAMAGE tabu, klik na "+ Přidat
+    poškození" a výběr typu z pickeru. Doporučuju vyzkoušet naživo
+    (`/pve item edit <key>` → tab Custom Damages → Add → vyber typ →
+    napiš do chatu částku/mode/context).
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
