@@ -11,6 +11,8 @@ import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
+import eu.purrtech.purrtechPVE.item.BleedEffect;
+import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemRenderer;
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Reads {@link ItemTemplate} data off a {@link LivingEntity}'s actual
@@ -165,11 +168,33 @@ public final class EquipmentResolver {
         return typed;
     }
 
+    /** The attacker's wielded weapon's {@link CriticalEffect}, if it has one configured - pinned to its snapshot like any other weapon stat. */
+    public Optional<CriticalEffect> resolveCriticalEffect(LivingEntity attacker) {
+        return resolveWieldedStat(attacker, TemplateSnapshot::criticalEffect);
+    }
+
+    /** The attacker's wielded weapon's {@link BleedEffect}, if it has one configured - pinned to its snapshot like any other weapon stat. */
+    public Optional<BleedEffect> resolveBleedEffect(LivingEntity attacker) {
+        return resolveWieldedStat(attacker, TemplateSnapshot::bleedEffect);
+    }
+
+    private <T> Optional<T> resolveWieldedStat(LivingEntity attacker, Function<TemplateSnapshot, T> extractor) {
+        EntityEquipment equipment = attacker.getEquipment();
+        if (equipment == null) {
+            return Optional.empty();
+        }
+        return resolvedItemOf(equipment.getItemInMainHand()).map(item -> extractor.apply(item.snapshot()));
+    }
+
     /**
      * Sum of item_type_modifier percent across every equipped piece respecting allowedSlots (positive resists,
      * negative weakens), plus any active set-threshold resistance bonuses, plus the entity's MythicMobs
      * mob_damage_profile if it is one of its mobs, minus whatever the attacker's weapon's armor penetration
      * eats into the defender's armor-class-profile resistance.
+     *
+     * @param attacker {@code null} when there's no specific attacking weapon to consider (e.g. a
+     *                 {@code BleedManager} DOT tick, which isn't any one hit) - armor penetration
+     *                 is simply skipped in that case.
      */
     public Map<String, Double> resolveResistance(LivingEntity attacker, LivingEntity defender) {
         Map<String, Double> resist = new HashMap<>();
@@ -221,6 +246,9 @@ public final class EquipmentResolver {
      */
     private void applyArmorPenetration(LivingEntity attacker, Map<ArmorClass, Map<String, Double>> classProfileContribution,
                                         Map<String, Double> resist) {
+        if (attacker == null) {
+            return;
+        }
         EntityEquipment attackerEquipment = attacker.getEquipment();
         if (attackerEquipment == null) {
             return;

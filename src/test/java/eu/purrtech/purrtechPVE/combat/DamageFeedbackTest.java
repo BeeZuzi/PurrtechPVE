@@ -73,4 +73,21 @@ class DamageFeedbackTest {
     void emptyBreakdownRendersEmptyComponent() {
         assertEquals("", plain(DamageFeedback.render(Map.of(), REGISTRY, NamedTextColor.RED)));
     }
+
+    @Test
+    void criticalFlagPrependsAMarker() {
+        Map<String, Double> perType = Map.of("fire", 4.0);
+        String text = plain(DamageFeedback.render(perType, REGISTRY, NamedTextColor.RED, true));
+
+        String fireIcon = REGISTRY.find("fire").orElseThrow().icon();
+        assertEquals("CRIT! " + fireIcon + " 4", text);
+    }
+
+    @Test
+    void nonCriticalFourArgOverloadMatchesThreeArgOverload() {
+        Map<String, Double> perType = Map.of("fire", 4.0);
+        String withFlag = plain(DamageFeedback.render(perType, REGISTRY, NamedTextColor.RED, false));
+        String withoutFlag = plain(DamageFeedback.render(perType, REGISTRY, NamedTextColor.RED));
+        assertEquals(withoutFlag, withFlag);
+    }
 }

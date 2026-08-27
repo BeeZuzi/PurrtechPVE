@@ -4,6 +4,7 @@ import eu.purrtech.purrtechPVE.damage.DamageType;
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 
 import java.util.Locale;
 import java.util.Map;
@@ -14,14 +15,21 @@ public final class DamageFeedback {
     private DamageFeedback() {
     }
 
+    /** Same as {@link #render(Map, DamageTypeRegistry, NamedTextColor, boolean)}, without a critical-hit marker. */
     public static Component render(Map<String, Double> perType, DamageTypeRegistry registry, NamedTextColor color) {
+        return render(perType, registry, color, false);
+    }
+
+    public static Component render(Map<String, Double> perType, DamageTypeRegistry registry, NamedTextColor color, boolean critical) {
         // Deliberately built via Component.append(), not a TextComponent.Builder - a production
         // server crashed with NoSuchMethodError on TextComponent$Builder.build() because its
         // bundled Adventure jar (Leaf 1.21.11) resolves that covariant-return bridge method
         // differently than the one this plugin was compiled against (a newer Paper's Adventure).
         // Component.append(Component) is a much older, stable method on Component itself, so
         // there's no builder/bridge-method resolution to go wrong here.
-        Component result = Component.empty();
+        Component result = critical
+                ? Component.text("CRIT! ", NamedTextColor.GOLD, TextDecoration.BOLD)
+                : Component.empty();
         boolean first = true;
         for (Map.Entry<String, Double> entry : perType.entrySet()) {
             if (entry.getValue() <= 0) {

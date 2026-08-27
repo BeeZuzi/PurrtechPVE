@@ -69,17 +69,21 @@ final class Schema {
                         type_modifiers TEXT NOT NULL,
                         enchantments TEXT NOT NULL DEFAULT '',
                         armor_penetration TEXT NOT NULL DEFAULT '',
+                        bleed_effect TEXT,
+                        critical_effect TEXT,
                         created_at INTEGER NOT NULL,
                         PRIMARY KEY (template_id, version)
                     )
                     """);
             // CREATE TABLE IF NOT EXISTS above is a no-op on a database that already has this
-            // table from before `enchantments`/`armor_penetration` existed (every server that's
-            // already run this plugin) - ALTER TABLE is the only way an already-shipped table
-            // picks up a new column. SQLite allows adding a NOT NULL column as long as it has a
-            // DEFAULT, which backfills every existing row.
+            // table from before `enchantments`/`armor_penetration`/`bleed_effect`/`critical_effect`
+            // existed (every server that's already run this plugin) - ALTER TABLE is the only way
+            // an already-shipped table picks up a new column. SQLite allows adding a NOT NULL
+            // column as long as it has a DEFAULT, which backfills every existing row.
             addColumnIfMissing(connection, "item_template_snapshot", "enchantments", "TEXT NOT NULL DEFAULT ''");
             addColumnIfMissing(connection, "item_template_snapshot", "armor_penetration", "TEXT NOT NULL DEFAULT ''");
+            addColumnIfMissing(connection, "item_template_snapshot", "bleed_effect", "TEXT");
+            addColumnIfMissing(connection, "item_template_snapshot", "critical_effect", "TEXT");
 
             // damage_type_key is NOT a FK to damage_type_definitions: DamageTypeRegistry is
             // still in-memory-only (Fáze 1), that table stays unpopulated until a later
@@ -254,6 +258,26 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_armor_penetration_template "
                     + "ON item_armor_penetration(template_id)");
+
+            // A weapon's chance to inflict bleeding on a hit + how long it lasts - see the
+            // BleedEffect record's javadoc. At most one row per template.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_bleed_effect (
+                        template_id TEXT PRIMARY KEY REFERENCES item_templates(id) ON DELETE CASCADE,
+                        chance_percent REAL NOT NULL,
+                        duration_seconds REAL NOT NULL
+                    )
+                    """);
+
+            // A weapon's chance to land a critical hit + how much extra damage it deals - see
+            // the CriticalEffect record's javadoc. At most one row per template.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_critical_effect (
+                        template_id TEXT PRIMARY KEY REFERENCES item_templates(id) ON DELETE CASCADE,
+                        chance_percent REAL NOT NULL,
+                        bonus_damage_percent REAL NOT NULL
+                    )
+                    """);
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize database schema", e);
         }

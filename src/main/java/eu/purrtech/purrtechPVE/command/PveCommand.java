@@ -148,7 +148,25 @@ public final class PveCommand {
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .then(Commands.argument("armorClass", StringArgumentType.word())
-                                                        .executes(ctx -> removeItemArmorPenetration(plugin, ctx)))))))
+                                                        .executes(ctx -> removeItemArmorPenetration(plugin, ctx))))))
+                        .then(Commands.literal("bleed")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("chancePercent", DoubleArgumentType.doubleArg())
+                                                        .then(Commands.argument("durationSeconds", DoubleArgumentType.doubleArg())
+                                                                .executes(ctx -> setItemBleedEffect(plugin, ctx))))))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .executes(ctx -> removeItemBleedEffect(plugin, ctx)))))
+                        .then(Commands.literal("crit")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("chancePercent", DoubleArgumentType.doubleArg())
+                                                        .then(Commands.argument("bonusDamagePercent", DoubleArgumentType.doubleArg())
+                                                                .executes(ctx -> setItemCriticalEffect(plugin, ctx))))))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .executes(ctx -> removeItemCriticalEffect(plugin, ctx))))))
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
@@ -700,6 +718,70 @@ public final class PveCommand {
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.penetration-removed",
                 Placeholder.unparsed("key", key), Placeholder.unparsed("class", armorClass.name())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setItemBleedEffect(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        double chancePercent = DoubleArgumentType.getDouble(ctx, "chancePercent");
+        double durationSeconds = DoubleArgumentType.getDouble(ctx, "durationSeconds");
+
+        try {
+            plugin.getItemTemplateService().setBleedEffect(key, chancePercent, durationSeconds);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.bleed-set", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeItemBleedEffect(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+
+        try {
+            plugin.getItemTemplateService().removeBleedEffect(key);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.bleed-removed", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setItemCriticalEffect(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        double chancePercent = DoubleArgumentType.getDouble(ctx, "chancePercent");
+        double bonusDamagePercent = DoubleArgumentType.getDouble(ctx, "bonusDamagePercent");
+
+        try {
+            plugin.getItemTemplateService().setCriticalEffect(key, chancePercent, bonusDamagePercent);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.critical-set", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeItemCriticalEffect(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+
+        try {
+            plugin.getItemTemplateService().removeCriticalEffect(key);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.critical-removed", Placeholder.unparsed("key", key)));
         return Command.SINGLE_SUCCESS;
     }
 

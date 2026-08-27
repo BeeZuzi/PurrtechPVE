@@ -1,6 +1,8 @@
 package eu.purrtech.purrtechPVE.mythicmobs;
 
 import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
+import eu.purrtech.purrtechPVE.db.BleedEffectRepository;
+import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.MobEquipmentRepository;
@@ -42,6 +44,8 @@ public final class MythicMobEquipmentListener implements Listener {
     private final TypeModifierRepository typeModifierRepository;
     private final TemplateEnchantmentRepository enchantmentRepository;
     private final ArmorPenetrationRepository armorPenetrationRepository;
+    private final BleedEffectRepository bleedEffectRepository;
+    private final CriticalEffectRepository criticalEffectRepository;
     private final ItemRenderer renderer;
 
     public MythicMobEquipmentListener(MobEquipmentRepository mobEquipmentRepository,
@@ -50,6 +54,8 @@ public final class MythicMobEquipmentListener implements Listener {
                                        TypeModifierRepository typeModifierRepository,
                                        TemplateEnchantmentRepository enchantmentRepository,
                                        ArmorPenetrationRepository armorPenetrationRepository,
+                                       BleedEffectRepository bleedEffectRepository,
+                                       CriticalEffectRepository criticalEffectRepository,
                                        ItemRenderer renderer) {
         this.mobEquipmentRepository = mobEquipmentRepository;
         this.templateRepository = templateRepository;
@@ -57,6 +63,8 @@ public final class MythicMobEquipmentListener implements Listener {
         this.typeModifierRepository = typeModifierRepository;
         this.enchantmentRepository = enchantmentRepository;
         this.armorPenetrationRepository = armorPenetrationRepository;
+        this.bleedEffectRepository = bleedEffectRepository;
+        this.criticalEffectRepository = criticalEffectRepository;
         this.renderer = renderer;
     }
 
@@ -85,7 +93,9 @@ public final class MythicMobEquipmentListener implements Listener {
                         damageContributionRepository.findByTemplate(template.get().id()),
                         typeModifierRepository.findByTemplate(template.get().id()),
                         enchantmentRepository.findByTemplate(template.get().id()),
-                        armorPenetrationRepository.findByTemplate(template.get().id()));
+                        armorPenetrationRepository.findByTemplate(template.get().id()),
+                        bleedEffectRepository.findByTemplate(template.get().id()).orElse(null),
+                        criticalEffectRepository.findByTemplate(template.get().id()).orElse(null));
                 entityEquipment.setItem(slot, rendered);
             }
         } catch (Throwable t) {

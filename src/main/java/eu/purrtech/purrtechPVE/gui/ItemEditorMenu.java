@@ -4,6 +4,8 @@ import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.damage.DamageType;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
+import eu.purrtech.purrtechPVE.item.BleedEffect;
+import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
@@ -46,9 +48,13 @@ public final class ItemEditorMenu {
     private static final int TAB_TRINKET = 3;
     private static final int TAB_ARMOR_CLASS = 4;
     private static final int TAB_ARMOR_PENETRATION = 5;
-    private static final int TAB_MOBS = 6;
-    private static final int TAB_PUBLISH = 7;
-    private static final int CLOSE_SLOT = 8;
+    private static final int TAB_SPECIAL_EFFECTS = 6;
+    private static final int TAB_MOBS = 7;
+    private static final int TAB_PUBLISH = 8;
+    // Row 0 (slots 0-8) is fully packed with tabs above, so Close lives at the end of row 1
+    // instead - free in every tab (PREVIEW_SLOT is the only other row-1 slot used, and it's
+    // distinct from this one).
+    private static final int CLOSE_SLOT = 17;
     private static final int PREVIEW_SLOT = 13;
     private static final int PUBLISH_BUTTON_SLOT = 22;
     private static final int CONTENT_START = 18;
@@ -88,6 +94,7 @@ public final class ItemEditorMenu {
             case TRINKET -> renderTrinket(plugin, inventory, templateKey);
             case ARMOR_CLASS -> renderArmorClass(plugin, inventory, templateKey);
             case ARMOR_PENETRATION -> renderArmorPenetration(plugin, inventory, templateKey);
+            case SPECIAL_EFFECTS -> renderSpecialEffects(plugin, inventory, templateKey);
             case MOBS -> renderMobs(plugin, inventory, templateKey);
             case PUBLISH -> renderPublish(plugin, inventory, templateKey);
         }
@@ -100,6 +107,7 @@ public final class ItemEditorMenu {
         inventory.setItem(TAB_TRINKET, tabIcon(Material.NAME_TAG, "Trinket sloty", active == ItemEditorTab.TRINKET));
         inventory.setItem(TAB_ARMOR_CLASS, tabIcon(Material.IRON_CHESTPLATE, "Typ armoru", active == ItemEditorTab.ARMOR_CLASS));
         inventory.setItem(TAB_ARMOR_PENETRATION, tabIcon(Material.NETHERITE_AXE, "Penetrace armoru", active == ItemEditorTab.ARMOR_PENETRATION));
+        inventory.setItem(TAB_SPECIAL_EFFECTS, tabIcon(Material.REDSTONE, "Krvácení & Krit", active == ItemEditorTab.SPECIAL_EFFECTS));
         inventory.setItem(TAB_MOBS, tabIcon(Material.ZOMBIE_HEAD, "MythicMobs", active == ItemEditorTab.MOBS));
         inventory.setItem(TAB_PUBLISH, tabIcon(Material.EMERALD, "Uložit & Publikovat", active == ItemEditorTab.PUBLISH));
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, Component.text("Zavřít", NamedTextColor.RED)));
@@ -496,6 +504,145 @@ public final class ItemEditorMenu {
         };
     }
 
+    // ---- SPECIAL_EFFECTS (bleed chance/duration, crit chance/bonus damage) ----
+
+    private static final int SLOT_BLEED_CHANCE = CONTENT_START;
+    private static final int SLOT_BLEED_DURATION = CONTENT_START + 1;
+    private static final int SLOT_CRIT_CHANCE = CONTENT_START + 2;
+    private static final int SLOT_CRIT_BONUS = CONTENT_START + 3;
+
+    private static void renderSpecialEffects(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+        Optional<BleedEffect> bleed = plugin.getItemTemplateService().bleedEffect(templateKey);
+        Optional<CriticalEffect> critical = plugin.getItemTemplateService().criticalEffect(templateKey);
+
+        inventory.setItem(SLOT_BLEED_CHANCE, effectStatIcon(Material.REDSTONE, "Šance krvácení",
+                bleed.map(b -> formatAmount(b.chancePercent()) + "%").orElse(null)));
+        inventory.setItem(SLOT_BLEED_DURATION, effectStatIcon(Material.CLOCK, "Doba krvácení",
+                bleed.map(b -> formatAmount(b.durationSeconds()) + "s").orElse(null)));
+        inventory.setItem(SLOT_CRIT_CHANCE, effectStatIcon(Material.IRON_SWORD, "Šance kritického zásahu",
+                critical.map(c -> formatAmount(c.chancePercent()) + "%").orElse(null)));
+        inventory.setItem(SLOT_CRIT_BONUS, effectStatIcon(Material.GOLDEN_SWORD, "Bonus poškození kritu",
+                critical.map(c -> "+" + formatAmount(c.bonusDamagePercent()) + "%").orElse(null)));
+
+        ItemStack info = named(Material.PAPER, Component.text("Krvácení a kritický zásah", NamedTextColor.AQUA));
+        ItemMeta infoMeta = info.getItemMeta();
+        infoMeta.lore(List.of(
+                Component.text("Obojí se hodí zvlášť při zásahu.", NamedTextColor.GRAY),
+                Component.text("Krvácení pak tiká damage po dobu", NamedTextColor.GRAY),
+                Component.text("trvání, krit jen jednou navýší", NamedTextColor.GRAY),
+                Component.text("celkové poškození tohoto zásahu.", NamedTextColor.GRAY)));
+        info.setItemMeta(infoMeta);
+        inventory.setItem(PREVIEW_SLOT, info);
+    }
+
+    private static ItemStack effectStatIcon(Material material, String label, String currentValue) {
+        ItemStack icon = named(material, Component.text(label, NamedTextColor.AQUA));
+        ItemMeta meta = icon.getItemMeta();
+        List<Component> lore = new ArrayList<>();
+        lore.add(currentValue != null
+                ? Component.text(currentValue, NamedTextColor.GREEN)
+                : Component.text("(nenastaveno)", NamedTextColor.DARK_GRAY));
+        lore.add(Component.empty());
+        lore.add(Component.text("Klik: nastavit", NamedTextColor.YELLOW));
+        lore.add(Component.text("Shift+klik: smazat celý efekt", NamedTextColor.RED));
+        meta.lore(lore);
+        icon.setItemMeta(meta);
+        return icon;
+    }
+
+    private static void handleSpecialEffectsClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
+        switch (slot) {
+            case SLOT_BLEED_CHANCE, SLOT_BLEED_DURATION -> {
+                if (shift) {
+                    plugin.getItemTemplateService().removeBleedEffect(holder.templateKey());
+                    player.sendMessage(Component.text("Krvácení smazáno.", NamedTextColor.GREEN));
+                    render(plugin, holder.getInventory(), holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
+                    return;
+                }
+                boolean editingChance = slot == SLOT_BLEED_CHANCE;
+                promptBleedValue(plugin, player, holder, editingChance);
+            }
+            case SLOT_CRIT_CHANCE, SLOT_CRIT_BONUS -> {
+                if (shift) {
+                    plugin.getItemTemplateService().removeCriticalEffect(holder.templateKey());
+                    player.sendMessage(Component.text("Kritický zásah smazán.", NamedTextColor.GREEN));
+                    render(plugin, holder.getInventory(), holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
+                    return;
+                }
+                boolean editingChance = slot == SLOT_CRIT_CHANCE;
+                promptCriticalValue(plugin, player, holder, editingChance);
+            }
+            default -> {
+            }
+        }
+    }
+
+    private static void promptBleedValue(PurrtechPVE plugin, Player player, ItemEditorHolder holder, boolean editingChance) {
+        BleedEffect current = plugin.getItemTemplateService().bleedEffect(holder.templateKey()).orElse(new BleedEffect(0, 0));
+        player.closeInventory();
+        player.sendMessage(Component.text(editingChance
+                ? "Napiš do chatu procenta šance na krvácení, např. 25"
+                : "Napiš do chatu dobu trvání krvácení v sekundách, např. 5", NamedTextColor.YELLOW));
+        player.sendMessage(Component.text("(nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
+            if (isCancel(rawInput)) {
+                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
+                return;
+            }
+            Double value = parseDouble(rawInput.trim());
+            if (value == null) {
+                p.sendMessage(Component.text("Neplatné číslo, zkus to znovu z menu.", NamedTextColor.RED));
+                open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
+                return;
+            }
+            try {
+                if (editingChance) {
+                    plugin.getItemTemplateService().setBleedEffect(holder.templateKey(), value, current.durationSeconds());
+                } else {
+                    plugin.getItemTemplateService().setBleedEffect(holder.templateKey(), current.chancePercent(), value);
+                }
+                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+            } catch (TemplateNotFoundException e) {
+                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+            }
+            open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
+        });
+    }
+
+    private static void promptCriticalValue(PurrtechPVE plugin, Player player, ItemEditorHolder holder, boolean editingChance) {
+        CriticalEffect current = plugin.getItemTemplateService().criticalEffect(holder.templateKey()).orElse(new CriticalEffect(0, 0));
+        player.closeInventory();
+        player.sendMessage(Component.text(editingChance
+                ? "Napiš do chatu procenta šance na kritický zásah, např. 15"
+                : "Napiš do chatu o kolik % víc damage dá krit, např. 50", NamedTextColor.YELLOW));
+        player.sendMessage(Component.text("(nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
+            if (isCancel(rawInput)) {
+                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
+                return;
+            }
+            Double value = parseDouble(rawInput.trim());
+            if (value == null) {
+                p.sendMessage(Component.text("Neplatné číslo, zkus to znovu z menu.", NamedTextColor.RED));
+                open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
+                return;
+            }
+            try {
+                if (editingChance) {
+                    plugin.getItemTemplateService().setCriticalEffect(holder.templateKey(), value, current.bonusDamagePercent());
+                } else {
+                    plugin.getItemTemplateService().setCriticalEffect(holder.templateKey(), current.chancePercent(), value);
+                }
+                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+            } catch (TemplateNotFoundException e) {
+                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+            }
+            open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
+        });
+    }
+
     // ---- MOBS ----
 
     private static void renderMobs(PurrtechPVE plugin, Inventory inventory, String templateKey) {
@@ -651,6 +798,7 @@ public final class ItemEditorMenu {
             case TAB_TRINKET -> switchTab(plugin, player, holder, ItemEditorTab.TRINKET);
             case TAB_ARMOR_CLASS -> switchTab(plugin, player, holder, ItemEditorTab.ARMOR_CLASS);
             case TAB_ARMOR_PENETRATION -> switchTab(plugin, player, holder, ItemEditorTab.ARMOR_PENETRATION);
+            case TAB_SPECIAL_EFFECTS -> switchTab(plugin, player, holder, ItemEditorTab.SPECIAL_EFFECTS);
             case TAB_MOBS -> switchTab(plugin, player, holder, ItemEditorTab.MOBS);
             case TAB_PUBLISH -> switchTab(plugin, player, holder, ItemEditorTab.PUBLISH);
             case CLOSE_SLOT -> player.closeInventory();
@@ -662,6 +810,7 @@ public final class ItemEditorMenu {
                     case TRINKET -> handleTrinketClick(plugin, player, holder, slot);
                     case ARMOR_CLASS -> handleArmorClassClick(plugin, player, holder, slot);
                     case ARMOR_PENETRATION -> handleArmorPenetrationClick(plugin, player, holder, slot, shift);
+                    case SPECIAL_EFFECTS -> handleSpecialEffectsClick(plugin, player, holder, slot, shift);
                     case MOBS -> handleMobsClick(plugin, player, holder, slot, shift);
                     case PUBLISH -> handlePublishClick(plugin, player, holder, slot);
                 }

@@ -56,21 +56,23 @@ public final class ItemRenderer {
 
     /** Renders from the template's current live data - always the newest version, used for freshly given items. */
     public ItemStack render(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                             List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration) {
+                             List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
+                             BleedEffect bleedEffect, CriticalEffect criticalEffect) {
         return render(template.key(), template.version(), template.displayName(), template.baseMaterial(),
-                template.customModelData(), contributions, modifiers, enchantments, armorPenetration);
+                template.customModelData(), contributions, modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect);
     }
 
     /** Renders exactly as a given historical version looked - used to catch up a stack pinned behind the live version. */
     public ItemStack renderSnapshot(TemplateSnapshot snapshot) {
         return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.baseMaterial(),
                 snapshot.customModelData(), snapshot.damageContributions(), snapshot.typeModifiers(), snapshot.enchantments(),
-                snapshot.armorPenetration());
+                snapshot.armorPenetration(), snapshot.bleedEffect(), snapshot.criticalEffect());
     }
 
     private ItemStack render(String key, int version, String displayName, Material baseMaterial,
                               Integer customModelData, List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                              List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration) {
+                              List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
+                              BleedEffect bleedEffect, CriticalEffect criticalEffect) {
         ItemStack stack = new ItemStack(baseMaterial);
         ItemMeta meta = stack.getItemMeta();
 
@@ -78,7 +80,7 @@ public final class ItemRenderer {
         if (customModelData != null) {
             meta.setCustomModelData(customModelData);
         }
-        meta.lore(buildLore(contributions, modifiers, armorPenetration));
+        meta.lore(buildLore(contributions, modifiers, armorPenetration, bleedEffect, criticalEffect));
 
         for (TemplateEnchantment enchantment : enchantments) {
             resolveEnchantment(enchantment.enchantmentKey())
@@ -119,7 +121,7 @@ public final class ItemRenderer {
     }
 
     private List<Component> buildLore(List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                                       List<ArmorPenetration> armorPenetration) {
+                                       List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect) {
         List<Component> lore = new ArrayList<>();
 
         List<DamageContribution> wielded = contributions.stream().filter(c -> c.context() == ModifierContext.WIELDED).toList();
@@ -148,6 +150,16 @@ public final class ItemRenderer {
             for (ArmorPenetration p : armorPenetration) {
                 lore.add(penetrationLine(p));
             }
+        }
+        if (bleedEffect != null) {
+            lore.add(messages.render(locale, "item.line.bleed",
+                    Placeholder.unparsed("chance", formatAmount(bleedEffect.chancePercent())),
+                    Placeholder.unparsed("duration", formatAmount(bleedEffect.durationSeconds()))));
+        }
+        if (criticalEffect != null) {
+            lore.add(messages.render(locale, "item.line.critical",
+                    Placeholder.unparsed("chance", formatAmount(criticalEffect.chancePercent())),
+                    Placeholder.unparsed("bonus", formatAmount(criticalEffect.bonusDamagePercent()))));
         }
         return lore;
     }

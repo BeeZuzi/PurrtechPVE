@@ -2,6 +2,8 @@ package eu.purrtech.purrtechPVE.db;
 
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
+import eu.purrtech.purrtechPVE.item.BleedEffect;
+import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
@@ -42,8 +44,9 @@ public final class ItemTemplateSnapshotRepository {
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT OR REPLACE INTO item_template_snapshot
                          (template_id, version, template_key, display_name, base_material, custom_model_data,
-                          damage_contributions, type_modifiers, enchantments, armor_penetration, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                          damage_contributions, type_modifiers, enchantments, armor_penetration, bleed_effect,
+                          critical_effect, created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             statement.setString(1, snapshot.templateId().toString());
             statement.setInt(2, snapshot.version());
@@ -59,7 +62,9 @@ public final class ItemTemplateSnapshotRepository {
             statement.setString(8, encodeModifiers(snapshot.typeModifiers()));
             statement.setString(9, encodeEnchantments(snapshot.enchantments()));
             statement.setString(10, encodeArmorPenetration(snapshot.armorPenetration()));
-            statement.setLong(11, snapshot.createdAt());
+            statement.setString(11, encodeBleedEffect(snapshot.bleedEffect()));
+            statement.setString(12, encodeCriticalEffect(snapshot.criticalEffect()));
+            statement.setLong(13, snapshot.createdAt());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
@@ -97,6 +102,8 @@ public final class ItemTemplateSnapshotRepository {
                 decodeModifiers(rs.getString("type_modifiers")),
                 decodeEnchantments(rs.getString("enchantments")),
                 decodeArmorPenetration(rs.getString("armor_penetration")),
+                decodeBleedEffect(rs.getString("bleed_effect")),
+                decodeCriticalEffect(rs.getString("critical_effect")),
                 rs.getLong("created_at")
         );
     }
@@ -172,5 +179,29 @@ public final class ItemTemplateSnapshotRepository {
             out.add(new ArmorPenetration(ArmorClass.valueOf(fields[0]), Double.parseDouble(fields[1])));
         }
         return out;
+    }
+
+    private static String encodeBleedEffect(BleedEffect effect) {
+        return effect == null ? null : effect.chancePercent() + "|" + effect.durationSeconds();
+    }
+
+    private static BleedEffect decodeBleedEffect(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String[] fields = raw.split("\\|");
+        return new BleedEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]));
+    }
+
+    private static String encodeCriticalEffect(CriticalEffect effect) {
+        return effect == null ? null : effect.chancePercent() + "|" + effect.bonusDamagePercent();
+    }
+
+    private static CriticalEffect decodeCriticalEffect(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String[] fields = raw.split("\\|");
+        return new CriticalEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]));
     }
 }

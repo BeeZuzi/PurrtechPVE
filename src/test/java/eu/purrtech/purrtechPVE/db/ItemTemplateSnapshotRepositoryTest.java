@@ -2,6 +2,8 @@ package eu.purrtech.purrtechPVE.db;
 
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
+import eu.purrtech.purrtechPVE.item.BleedEffect;
+import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
@@ -54,6 +56,8 @@ class ItemTemplateSnapshotRepositoryTest {
                 List.of(new TypeModifier("frozen", -25.0)),
                 List.of(new TemplateEnchantment("minecraft:sharpness", 5)),
                 List.of(new ArmorPenetration(ArmorClass.HEAVY, 15.0)),
+                new BleedEffect(25.0, 5.0),
+                new CriticalEffect(15.0, 50.0),
                 123L);
         repository.insert(snapshot);
 
@@ -72,12 +76,16 @@ class ItemTemplateSnapshotRepositoryTest {
         assertEquals(1, found.armorPenetration().size());
         assertEquals(ArmorClass.HEAVY, found.armorPenetration().get(0).armorClass());
         assertEquals(15.0, found.armorPenetration().get(0).amount());
+        assertEquals(25.0, found.bleedEffect().chancePercent());
+        assertEquals(5.0, found.bleedEffect().durationSeconds());
+        assertEquals(15.0, found.criticalEffect().chancePercent());
+        assertEquals(50.0, found.criticalEffect().bonusDamagePercent());
     }
 
     @Test
     void emptyContributionsAndModifiersRoundTripAsEmptyLists() {
         TemplateSnapshot snapshot = new TemplateSnapshot(templateId, "fire-sword", 1, "Plamenný meč",
-                Material.IRON_SWORD, null, List.of(), List.of(), List.of(), List.of(), 0L);
+                Material.IRON_SWORD, null, List.of(), List.of(), List.of(), List.of(), null, null, 0L);
         repository.insert(snapshot);
 
         TemplateSnapshot found = repository.find(templateId, 1).orElseThrow();
@@ -85,6 +93,8 @@ class ItemTemplateSnapshotRepositoryTest {
         assertTrue(found.typeModifiers().isEmpty());
         assertTrue(found.enchantments().isEmpty());
         assertTrue(found.armorPenetration().isEmpty());
+        assertEquals(null, found.bleedEffect());
+        assertEquals(null, found.criticalEffect());
     }
 
     @Test
@@ -95,9 +105,9 @@ class ItemTemplateSnapshotRepositoryTest {
     @Test
     void insertOnSameVersionReplaces() {
         repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "A", Material.IRON_SWORD, null,
-                List.of(), List.of(), List.of(), List.of(), 0L));
+                List.of(), List.of(), List.of(), List.of(), null, null, 0L));
         repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "B", Material.IRON_SWORD, null,
-                List.of(), List.of(), List.of(), List.of(), 1L));
+                List.of(), List.of(), List.of(), List.of(), null, null, 1L));
 
         assertEquals("B", repository.find(templateId, 1).orElseThrow().displayName());
     }

@@ -2,6 +2,8 @@ package eu.purrtech.purrtechPVE.item;
 
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
+import eu.purrtech.purrtechPVE.db.BleedEffectRepository;
+import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
@@ -31,6 +33,8 @@ public final class ItemTemplateService {
     private final TypeModifierRepository typeModifierRepository;
     private final TemplateEnchantmentRepository enchantmentRepository;
     private final ArmorPenetrationRepository armorPenetrationRepository;
+    private final BleedEffectRepository bleedEffectRepository;
+    private final CriticalEffectRepository criticalEffectRepository;
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final DamageTypeRegistry damageTypeRegistry;
     private final ItemRenderer renderer;
@@ -40,6 +44,8 @@ public final class ItemTemplateService {
                                 TypeModifierRepository typeModifierRepository,
                                 TemplateEnchantmentRepository enchantmentRepository,
                                 ArmorPenetrationRepository armorPenetrationRepository,
+                                BleedEffectRepository bleedEffectRepository,
+                                CriticalEffectRepository criticalEffectRepository,
                                 ItemTemplateSnapshotRepository snapshotRepository,
                                 DamageTypeRegistry damageTypeRegistry,
                                 ItemRenderer renderer) {
@@ -48,6 +54,8 @@ public final class ItemTemplateService {
         this.typeModifierRepository = typeModifierRepository;
         this.enchantmentRepository = enchantmentRepository;
         this.armorPenetrationRepository = armorPenetrationRepository;
+        this.bleedEffectRepository = bleedEffectRepository;
+        this.criticalEffectRepository = criticalEffectRepository;
         this.snapshotRepository = snapshotRepository;
         this.damageTypeRegistry = damageTypeRegistry;
         this.renderer = renderer;
@@ -66,7 +74,7 @@ public final class ItemTemplateService {
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, baseMaterial, customModelData,
                 false, List.of(), null, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
-        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of()));
+        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null));
         return template;
     }
 
@@ -155,6 +163,40 @@ public final class ItemTemplateService {
         return armorPenetrationRepository.findByTemplate(requireTemplate(key).id());
     }
 
+    /** This weapon's chance to inflict bleeding on a hit + how long it lasts - a stat, so it bumps version. See {@link BleedEffect}'s javadoc. */
+    public ItemTemplate setBleedEffect(String key, double chancePercent, double durationSeconds) {
+        ItemTemplate template = requireTemplate(key);
+        bleedEffectRepository.upsert(template.id(), new BleedEffect(chancePercent, durationSeconds));
+        return bumpVersion(template);
+    }
+
+    public ItemTemplate removeBleedEffect(String key) {
+        ItemTemplate template = requireTemplate(key);
+        bleedEffectRepository.remove(template.id());
+        return bumpVersion(template);
+    }
+
+    public Optional<BleedEffect> bleedEffect(String key) {
+        return bleedEffectRepository.findByTemplate(requireTemplate(key).id());
+    }
+
+    /** This weapon's chance to land a critical hit + how much extra damage it deals - a stat, so it bumps version. See {@link CriticalEffect}'s javadoc. */
+    public ItemTemplate setCriticalEffect(String key, double chancePercent, double bonusDamagePercent) {
+        ItemTemplate template = requireTemplate(key);
+        criticalEffectRepository.upsert(template.id(), new CriticalEffect(chancePercent, bonusDamagePercent));
+        return bumpVersion(template);
+    }
+
+    public ItemTemplate removeCriticalEffect(String key) {
+        ItemTemplate template = requireTemplate(key);
+        criticalEffectRepository.remove(template.id());
+        return bumpVersion(template);
+    }
+
+    public Optional<CriticalEffect> criticalEffect(String key) {
+        return criticalEffectRepository.findByTemplate(requireTemplate(key).id());
+    }
+
     /** Marks the template's current version as pushed to circulation - the caller still has to actually walk online players (see ItemSyncService). */
     public ItemTemplate propagate(String key) {
         ItemTemplate template = requireTemplate(key);
@@ -213,7 +255,9 @@ public final class ItemTemplateService {
         List<TypeModifier> modifiers = typeModifierRepository.findByTemplate(template.id());
         List<TemplateEnchantment> enchantments = enchantmentRepository.findByTemplate(template.id());
         List<ArmorPenetration> armorPenetration = armorPenetrationRepository.findByTemplate(template.id());
-        return renderer.render(template, contributions, modifiers, enchantments, armorPenetration);
+        BleedEffect bleed = bleedEffectRepository.findByTemplate(template.id()).orElse(null);
+        CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
+        return renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical);
     }
 
     private ItemTemplate requireTemplate(String key) {
@@ -233,14 +277,17 @@ public final class ItemTemplateService {
                 damageContributionRepository.findByTemplate(bumped.id()),
                 typeModifierRepository.findByTemplate(bumped.id()),
                 enchantmentRepository.findByTemplate(bumped.id()),
-                armorPenetrationRepository.findByTemplate(bumped.id())));
+                armorPenetrationRepository.findByTemplate(bumped.id()),
+                bleedEffectRepository.findByTemplate(bumped.id()).orElse(null),
+                criticalEffectRepository.findByTemplate(bumped.id()).orElse(null)));
         return bumped;
     }
 
     private TemplateSnapshot snapshotOf(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                                         List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration) {
+                                         List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
+                                         BleedEffect bleedEffect, CriticalEffect criticalEffect) {
         return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(),
                 template.baseMaterial(), template.customModelData(), contributions, modifiers, enchantments,
-                armorPenetration, template.updatedAt());
+                armorPenetration, bleedEffect, criticalEffect, template.updatedAt());
     }
 }

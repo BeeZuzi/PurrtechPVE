@@ -1,14 +1,18 @@
 package eu.purrtech.purrtechPVE;
 
+import eu.purrtech.purrtechPVE.combat.BleedManager;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
 import eu.purrtech.purrtechPVE.command.PveCommand;
 import eu.purrtech.purrtechPVE.config.AccessorySettings;
 import eu.purrtech.purrtechPVE.config.ConfigLoader;
 import eu.purrtech.purrtechPVE.config.WorldToggleSettings;
+import eu.purrtech.purrtechPVE.damage.DamageType;
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.AccessoryRepository;
 import eu.purrtech.purrtechPVE.db.ArmorClassProfileRepository;
 import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
+import eu.purrtech.purrtechPVE.db.BleedEffectRepository;
+import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.Database;
 import eu.purrtech.purrtechPVE.db.ItemSetDamageThresholdRepository;
@@ -75,6 +79,8 @@ public final class PurrtechPVE extends JavaPlugin {
         TypeModifierRepository typeModifierRepository = new TypeModifierRepository(database);
         TemplateEnchantmentRepository enchantmentRepository = new TemplateEnchantmentRepository(database);
         ArmorPenetrationRepository armorPenetrationRepository = new ArmorPenetrationRepository(database);
+        BleedEffectRepository bleedEffectRepository = new BleedEffectRepository(database);
+        CriticalEffectRepository criticalEffectRepository = new CriticalEffectRepository(database);
         mobDamageProfileRepository = new MobDamageProfileRepository(database);
         armorClassProfileRepository = new ArmorClassProfileRepository(database);
         accessoryRepository = new AccessoryRepository(database);
@@ -90,6 +96,8 @@ public final class PurrtechPVE extends JavaPlugin {
                 typeModifierRepository,
                 enchantmentRepository,
                 armorPenetrationRepository,
+                bleedEffectRepository,
+                criticalEffectRepository,
                 snapshotRepository,
                 damageTypeRegistry,
                 itemRenderer);
@@ -125,7 +133,8 @@ public final class PurrtechPVE extends JavaPlugin {
             try {
                 getServer().getPluginManager().registerEvents(new MythicMobEquipmentListener(
                         mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
-                        typeModifierRepository, enchantmentRepository, armorPenetrationRepository, itemRenderer), this);
+                        typeModifierRepository, enchantmentRepository, armorPenetrationRepository,
+                        bleedEffectRepository, criticalEffectRepository, itemRenderer), this);
             } catch (Throwable t) {
                 getLogger().warning("Failed to register the MythicMobs mob-equipment listener ("
                         + t.getClass().getSimpleName()
@@ -142,8 +151,14 @@ public final class PurrtechPVE extends JavaPlugin {
         getLogger().info("Accessory slots: " + accessorySettings.slots());
         getLogger().info("Damage types registered: " + damageTypeRegistry.all().keySet());
 
+        BleedManager bleedManager = new BleedManager();
+        // Cadence comes from the "bleed" DamageType's own dotPeriodTicks, not a fixed constant -
+        // one repeating task drives every active bleed at once (see BleedManager's javadoc).
+        int bleedPeriodTicks = damageTypeRegistry.find("bleed").map(DamageType::dotPeriodTicks).orElse(20);
+        getServer().getScheduler().runTaskTimer(this, () -> bleedManager.tick(equipmentResolver), bleedPeriodTicks, bleedPeriodTicks);
+
         getServer().getPluginManager().registerEvents(
-                new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry), this);
+                new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager), this);
         getServer().getPluginManager().registerEvents(new ItemSyncJoinListener(itemSyncService), this);
         getServer().getPluginManager().registerEvents(new AccessoryMenuListener(accessoryRepository), this);
         itemEditorListener = new ItemEditorListener(this);

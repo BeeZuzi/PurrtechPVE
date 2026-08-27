@@ -21,6 +21,8 @@ item:
     resist: "<green> +<amount>% <type>"
     weakness: "<red> -<amount>% <type>"
     penetration: "<white> -<amount>% <class></white> armor"
+    bleed: "<white> <chance>% chance to bleed for <duration>s</white>"
+    critical: "<white> <chance>% crit chance, +<bonus>% damage</white>"
   created: "<green>Template <white><key></white> created."
   deleted: "<green>Template <white><key></white> deleted."
   not-found: "<red>Template <white><key></white> does not exist."
@@ -52,6 +54,10 @@ item:
   armor-cleared: "<green>Armor class cleared from template <white><key></white>."
   penetration-set: "<green>Armor penetration vs <white><class></white> set on template <white><key></white>."
   penetration-removed: "<green>Armor penetration vs <white><class></white> removed from template <white><key></white>."
+  bleed-set: "<green>Bleed effect set on template <white><key></white>."
+  bleed-removed: "<green>Bleed effect removed from template <white><key></white>."
+  critical-set: "<green>Critical hit effect set on template <white><key></white>."
+  critical-removed: "<green>Critical hit effect removed from template <white><key></white>."
 
 mobprofile:
   set: "<green>Resistance/weakness <white><type></white> set for MythicMobs type <white><mob></white>."

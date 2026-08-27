@@ -897,6 +897,72 @@
     penetrací proti němu, a sleduj action bar breakdown, jestli
     číslo sedí.
 
+- **Šance/doba krvácení + kritický zásah (2026-08-27), na žádost.**
+  Dvě nové zbraňové vlastnosti - první DOT (damage-over-time) mechanika
+  v celém projektu (dřív bylo "bleed" jen typ poškození s
+  `dot`/`dotPeriodTicks`/`dotTickPercent` poli v `DamageType`, co od
+  Fáze 1 nikdo nikdy nepoužil - tahle featura je konečně zapíná).
+  - **`BleedEffect`** (šance %, doba trvání v sekundách) - na úspěšný
+    hod při zásahu spustí tikající "bleed" poškození po dobu trvání.
+    Velikost jednoho ticku = `dotTickPercent` z "bleed" damage typu
+    (0.1 = 10 %) krát SUROVÉ (před rozpočtem na typy/odolnosti)
+    poškození zásahu, co krvácení spustil - využívá pole, co už na
+    `DamageType` bylo, jen se nikdy nepoužilo. Nový `BleedManager`
+    (běhový, nic se nepersistuje - restart serveru = konec všech
+    krvácení, stejně jako vanilla potion efekty) - jeden opakovaný
+    task (perioda = "bleed" typu vlastní `dotPeriodTicks`) tiká
+    VŠECHNA aktivní krvácení najednou, ne časovač na každé zvlášť.
+    Nová aplikace na už krvácející cíl PŘEPÍŠE tu předchozí (ne
+    prodlouží/nasčítá) - nebylo zadané chování při stackování, tak
+    zvolen nejjednodušší/nejbezpečnější default; řekni, pokud má
+    stackovat.
+  - **`CriticalEffect`** (šance %, bonus poškození %) - na úspěšný hod
+    vynásobí CELÉ výsledné poškození zásahu (ne jednotlivý typový
+    kbelík) faktorem `1 + bonus/100`, stejná konvence jako vanilla
+    sword krit. Action bar breakdown se při kritu přepočítá stejným
+    faktorem, aby čísla v součtu seděla na to, co se doopravdy stalo.
+  - Obojí je zbraňová vlastnost (WIELDED, jen na drženém itemu) a
+    JE verzovaná/snapshotovaná jako damage contribution (na rozdíl od
+    typu armoru) - nová pole na `TemplateSnapshot` + stejný
+    `addColumnIfMissing` migrační mechanismus jako u předchozích
+    přídavků do už nasazené `item_template_snapshot` tabulky.
+  - **`EquipmentResolver.resolveResistance`** teď umí `attacker=null`
+    (pro `BleedManager`'s tiky, který nemají konkrétního útočníka -
+    penetrace armoru se v tom případě prostě přeskočí). Nové
+    `resolveCriticalEffect`/`resolveBleedEffect` čtou útočníkovu
+    drženou zbraň stejným `resolvedItemOf` vzorem jako zbytek třídy.
+  - **GUI**: nový tab "Krvácení & Krit" v `ItemEditorMenu` (4 řádky -
+    šance krvácení, doba krvácení, šance kritu, bonus poškození kritu;
+    klik = zadat přes chat, shift+klik = smazat CELÝ efekt). Řádek
+    tabů byl už plně obsazený (0-8), tak se Zavřít tlačítko přesunulo
+    na konec řádku 1 (slot 17, volný ve všech tabech) - jediná viditelná
+    změna existujícího UI, jinak nic nepřesunuto. Taky příkazy
+    `/pve item bleed set|remove <key> [<šance> <doba>]` a `/pve item
+    crit set|remove <key> [<šance> <bonus>]`.
+  - 16 nových JUnit testů (`BleedEffectRepositoryTest`,
+    `CriticalEffectRepositoryTest` - CRUD, `ItemTemplateServiceTest` -
+    bumpují verzi, výchozí prázdné, `DamageFeedbackTest` - nový crit
+    marker "CRIT! " a že 3-arg/4-arg(false) přetížení dají stejný
+    výstup). 152 testů celkem zelených.
+  - **Ověřeno živě**: boot na ručně sestavené DB se starým schématem
+    (bez `bleed_effect`/`critical_effect` sloupců i bez obou nových
+    tabulek) proběhl čistě, migrace přidala všechno. Celá příkazová
+    posloupnost (bleed set → crit set → list → bleed remove) - verze
+    1→2→3→4. Přímá SQL kontrola potvrdila, že historie snapshotů
+    (v1: nic, v2: jen bleed, v3: bleed+crit, v4: jen crit) přesně
+    odpovídá tomu, co mělo v tu chvíli platit, a živé tabulky
+    (`item_bleed_effect`/`item_critical_effect`) správně odrážejí
+    finální stav. Opakovaný bleed-tick task běžel celou dobu bootu
+    (~15 s, několik cyklů) bez chyby i s prázdnou množinou aktivních
+    krvácení.
+  - **Nedá se ověřit v sandboxu**: samotné triggerování v souboji
+    (šance na krvácení/krit se hodí jen při reálném zásahu mezi
+    entitami, kde je aspoň jeden hráč - žádný připojený hráč tu není)
+    a tikání krvácení na živém cíli. Doporučuju při první příležitosti
+    nastavit vysokou šanci (100 %) na testovací zbrani a zkusit
+    reálný zásah - sleduj, jestli se objeví "CRIT! " v action baru a
+    jestli cíl dostává periodické tiky poškození po zásahu.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

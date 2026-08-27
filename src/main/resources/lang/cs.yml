@@ -21,6 +21,8 @@ item:
     resist: "<green> +<amount>% <type>"
     weakness: "<red> -<amount>% <type>"
     penetration: "<white> -<amount>% armoru typu <class></white>"
+    bleed: "<white> <chance> % šance na krvácení po dobu <duration>s</white>"
+    critical: "<white> <chance> % šance na krit, +<bonus> % poškození</white>"
   created: "<green>Šablona <white><key></white> vytvořena."
   deleted: "<green>Šablona <white><key></white> smazána."
   not-found: "<red>Šablona <white><key></white> neexistuje."
@@ -52,6 +54,10 @@ item:
   armor-cleared: "<green>Typ armoru odebrán ze šablony <white><key></white>."
   penetration-set: "<green>Penetrace armoru typu <white><class></white> nastavena na šabloně <white><key></white>."
   penetration-removed: "<green>Penetrace armoru typu <white><class></white> odebrána ze šablony <white><key></white>."
+  bleed-set: "<green>Krvácení nastaveno na šabloně <white><key></white>."
+  bleed-removed: "<green>Krvácení odebráno ze šablony <white><key></white>."
+  critical-set: "<green>Kritický zásah nastaven na šabloně <white><key></white>."
+  critical-removed: "<green>Kritický zásah odebrán ze šablony <white><key></white>."
 
 mobprofile:
   set: "<green>Odolnost/slabina <white><type></white> nastavena pro MythicMobs typ <white><mob></white>."

@@ -23,6 +23,8 @@ public record TemplateSnapshot(
         List<TypeModifier> typeModifiers,
         List<TemplateEnchantment> enchantments,
         List<ArmorPenetration> armorPenetration,
+        BleedEffect bleedEffect,
+        CriticalEffect criticalEffect,
         long createdAt
 ) {
 }

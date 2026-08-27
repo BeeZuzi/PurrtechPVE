@@ -2,6 +2,8 @@ package eu.purrtech.purrtechPVE.item;
 
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
+import eu.purrtech.purrtechPVE.db.BleedEffectRepository;
+import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.Database;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
@@ -48,6 +50,8 @@ class ItemTemplateServiceTest {
                 new TypeModifierRepository(database),
                 new TemplateEnchantmentRepository(database),
                 new ArmorPenetrationRepository(database),
+                new BleedEffectRepository(database),
+                new CriticalEffectRepository(database),
                 snapshotRepository,
                 new DamageTypeRegistry(),
                 null);
@@ -259,5 +263,59 @@ class ItemTemplateServiceTest {
     void newTemplateHasNoArmorPenetrationByDefault() {
         service.create("plain-weapon", Material.STICK, "Plain", "console");
         assertTrue(service.armorPenetration("plain-weapon").isEmpty());
+    }
+
+    @Test
+    void setBleedEffectIsAWeaponStatAndBumpsVersion() {
+        service.create("rusty-dagger", Material.IRON_SWORD, "Rusty Dagger", "console");
+        ItemTemplate withBleed = service.setBleedEffect("rusty-dagger", 25.0, 5.0);
+
+        assertEquals(2, withBleed.version(), "bleed effect is a stat like damage contributions - bumps version");
+        assertTrue(service.bleedEffect("rusty-dagger").isPresent());
+        assertEquals(25.0, service.bleedEffect("rusty-dagger").get().chancePercent());
+        assertEquals(5.0, service.bleedEffect("rusty-dagger").get().durationSeconds());
+    }
+
+    @Test
+    void removeBleedEffect() {
+        service.create("rusty-dagger", Material.IRON_SWORD, "Rusty Dagger", "console");
+        service.setBleedEffect("rusty-dagger", 25.0, 5.0);
+        ItemTemplate afterRemove = service.removeBleedEffect("rusty-dagger");
+
+        assertEquals(3, afterRemove.version());
+        assertTrue(service.bleedEffect("rusty-dagger").isEmpty());
+    }
+
+    @Test
+    void newTemplateHasNoBleedEffectByDefault() {
+        service.create("plain-weapon", Material.STICK, "Plain", "console");
+        assertTrue(service.bleedEffect("plain-weapon").isEmpty());
+    }
+
+    @Test
+    void setCriticalEffectIsAWeaponStatAndBumpsVersion() {
+        service.create("rapier", Material.IRON_SWORD, "Rapier", "console");
+        ItemTemplate withCrit = service.setCriticalEffect("rapier", 15.0, 50.0);
+
+        assertEquals(2, withCrit.version(), "critical effect is a stat like damage contributions - bumps version");
+        assertTrue(service.criticalEffect("rapier").isPresent());
+        assertEquals(15.0, service.criticalEffect("rapier").get().chancePercent());
+        assertEquals(50.0, service.criticalEffect("rapier").get().bonusDamagePercent());
+    }
+
+    @Test
+    void removeCriticalEffect() {
+        service.create("rapier", Material.IRON_SWORD, "Rapier", "console");
+        service.setCriticalEffect("rapier", 15.0, 50.0);
+        ItemTemplate afterRemove = service.removeCriticalEffect("rapier");
+
+        assertEquals(3, afterRemove.version());
+        assertTrue(service.criticalEffect("rapier").isEmpty());
+    }
+
+    @Test
+    void newTemplateHasNoCriticalEffectByDefault() {
+        service.create("plain-weapon", Material.STICK, "Plain", "console");
+        assertTrue(service.criticalEffect("plain-weapon").isEmpty());
     }
 }

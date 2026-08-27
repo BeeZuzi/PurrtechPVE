@@ -7,6 +7,7 @@ public enum ItemEditorTab {
     TRINKET,
     ARMOR_CLASS,
     ARMOR_PENETRATION,
+    SPECIAL_EFFECTS,
     MOBS,
     PUBLISH
 }
