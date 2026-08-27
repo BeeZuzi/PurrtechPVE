@@ -1,13 +1,15 @@
 package eu.purrtech.purrtechPVE.mythicmobs;
 
+import io.lumine.mythic.api.mobs.MythicMob;
 import io.lumine.mythic.bukkit.MythicBukkit;
 import io.lumine.mythic.core.mobs.ActiveMob;
 import org.bukkit.entity.Entity;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
- * The only class in this plugin allowed to import the MythicMobs API.
+ * The only package in this plugin allowed to import the MythicMobs API.
  * Everything else must go through here, and every caller must first check
  * {@code Bukkit.getPluginManager().isPluginEnabled("MythicMobs")} (see
  * {@code PurrtechPVE.onEnable} - only constructed at all when that check
@@ -22,9 +24,9 @@ import java.util.Optional;
  * against here, which throws {@link NoClassDefFoundError} the first time
  * they're touched (seen in production - see {@code probe()}). Both {@code
  * PurrtechPVE.onEnable} (via {@link #probe()}) and every call site in {@code
- * EquipmentResolver} additionally guard with a {@code catch (Throwable)} so
- * a mismatch degrades to "no MythicMobs integration" instead of breaking
- * every single damage event.
+ * EquipmentResolver}/{@code MythicMobEquipmentListener} additionally guard
+ * with a {@code catch (Throwable)} so a mismatch degrades to "no MythicMobs
+ * integration" instead of breaking every single damage event or mob spawn.
  */
 public final class MythicMobsBridge {
 
@@ -37,10 +39,18 @@ public final class MythicMobsBridge {
         return MythicBukkit.inst().getMobManager().isActiveMob(entity.getUniqueId());
     }
 
-    /** The mob's internal MythicMobs config name (e.g. "SkeletalKnight"), used as the mob_damage_profile lookup key. */
+    /** The mob's internal MythicMobs config name (e.g. "SkeletalKnight"), used as the mob_damage_profile/mob_equipment lookup key. */
     public Optional<String> mythicMobInternalName(Entity entity) {
         return MythicBukkit.inst().getMobManager().getSkillCaster(entity.getUniqueId())
                 .filter(caster -> caster instanceof ActiveMob)
                 .map(caster -> ((ActiveMob) caster).getType().getInternalName());
+    }
+
+    /** Every custom mob type's internal name, as configured on this server (for the GUI's "give this item to a mob type" list). */
+    public List<String> listMobTypeInternalNames() {
+        return MythicBukkit.inst().getMobManager().getMobTypes().stream()
+                .map(MythicMob::getInternalName)
+                .sorted()
+                .toList();
     }
 }

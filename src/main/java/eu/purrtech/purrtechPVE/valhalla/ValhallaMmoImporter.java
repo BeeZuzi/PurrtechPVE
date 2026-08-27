@@ -9,6 +9,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -84,26 +85,39 @@ public final class ValhallaMmoImporter {
     }
 
     public static ImportResult parse(String raw) {
+        Map<String, Double> attributes = new LinkedHashMap<>();
+        if (raw != null && !raw.isBlank()) {
+            for (String entry : raw.split(";")) {
+                if (entry.isBlank()) {
+                    continue;
+                }
+                String[] fields = entry.split(":");
+                if (fields.length < 2) {
+                    continue;
+                }
+                Double value = parseDouble(fields[1]);
+                if (value == null) {
+                    continue;
+                }
+                attributes.put(fields[0], value);
+            }
+        }
+        return fromAttributes(attributes);
+    }
+
+    /**
+     * Same attribute -> damage type/resistance mapping as {@link #parse(String)}, but starting
+     * from an already-decoded attribute/value map instead of the raw {@code "ATTR:value:OP:hidden;..."}
+     * PDC string - shared with {@link ValhallaMmoBulkImporter}, which reads its attribute/value
+     * pairs out of ValhallaMMO's {@code items.json} instead of a held item's PDC.
+     */
+    public static ImportResult fromAttributes(Map<String, Double> attributes) {
         List<DamageContribution> contributions = new ArrayList<>();
         List<TypeModifier> modifiers = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
-        if (raw == null || raw.isBlank()) {
-            return new ImportResult(contributions, modifiers, skipped);
-        }
-
-        for (String entry : raw.split(";")) {
-            if (entry.isBlank()) {
-                continue;
-            }
-            String[] fields = entry.split(":");
-            if (fields.length < 2) {
-                continue;
-            }
-            String attribute = fields[0];
-            Double value = parseDouble(fields[1]);
-            if (value == null) {
-                continue;
-            }
+        for (Map.Entry<String, Double> entry : attributes.entrySet()) {
+            String attribute = entry.getKey();
+            double value = entry.getValue();
 
             String damageType = EXTRA_DAMAGE_TO_TYPE.get(attribute);
             if (damageType != null) {

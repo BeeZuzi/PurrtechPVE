@@ -10,6 +10,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.gui.ItemEditorMenu;
 import eu.purrtech.purrtechPVE.gui.ItemEditorTab;
+import eu.purrtech.purrtechPVE.gui.ItemListMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorTab;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
@@ -25,6 +26,7 @@ import eu.purrtech.purrtechPVE.itemset.DuplicateSetKeyException;
 import eu.purrtech.purrtechPVE.itemset.ItemSet;
 import eu.purrtech.purrtechPVE.itemset.ItemSetNotFoundException;
 import eu.purrtech.purrtechPVE.trinket.AccessoryMenu;
+import eu.purrtech.purrtechPVE.valhalla.ValhallaMmoBulkImporter;
 import eu.purrtech.purrtechPVE.valhalla.ValhallaMmoImporter;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -36,6 +38,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -67,11 +71,15 @@ public final class PveCommand {
                                         .executes(ctx -> deleteTemplate(plugin, ctx))))
                         .then(Commands.literal("list")
                                 .executes(ctx -> listTemplates(plugin, ctx)))
+                        .then(Commands.literal("menu")
+                                .executes(ctx -> openItemListMenu(plugin, ctx)))
                         .then(Commands.literal("import")
                                 .then(Commands.literal("valhalla")
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .then(Commands.argument("displayName", StringArgumentType.greedyString())
-                                                        .executes(ctx -> importFromValhalla(plugin, ctx))))))
+                                                        .executes(ctx -> importFromValhalla(plugin, ctx)))))
+                                .then(Commands.literal("valhallaall")
+                                        .executes(ctx -> bulkImportFromValhalla(plugin, ctx))))
                         .then(Commands.literal("edit")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .executes(ctx -> editTemplate(plugin, ctx))))
@@ -232,6 +240,16 @@ public final class PveCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    private static int openItemListMenu(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+            return 0;
+        }
+        ItemListMenu.open(plugin, player, 0);
+        return Command.SINGLE_SUCCESS;
+    }
+
     private static int importFromValhalla(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         if (!(sender instanceof Player player)) {
@@ -271,6 +289,46 @@ public final class PveCommand {
         if (!result.skipped().isEmpty()) {
             player.sendMessage(plugin.getMessages().render(locale, "item.import-skipped",
                     Placeholder.unparsed("attributes", String.join(", ", result.skipped()))));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int bulkImportFromValhalla(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = sender instanceof Player player ? player.locale() : plugin.getDefaultLocale();
+        String createdBy = sender instanceof Player player ? player.getUniqueId().toString() : "console";
+
+        File itemsFile = ValhallaMmoBulkImporter.defaultItemsFile(plugin);
+        if (!itemsFile.isFile()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.bulk-import-file-missing",
+                    Placeholder.unparsed("path", itemsFile.getPath())));
+            return 0;
+        }
+
+        ValhallaMmoBulkImporter.BulkImportResult result;
+        try {
+            result = ValhallaMmoBulkImporter.importAll(itemsFile, plugin.getItemTemplateService(), createdBy);
+        } catch (IOException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.bulk-import-error",
+                    Placeholder.unparsed("error", String.valueOf(e.getMessage()))));
+            return 0;
+        }
+
+        sender.sendMessage(plugin.getMessages().render(locale, "item.bulk-import-done",
+                Placeholder.unparsed("imported", String.valueOf(result.importedCount())),
+                Placeholder.unparsed("failed", String.valueOf(result.failedCount())),
+                Placeholder.unparsed("total", String.valueOf(result.outcomes().size()))));
+        List<String> failedIds = result.outcomes().stream()
+                .filter(o -> !o.imported())
+                .map(o -> o.valhallaId() + " (" + o.reason() + ")")
+                .toList();
+        if (!failedIds.isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.bulk-import-failed-items",
+                    Placeholder.unparsed("items", String.join(", ", failedIds))));
+        }
+        if (!result.skippedAttributes().isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.import-skipped",
+                    Placeholder.unparsed("attributes", String.join(", ", result.skippedAttributes()))));
         }
         return Command.SINGLE_SUCCESS;
     }

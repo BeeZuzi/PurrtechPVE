@@ -16,6 +16,7 @@ import eu.purrtech.purrtechPVE.db.ItemSetRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
+import eu.purrtech.purrtechPVE.db.MobEquipmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
 import eu.purrtech.purrtechPVE.gui.ItemEditorListener;
 import eu.purrtech.purrtechPVE.item.ItemRenderer;
@@ -25,6 +26,7 @@ import eu.purrtech.purrtechPVE.itemset.ItemSetService;
 import eu.purrtech.purrtechPVE.lang.Messages;
 import eu.purrtech.purrtechPVE.listener.CombatDamageListener;
 import eu.purrtech.purrtechPVE.listener.ItemSyncJoinListener;
+import eu.purrtech.purrtechPVE.mythicmobs.MythicMobEquipmentListener;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobsBridge;
 import eu.purrtech.purrtechPVE.trinket.AccessoryMenuListener;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
@@ -46,6 +48,8 @@ public final class PurrtechPVE extends JavaPlugin {
     private AccessoryRepository accessoryRepository;
     private ItemSetService itemSetService;
     private ItemEditorListener itemEditorListener;
+    private MythicMobsBridge mythicMobsBridge;
+    private MobEquipmentRepository mobEquipmentRepository;
 
     @Override
     public void onEnable() {
@@ -67,6 +71,7 @@ public final class PurrtechPVE extends JavaPlugin {
         TypeModifierRepository typeModifierRepository = new TypeModifierRepository(database);
         mobDamageProfileRepository = new MobDamageProfileRepository(database);
         accessoryRepository = new AccessoryRepository(database);
+        mobEquipmentRepository = new MobEquipmentRepository(database);
         ItemSetRepository itemSetRepository = new ItemSetRepository(database);
         ItemSetMemberRepository itemSetMemberRepository = new ItemSetMemberRepository(database);
         ItemSetDamageThresholdRepository itemSetDamageThresholdRepository = new ItemSetDamageThresholdRepository(database);
@@ -93,7 +98,6 @@ public final class PurrtechPVE extends JavaPlugin {
         // the API this was built against (older/forked/incompatible builds still pass the name
         // check) - probe() forces that class resolution right now, where a mismatch is loud and
         // diagnosable, rather than crashing every single damage event later. See MythicMobsBridge's javadoc.
-        MythicMobsBridge mythicMobsBridge = null;
         if (mythicMobsPresent) {
             try {
                 MythicMobsBridge bridge = new MythicMobsBridge();
@@ -103,6 +107,20 @@ public final class PurrtechPVE extends JavaPlugin {
                 getLogger().warning("A plugin named MythicMobs is enabled, but its API doesn't match what "
                         + "PurrtechPVE was built against (" + t.getClass().getSimpleName()
                         + (t.getMessage() != null ? ": " + t.getMessage() : "") + ") - running without MythicMobs integration.");
+            }
+        }
+        if (mythicMobsBridge != null) {
+            // Same defensive posture as the probe() above: this listener's @EventHandler method
+            // signature references a MythicMobs event class, so registering it also risks
+            // NoClassDefFoundError on a name-matches-but-API-differs build.
+            try {
+                getServer().getPluginManager().registerEvents(new MythicMobEquipmentListener(
+                        mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
+                        typeModifierRepository, itemRenderer), this);
+            } catch (Throwable t) {
+                getLogger().warning("Failed to register the MythicMobs mob-equipment listener ("
+                        + t.getClass().getSimpleName()
+                        + (t.getMessage() != null ? ": " + t.getMessage() : "") + ") - mobs won't spawn with assigned equipment.");
             }
         }
         EquipmentResolver equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
@@ -179,5 +197,14 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public ItemSetService getItemSetService() {
         return itemSetService;
+    }
+
+    /** Null when MythicMobs isn't installed, or is but its API doesn't match what this plugin was built against. */
+    public MythicMobsBridge getMythicMobsBridge() {
+        return mythicMobsBridge;
+    }
+
+    public MobEquipmentRepository getMobEquipmentRepository() {
+        return mobEquipmentRepository;
     }
 }

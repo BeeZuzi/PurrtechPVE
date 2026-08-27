@@ -179,6 +179,20 @@ final class Schema {
                     )
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_set_threshold_modifier_set ON item_set_threshold_modifier(set_id)");
+
+            // Which of our item templates a MythicMobs mob type spawns wearing/holding, per
+            // vanilla equipment slot. Applied fresh (live template data) on every spawn by
+            // MythicMobEquipmentListener - not tied to any specific mob instance, so nothing
+            // here needs versioning/snapshotting either.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS mob_equipment (
+                        mythic_mob_internal_name TEXT NOT NULL,
+                        slot TEXT NOT NULL,
+                        template_id TEXT NOT NULL REFERENCES item_templates(id) ON DELETE CASCADE,
+                        PRIMARY KEY (mythic_mob_internal_name, slot)
+                    )
+                    """);
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_mob_equipment_template ON mob_equipment(template_id)");
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize database schema", e);
         }

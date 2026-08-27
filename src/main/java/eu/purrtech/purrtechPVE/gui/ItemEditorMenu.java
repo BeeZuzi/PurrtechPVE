@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * The {@code /pve item edit <key>} admin GUI - custom damages / resistances
@@ -41,7 +42,8 @@ public final class ItemEditorMenu {
     private static final int TAB_DAMAGE = 1;
     private static final int TAB_RESIST = 2;
     private static final int TAB_TRINKET = 3;
-    private static final int TAB_PUBLISH = 4;
+    private static final int TAB_MOBS = 4;
+    private static final int TAB_PUBLISH = 5;
     private static final int CLOSE_SLOT = 8;
     private static final int PREVIEW_SLOT = 13;
     private static final int PUBLISH_BUTTON_SLOT = 22;
@@ -80,6 +82,7 @@ public final class ItemEditorMenu {
             case DAMAGE -> renderDamage(plugin, inventory, templateKey);
             case RESIST -> renderResist(plugin, inventory, templateKey);
             case TRINKET -> renderTrinket(plugin, inventory, templateKey);
+            case MOBS -> renderMobs(plugin, inventory, templateKey);
             case PUBLISH -> renderPublish(plugin, inventory, templateKey);
         }
     }
@@ -89,6 +92,7 @@ public final class ItemEditorMenu {
         inventory.setItem(TAB_DAMAGE, tabIcon(Material.BLAZE_POWDER, "Custom Damages", active == ItemEditorTab.DAMAGE));
         inventory.setItem(TAB_RESIST, tabIcon(Material.SHIELD, "Odolnosti / Slabiny", active == ItemEditorTab.RESIST));
         inventory.setItem(TAB_TRINKET, tabIcon(Material.NAME_TAG, "Trinket sloty", active == ItemEditorTab.TRINKET));
+        inventory.setItem(TAB_MOBS, tabIcon(Material.ZOMBIE_HEAD, "MythicMobs", active == ItemEditorTab.MOBS));
         inventory.setItem(TAB_PUBLISH, tabIcon(Material.EMERALD, "Uložit & Publikovat", active == ItemEditorTab.PUBLISH));
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, Component.text("Zavřít", NamedTextColor.RED)));
     }
@@ -344,6 +348,106 @@ public final class ItemEditorMenu {
         };
     }
 
+    // ---- MOBS ----
+
+    private static void renderMobs(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+        if (plugin.getMythicMobsBridge() == null) {
+            ItemStack info = named(Material.BARRIER, Component.text("MythicMobs není dostupný", NamedTextColor.RED));
+            ItemMeta infoMeta = info.getItemMeta();
+            infoMeta.lore(List.of(
+                    Component.text("Buď není na serveru nainstalovaný,", NamedTextColor.GRAY),
+                    Component.text("nebo jeho verze neodpovídá tomu,", NamedTextColor.GRAY),
+                    Component.text("co tenhle plugin očekává.", NamedTextColor.GRAY)));
+            info.setItemMeta(infoMeta);
+            inventory.setItem(PREVIEW_SLOT, info);
+            return;
+        }
+
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
+        List<String> mobTypes = listMobTypesSafely(plugin);
+        for (int i = 0; i < mobTypes.size() && CONTENT_START + i < SIZE; i++) {
+            String mobType = mobTypes.get(i);
+            Map<String, UUID> equipment = plugin.getMobEquipmentRepository().findByMob(mobType);
+            Optional<String> assignedSlot = equipment.entrySet().stream()
+                    .filter(e -> e.getValue().equals(template.id())).map(Map.Entry::getKey).findFirst();
+
+            List<Component> lore = new ArrayList<>();
+            if (assignedSlot.isPresent()) {
+                lore.add(Component.text("Nasazeno v: " + assignedSlot.get(), NamedTextColor.GREEN));
+            } else {
+                lore.add(Component.text("(nenasazeno)", NamedTextColor.DARK_GRAY));
+            }
+            lore.add(Component.empty());
+            lore.add(Component.text("Klik: dát tenhle item mobovi", NamedTextColor.YELLOW));
+            lore.add(Component.text("(slot se určí podle materiálu)", NamedTextColor.YELLOW));
+            lore.add(Component.text("Shift+klik: odebrat", NamedTextColor.RED));
+
+            ItemStack icon = named(Material.ZOMBIE_HEAD, Component.text(mobType, NamedTextColor.AQUA));
+            ItemMeta meta = icon.getItemMeta();
+            meta.lore(lore);
+            icon.setItemMeta(meta);
+            inventory.setItem(CONTENT_START + i, icon);
+        }
+    }
+
+    private static void handleMobsClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
+        if (plugin.getMythicMobsBridge() == null) {
+            return;
+        }
+        List<String> mobTypes = listMobTypesSafely(plugin);
+        int index = slot - CONTENT_START;
+        if (index < 0 || index >= mobTypes.size()) {
+            return;
+        }
+        String mobType = mobTypes.get(index);
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
+
+        if (shift) {
+            Map<String, UUID> equipment = plugin.getMobEquipmentRepository().findByMob(mobType);
+            Optional<String> assignedSlot = equipment.entrySet().stream()
+                    .filter(e -> e.getValue().equals(template.id())).map(Map.Entry::getKey).findFirst();
+            if (assignedSlot.isPresent()) {
+                plugin.getMobEquipmentRepository().remove(mobType, assignedSlot.get());
+                player.sendMessage(Component.text("Odebráno z moba " + mobType + ".", NamedTextColor.GREEN));
+            }
+        } else {
+            EquipmentSlot equipSlot = autoSlotFor(template.baseMaterial());
+            plugin.getMobEquipmentRepository().set(mobType, equipSlot.name(), template.id());
+            player.sendMessage(Component.text("Item nasazen mobovi " + mobType + " do slotu "
+                    + equipSlot.name() + ".", NamedTextColor.GREEN));
+        }
+        render(plugin, holder.getInventory(), holder.templateKey(), ItemEditorTab.MOBS);
+    }
+
+    /** Guesses the equipment slot from the base material's vanilla naming convention (helmet/chestplate/... suffix, shield). */
+    private static EquipmentSlot autoSlotFor(Material baseMaterial) {
+        String name = baseMaterial.name();
+        if (name.endsWith("_HELMET") || name.equals("CARVED_PUMPKIN") || name.equals("TURTLE_HELMET")) {
+            return EquipmentSlot.HEAD;
+        }
+        if (name.endsWith("_CHESTPLATE") || name.equals("ELYTRA")) {
+            return EquipmentSlot.CHEST;
+        }
+        if (name.endsWith("_LEGGINGS")) {
+            return EquipmentSlot.LEGS;
+        }
+        if (name.endsWith("_BOOTS")) {
+            return EquipmentSlot.FEET;
+        }
+        if (name.equals("SHIELD")) {
+            return EquipmentSlot.OFF_HAND;
+        }
+        return EquipmentSlot.HAND;
+    }
+
+    private static List<String> listMobTypesSafely(PurrtechPVE plugin) {
+        try {
+            return plugin.getMythicMobsBridge().listMobTypeInternalNames();
+        } catch (Throwable t) {
+            return List.of();
+        }
+    }
+
     // ---- PUBLISH ----
 
     private static void renderPublish(PurrtechPVE plugin, Inventory inventory, String templateKey) {
@@ -397,6 +501,7 @@ public final class ItemEditorMenu {
             case TAB_DAMAGE -> switchTab(plugin, player, holder, ItemEditorTab.DAMAGE);
             case TAB_RESIST -> switchTab(plugin, player, holder, ItemEditorTab.RESIST);
             case TAB_TRINKET -> switchTab(plugin, player, holder, ItemEditorTab.TRINKET);
+            case TAB_MOBS -> switchTab(plugin, player, holder, ItemEditorTab.MOBS);
             case TAB_PUBLISH -> switchTab(plugin, player, holder, ItemEditorTab.PUBLISH);
             case CLOSE_SLOT -> player.closeInventory();
             default -> {
@@ -405,6 +510,7 @@ public final class ItemEditorMenu {
                     case DAMAGE -> handleDamageClick(plugin, player, holder, slot, shift);
                     case RESIST -> handleResistClick(plugin, player, holder, slot, shift);
                     case TRINKET -> handleTrinketClick(plugin, player, holder, slot);
+                    case MOBS -> handleMobsClick(plugin, player, holder, slot, shift);
                     case PUBLISH -> handlePublishClick(plugin, player, holder, slot);
                 }
             }

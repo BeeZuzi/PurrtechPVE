@@ -534,6 +534,87 @@
   - Živě ověřeno i to, že souboj (`/damage ... by ...` mezi dvěma zombie
     entitami, žádný hráč potřeba) po opravě proběhne čistě bez pádu.
 
+- **MythicMobs equipment tab, hromadný ValhallaMMO import, a menu na správu
+  itemů (2026-08-27), na žádost.** Tři samostatné featury z jednoho zadání.
+  - **MythicMobs "dej armor/zbraň mobovi" tab**: nová tabulka `mob_equipment`
+    (`mythic_mob_internal_name`, `slot`, `template_id`, FK na
+    `item_templates(id) ON DELETE CASCADE`) + `MobEquipmentRepository`.
+    `MythicMobsBridge.listMobTypeInternalNames()` - vrátí všechny mob typy
+    nakonfigurované na serveru (nová metoda, stejná `MythicBukkit` API
+    třída jako zbytek bridge). `MythicMobEquipmentListener` na
+    `MythicMobSpawnEvent` - při spawnu moba mu nasadí (na živo vyrenderované,
+    ne verzované - jde o dočasný mob-held item, ne hráčův kus) cokoliv, co
+    má nastavené v `mob_equipment`, obalené `catch (Throwable)` jako zbytek
+    package (viz předchozí bugfix). Nový tab "MythicMobs" v
+    `ItemEditorMenu` (mezi Trinket a Publikovat) - mřížka všech mob typů,
+    klik = nasadí AKTUÁLNĚ EDITOVANÝ item danému mobovi (slot se odhadne
+    z materiálu - `_HELMET`/`_CHESTPLATE`/.../`SHIELD` → odpovídající
+    `EquipmentSlot`, jinak `HAND`), shift+klik = odebrat. Přesně "bude
+    záložka která ti ukáže všechny moby... a pak jim to tam může dát ten
+    armor nebo tu zbraň" jak jsi chtěl. `PurrtechPVE.mythicMobsBridge` a
+    nový `mobEquipmentRepository` povýšeny na pole s gettery (dřív byl
+    bridge jen lokální proměnná v `onEnable`), listener se registruje
+    jen po úspěšném `probe()`, ve vlastním `catch (Throwable)`.
+  - **Hromadný ValhallaMMO import** (`/pve item import valhallaall`,
+    `ValhallaMmoBulkImporter`) - našel jsem přesně jejich `items.json`
+    formát čtením `CustomItemRegistry`/`ItemStackGSONAdapter`/`GsonAdapter`/
+    `ItemUtils` na jejich GitHubu (žádná závislost na jejich pluginu/API,
+    stejná filosofie jako stávající `ValhallaMmoImporter` - jen vanilla
+    Gson, bundlovaný s Paper runtime, `compileOnly`). Pole `{id, item,
+    modifiers}` na top-levelu; `item` je `ItemStack` přes jejich vlastní
+    `BukkitObjectOutputStream` a base64 (`Base64.getMimeDecoder()` zvládá
+    jejich řádkované kódování); `modifiers` je `{MOD_TYPE: <plně
+    kvalifikovaný název třídy>, DATA: {...}}` - čte se jen `DATA.attribute`/
+    `DATA.value` z `DefaultAttributeAdd` položek, generickým JSON přístupem
+    (nikdy se nesahá na skutečnou ValhallaMMO třídu). `ValhallaMmoImporter`
+    refaktorován - `parse(String)` teď jen rozparsuje `ATTR:value:...`
+    řetězec do `Map<String,Double>` a deleguje na nové `fromAttributes(Map)`,
+    které sdílí obě cesty (single-item PDC string i bulk JSON) přes stejné
+    damage/resist mapovací tabulky.
+    - Klíč nové šablony = `"valhalla-" + <sanitized id>` - STABILNÍ přes
+      opakované importy (žádné `-2`/`-3` navyšování při re-run), takže
+      opakované spuštění po přidání nových itemů do ValhallaMMO správně
+      naimportuje jen to nové a nahlásí zbytek jako "už existuje" - ověřeno
+      živě (viz níže), tohle byl skutečný bug, který jsem při ověřování
+      chytil a opravil (původní verze dedupovala klíče v rámci jednoho
+      importu příponou, což tenhle idempotentní re-run rozbíjelo).
+    - Hlášení: `<imported> naimportováno, <failed> přeskočeno`, seznam
+      přeskočených itemů s důvodem (duplicitní klíč / nešlo dekódovat), a
+      seznam atributů bez obdoby (sdílí `item.import-skipped` s existujícím
+      single-item importem).
+    - 2 nové JUnit testy na `fromAttributes()`. 114 testů celkem zelených.
+    - **Ověřeno živě** (dočasný debug příkaz `pve debugvalhallafixture`,
+      smazaný před commitem): vygenerovaná fixture se 2 unikátními a 1
+      duplicitním ValhallaMMO id, jedním `null` hodnotovým atributem
+      (`EXTRA_POISON_DAMAGE`) a jedním bez mapování (`CRIT_DAMAGE`) - první
+      import: 2 naimportováno / 1 přeskočeno (duplicita v rámci dávky
+      správně odhalena), `CRIT_DAMAGE` správně nahlášen jako přeskočený,
+      `null` hodnota tiše (správně) vynechána. Druhé spuštění hned poté:
+      0 naimportováno / 3 přeskočeno - všechny 3 správně nahlášené jako
+      "už existuje", potvrzuje idempotenci re-importu.
+  - **Menu na správu všech itemů** (`/pve item menu`, `gui/ItemListMenu.java`
+    + `ItemListHolder`) - nahrazuje textový `/pve item list` (ten zůstává
+    pro konzoli) klikací mřížkou se stránkováním (45 itemů/stránka, šipky
+    předchozí/další, počítadlo stran). Tlačítko "+ Vytvořit item" (chatový
+    prompt `<klíč> <materiál> <název>`, stejný vzor jako ostatní menu).
+    Na ikoně itemu: **obyčejný klik = otevře `ItemEditorMenu`** k úpravě,
+    **shift+PRAVÝ klik = smaže** šablonu, **shift+LEVÝ klik = dá kopii**
+    do inventáře hráče (`renderGiveable`) - přesně "pravým shift clickem
+    smazat, levým shift clickem získat do invu, klik = upravit" jak jsi
+    chtěl. Rozlišení SHIFT_LEFT/SHIFT_RIGHT bylo potřeba přidat do
+    `ItemEditorListener` (dřív se předávalo jen `isShiftClick()` bool,
+    teď `event.getClick()` pro nový `ItemListHolder`, ostatní menu si
+    pořád vystačí s boolem).
+  - **Neověřeno živě**: samotné klikací chování `ItemListMenu` (stránkování,
+    shift-left/shift-right rozlišení, add-item flow) - stejné omezení jako
+    u `ItemEditorMenu`/`SetEditorMenu`, sandbox nemá připojeného hráče.
+    Ověřeno kompilací + `runServer` bootem (command tree se zaregistruje
+    bez pádu, `/pve item create`+`list` pořád fungují) a code review proti
+    identickým, už production-ověřeným vzorům v `ItemEditorMenu`/
+    `SetEditorMenu`. Doporučuju vyzkoušet `/pve item menu` naživo -
+    projít stránkování při >45 šablonách (např. po ValhallaMMO importu),
+    a proklikat všechny 3 akce na pár itemech.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

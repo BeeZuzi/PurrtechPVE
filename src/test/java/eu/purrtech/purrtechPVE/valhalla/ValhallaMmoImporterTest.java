@@ -6,6 +6,8 @@ import eu.purrtech.purrtechPVE.item.ModifierContext;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -83,5 +85,36 @@ class ValhallaMmoImporterTest {
         assertEquals(1, result.contributions().size());
         assertEquals("necrotic", result.contributions().get(0).damageTypeKey());
         assertEquals(3.0, result.contributions().get(0).amount());
+    }
+
+    // fromAttributes() is the entry point ValhallaMmoBulkImporter feeds its already-decoded
+    // items.json attribute/value pairs through - same mapping tables as parse(), just skipping
+    // the "ATTR:value:OP:hidden" string format entirely.
+
+    @Test
+    void fromAttributesMapsDamageAndResistanceAndReportsUnmapped() {
+        var result = ValhallaMmoImporter.fromAttributes(Map.of(
+                "EXTRA_FIRE_DAMAGE", 6.0,
+                "FREEZING_RESISTANCE", 0.25,
+                "CRIT_DAMAGE", 10.0));
+
+        assertEquals(1, result.contributions().size());
+        assertEquals("fire", result.contributions().get(0).damageTypeKey());
+        assertEquals(6.0, result.contributions().get(0).amount());
+
+        assertEquals(1, result.modifiers().size());
+        assertEquals("frozen", result.modifiers().get(0).damageTypeKey());
+        assertEquals(25.0, result.modifiers().get(0).percent());
+
+        assertEquals(1, result.skipped().size());
+        assertTrue(result.skipped().contains("CRIT_DAMAGE"));
+    }
+
+    @Test
+    void fromAttributesOnEmptyMapYieldsNothing() {
+        var result = ValhallaMmoImporter.fromAttributes(Map.of());
+        assertTrue(result.contributions().isEmpty());
+        assertTrue(result.modifiers().isEmpty());
+        assertTrue(result.skipped().isEmpty());
     }
 }

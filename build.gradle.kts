@@ -19,11 +19,16 @@ dependencies {
     // only class allowed to import this API.
     compileOnly("io.lumine:Mythic-Dist:5.10.0")
 
+    // Bundled with the Paper server runtime (run/libraries/.../gson-2.14.0.jar)
+    // and used by ValhallaMmoBulkImporter to read their items.json - not shaded.
+    compileOnly("com.google.code.gson:gson:2.14.0")
+
     // Storage: shaded into the plugin jar, Paper does not provide these on the plugin classpath
     implementation("com.zaxxer:HikariCP:7.1.0")
     implementation("org.xerial:sqlite-jdbc:3.53.2.1")
 
     testImplementation("io.papermc.paper:paper-api:26.2.build.+")
+    testImplementation("com.google.code.gson:gson:2.14.0")
 
     testImplementation(platform("org.junit:junit-bom:6.1.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")

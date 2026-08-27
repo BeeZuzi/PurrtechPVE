@@ -37,6 +37,10 @@ item:
   import-no-stats: "<red>Item v ruce nemá žádná ValhallaMMO data (žádné default_stats/actual_stats)."
   import-done: "<green>Šablona <white><key></white> naimportována z ValhallaMMO: <white><damage></white> typů poškození, <white><resist></white> odolností/slabin."
   import-skipped: "<yellow>Přeskočené (nemají u nás obdobu): <white><attributes></white>"
+  bulk-import-file-missing: "<red>Soubor s items od ValhallaMMO nenalezen: <white><path></white>."
+  bulk-import-error: "<red>Nepodařilo se přečíst soubor s items od ValhallaMMO: <white><error></white>"
+  bulk-import-done: "<green>Hromadný import z ValhallaMMO: <white><imported></white> naimportováno, <white><failed></white> přeskočeno, celkem nalezeno <white><total></white>."
+  bulk-import-failed-items: "<yellow>Přeskočené itemy: <white><items></white>"
   synced: "<green>Šablona <white><key></white> propsána do oběhu. Aktualizováno <white><count></white> itemů u online hráčů (offline hráči doženou verzi při příštím přihlášení)."
 
 mobprofile:

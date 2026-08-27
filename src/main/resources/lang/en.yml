@@ -37,6 +37,10 @@ item:
   import-no-stats: "<red>The item in hand has no ValhallaMMO data (no default_stats/actual_stats)."
   import-done: "<green>Template <white><key></white> imported from ValhallaMMO: <white><damage></white> damage types, <white><resist></white> resistances/weaknesses."
   import-skipped: "<yellow>Skipped (no equivalent here): <white><attributes></white>"
+  bulk-import-file-missing: "<red>ValhallaMMO items file not found at <white><path></white>."
+  bulk-import-error: "<red>Failed to read the ValhallaMMO items file: <white><error></white>"
+  bulk-import-done: "<green>ValhallaMMO bulk import: <white><imported></white> imported, <white><failed></white> skipped, out of <white><total></white> found."
+  bulk-import-failed-items: "<yellow>Skipped items: <white><items></white>"
   synced: "<green>Template <white><key></white> pushed to circulation. Updated <white><count></white> items for online players (offline players catch up on next login)."
 
 mobprofile:
