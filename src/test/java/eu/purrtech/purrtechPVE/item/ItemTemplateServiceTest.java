@@ -5,6 +5,7 @@ import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.Database;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
+import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
 import org.bukkit.Material;
 import org.junit.jupiter.api.AfterEach;
@@ -43,6 +44,7 @@ class ItemTemplateServiceTest {
                 new ItemTemplateRepository(database),
                 new DamageContributionRepository(database),
                 new TypeModifierRepository(database),
+                new TemplateEnchantmentRepository(database),
                 snapshotRepository,
                 new DamageTypeRegistry(),
                 null);

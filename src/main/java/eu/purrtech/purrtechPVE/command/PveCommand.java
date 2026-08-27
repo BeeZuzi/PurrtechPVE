@@ -34,7 +34,10 @@ import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.command.CommandSender;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -116,6 +119,16 @@ public final class PveCommand {
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .then(Commands.argument("damageType", StringArgumentType.word())
                                                         .executes(ctx -> removeTypeModifier(plugin, ctx))))))
+                        .then(Commands.literal("enchant")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("enchantment", StringArgumentType.string())
+                                                        .then(Commands.argument("level", IntegerArgumentType.integer(1))
+                                                                .executes(ctx -> setEnchantment(plugin, ctx))))))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("enchantment", StringArgumentType.string())
+                                                        .executes(ctx -> removeEnchantment(plugin, ctx))))))
                         .then(Commands.literal("slots")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .then(Commands.argument("slots", StringArgumentType.greedyString())
@@ -267,9 +280,12 @@ public final class PveCommand {
             return 0;
         }
 
-        ValhallaMmoImporter.ImportResult result = ValhallaMmoImporter.parse(rawStats.get());
+        ValhallaMmoImporter.ImportResult result = ValhallaMmoImporter.parse(rawStats.get(),
+                plugin.getDamageTypeRegistry().all().keySet());
+        Integer customModelData = held.hasItemMeta() && held.getItemMeta().hasCustomModelData()
+                ? held.getItemMeta().getCustomModelData() : null;
         try {
-            plugin.getItemTemplateService().create(key, held.getType(), displayName,
+            plugin.getItemTemplateService().create(key, held.getType(), customModelData, displayName,
                     player.getUniqueId().toString());
         } catch (DuplicateTemplateKeyException e) {
             player.sendMessage(plugin.getMessages().render(locale, "item.duplicate-key", Placeholder.unparsed("key", key)));
@@ -281,11 +297,19 @@ public final class PveCommand {
         for (TypeModifier m : result.modifiers()) {
             plugin.getItemTemplateService().setTypeModifier(key, m.damageTypeKey(), m.percent());
         }
+        int enchantCount = 0;
+        if (held.hasItemMeta()) {
+            for (Map.Entry<Enchantment, Integer> enchant : held.getItemMeta().getEnchants().entrySet()) {
+                plugin.getItemTemplateService().setEnchantment(key, enchant.getKey().getKey().toString(), enchant.getValue());
+                enchantCount++;
+            }
+        }
 
         player.sendMessage(plugin.getMessages().render(locale, "item.import-done",
                 Placeholder.unparsed("key", key),
                 Placeholder.unparsed("damage", String.valueOf(result.contributions().size())),
-                Placeholder.unparsed("resist", String.valueOf(result.modifiers().size()))));
+                Placeholder.unparsed("resist", String.valueOf(result.modifiers().size())),
+                Placeholder.unparsed("enchants", String.valueOf(enchantCount))));
         if (!result.skipped().isEmpty()) {
             player.sendMessage(plugin.getMessages().render(locale, "item.import-skipped",
                     Placeholder.unparsed("attributes", String.join(", ", result.skipped()))));
@@ -307,7 +331,8 @@ public final class PveCommand {
 
         ValhallaMmoBulkImporter.BulkImportResult result;
         try {
-            result = ValhallaMmoBulkImporter.importAll(itemsFile, plugin.getItemTemplateService(), createdBy);
+            result = ValhallaMmoBulkImporter.importAll(itemsFile, plugin.getItemTemplateService(),
+                    plugin.getDamageTypeRegistry().all().keySet(), createdBy);
         } catch (IOException e) {
             sender.sendMessage(plugin.getMessages().render(locale, "item.bulk-import-error",
                     Placeholder.unparsed("error", String.valueOf(e.getMessage()))));
@@ -317,7 +342,8 @@ public final class PveCommand {
         sender.sendMessage(plugin.getMessages().render(locale, "item.bulk-import-done",
                 Placeholder.unparsed("imported", String.valueOf(result.importedCount())),
                 Placeholder.unparsed("failed", String.valueOf(result.failedCount())),
-                Placeholder.unparsed("total", String.valueOf(result.outcomes().size()))));
+                Placeholder.unparsed("total", String.valueOf(result.outcomes().size())),
+                Placeholder.unparsed("enchants", String.valueOf(result.enchantsImported()))));
         List<String> failedIds = result.outcomes().stream()
                 .filter(o -> !o.imported())
                 .map(o -> o.valhallaId() + " (" + o.reason() + ")")
@@ -511,6 +537,56 @@ public final class PveCommand {
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.resist-removed",
                 Placeholder.unparsed("key", key), Placeholder.unparsed("type", damageType)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setEnchantment(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String enchantmentArg = StringArgumentType.getString(ctx, "enchantment");
+        int level = IntegerArgumentType.getInteger(ctx, "level");
+
+        NamespacedKey enchantmentKey = enchantmentArg.contains(":")
+                ? NamespacedKey.fromString(enchantmentArg) : NamespacedKey.minecraft(enchantmentArg);
+        Enchantment enchantment = enchantmentKey != null ? Registry.ENCHANTMENT.get(enchantmentKey) : null;
+        if (enchantment == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-enchantment",
+                    Placeholder.unparsed("enchantment", enchantmentArg)));
+            return 0;
+        }
+
+        try {
+            plugin.getItemTemplateService().setEnchantment(key, enchantment.getKey().toString(), level);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.enchant-set",
+                Placeholder.unparsed("key", key),
+                Placeholder.unparsed("enchantment", enchantment.getKey().toString()),
+                Placeholder.unparsed("level", String.valueOf(level))));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeEnchantment(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String enchantmentArg = StringArgumentType.getString(ctx, "enchantment");
+
+        NamespacedKey enchantmentKey = enchantmentArg.contains(":")
+                ? NamespacedKey.fromString(enchantmentArg) : NamespacedKey.minecraft(enchantmentArg);
+        String resolvedKey = enchantmentKey != null ? enchantmentKey.toString() : enchantmentArg;
+
+        try {
+            plugin.getItemTemplateService().removeEnchantment(key, resolvedKey);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.enchant-removed",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("enchantment", resolvedKey)));
         return Command.SINGLE_SUCCESS;
     }
 

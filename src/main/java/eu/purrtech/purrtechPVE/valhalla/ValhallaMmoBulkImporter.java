@@ -8,6 +8,7 @@ import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
 import eu.purrtech.purrtechPVE.item.ItemTemplateService;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
@@ -66,7 +67,7 @@ public final class ValhallaMmoBulkImporter {
     public record ItemImportOutcome(String valhallaId, boolean imported, String reason) {
     }
 
-    public record BulkImportResult(List<ItemImportOutcome> outcomes, Set<String> skippedAttributes) {
+    public record BulkImportResult(List<ItemImportOutcome> outcomes, Set<String> skippedAttributes, int enchantsImported) {
         public long importedCount() {
             return outcomes.stream().filter(ItemImportOutcome::imported).count();
         }
@@ -76,16 +77,18 @@ public final class ValhallaMmoBulkImporter {
         }
     }
 
-    public static BulkImportResult importAll(File itemsFile, ItemTemplateService itemTemplateService, String createdBy) throws IOException {
+    public static BulkImportResult importAll(File itemsFile, ItemTemplateService itemTemplateService,
+                                              Set<String> allDamageTypeKeys, String createdBy) throws IOException {
         List<ItemImportOutcome> outcomes = new ArrayList<>();
         Set<String> skippedAttributes = new LinkedHashSet<>();
+        int enchantsImported = 0;
 
         JsonElement root;
         try (FileReader reader = new FileReader(itemsFile, StandardCharsets.UTF_8)) {
             root = JsonParser.parseReader(reader);
         }
         if (root == null || !root.isJsonArray()) {
-            return new BulkImportResult(outcomes, skippedAttributes);
+            return new BulkImportResult(outcomes, skippedAttributes, enchantsImported);
         }
 
         for (JsonElement element : root.getAsJsonArray()) {
@@ -110,12 +113,14 @@ public final class ValhallaMmoBulkImporter {
             // instead of piling up "-2", "-3", ... copies of them every time.
             String key = sanitizeKey(id);
             Map<String, Double> attributes = readAttributes(object);
-            ValhallaMmoImporter.ImportResult mapped = ValhallaMmoImporter.fromAttributes(attributes);
+            ValhallaMmoImporter.ImportResult mapped = ValhallaMmoImporter.fromAttributes(attributes, allDamageTypeKeys);
             skippedAttributes.addAll(mapped.skipped());
 
             String displayName = displayNameOf(decoded, id);
+            Integer customModelData = decoded.hasItemMeta() && decoded.getItemMeta().hasCustomModelData()
+                    ? decoded.getItemMeta().getCustomModelData() : null;
             try {
-                itemTemplateService.create(key, decoded.getType(), displayName, createdBy);
+                itemTemplateService.create(key, decoded.getType(), customModelData, displayName, createdBy);
             } catch (DuplicateTemplateKeyException e) {
                 outcomes.add(new ItemImportOutcome(id, false, "an item template with key '" + key + "' already exists"));
                 continue;
@@ -126,9 +131,13 @@ public final class ValhallaMmoBulkImporter {
             for (TypeModifier m : mapped.modifiers()) {
                 itemTemplateService.setTypeModifier(key, m.damageTypeKey(), m.percent());
             }
+            for (Map.Entry<Enchantment, Integer> enchant : decoded.getEnchantments().entrySet()) {
+                itemTemplateService.setEnchantment(key, enchant.getKey().getKey().toString(), enchant.getValue());
+                enchantsImported++;
+            }
             outcomes.add(new ItemImportOutcome(id, true, key));
         }
-        return new BulkImportResult(outcomes, skippedAttributes);
+        return new BulkImportResult(outcomes, skippedAttributes, enchantsImported);
     }
 
     private static ItemStack decodeItem(JsonObject object) {

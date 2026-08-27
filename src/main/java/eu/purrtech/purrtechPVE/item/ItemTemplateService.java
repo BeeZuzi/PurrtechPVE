@@ -4,6 +4,7 @@ import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
+import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -27,6 +28,7 @@ public final class ItemTemplateService {
     private final ItemTemplateRepository templateRepository;
     private final DamageContributionRepository damageContributionRepository;
     private final TypeModifierRepository typeModifierRepository;
+    private final TemplateEnchantmentRepository enchantmentRepository;
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final DamageTypeRegistry damageTypeRegistry;
     private final ItemRenderer renderer;
@@ -34,26 +36,33 @@ public final class ItemTemplateService {
     public ItemTemplateService(ItemTemplateRepository templateRepository,
                                 DamageContributionRepository damageContributionRepository,
                                 TypeModifierRepository typeModifierRepository,
+                                TemplateEnchantmentRepository enchantmentRepository,
                                 ItemTemplateSnapshotRepository snapshotRepository,
                                 DamageTypeRegistry damageTypeRegistry,
                                 ItemRenderer renderer) {
         this.templateRepository = templateRepository;
         this.damageContributionRepository = damageContributionRepository;
         this.typeModifierRepository = typeModifierRepository;
+        this.enchantmentRepository = enchantmentRepository;
         this.snapshotRepository = snapshotRepository;
         this.damageTypeRegistry = damageTypeRegistry;
         this.renderer = renderer;
     }
 
     public ItemTemplate create(String key, Material baseMaterial, String displayName, String createdBy) {
+        return create(key, baseMaterial, null, displayName, createdBy);
+    }
+
+    /** Same as {@link #create(String, Material, String, String)}, but also seeds the base's custom model data (e.g. imported from a real item's ItemMeta). */
+    public ItemTemplate create(String key, Material baseMaterial, Integer customModelData, String displayName, String createdBy) {
         if (templateRepository.findByKey(key).isPresent()) {
             throw new DuplicateTemplateKeyException(key);
         }
         long now = System.currentTimeMillis();
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, baseMaterial, null,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, baseMaterial, customModelData,
                 false, List.of(), 1, 1, now, now, createdBy);
         templateRepository.insert(template);
-        snapshotRepository.insert(snapshotOf(template, List.of(), List.of()));
+        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of()));
         return template;
     }
 
@@ -104,6 +113,22 @@ public final class ItemTemplateService {
         return typeModifierRepository.findByTemplate(requireTemplate(key).id());
     }
 
+    public ItemTemplate setEnchantment(String key, String enchantmentKey, int level) {
+        ItemTemplate template = requireTemplate(key);
+        enchantmentRepository.upsert(template.id(), new TemplateEnchantment(enchantmentKey, level));
+        return bumpVersion(template);
+    }
+
+    public ItemTemplate removeEnchantment(String key, String enchantmentKey) {
+        ItemTemplate template = requireTemplate(key);
+        enchantmentRepository.remove(template.id(), enchantmentKey);
+        return bumpVersion(template);
+    }
+
+    public List<TemplateEnchantment> enchantments(String key) {
+        return enchantmentRepository.findByTemplate(requireTemplate(key).id());
+    }
+
     /** Marks the template's current version as pushed to circulation - the caller still has to actually walk online players (see ItemSyncService). */
     public ItemTemplate propagate(String key) {
         ItemTemplate template = requireTemplate(key);
@@ -143,7 +168,8 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         List<DamageContribution> contributions = damageContributionRepository.findByTemplate(template.id());
         List<TypeModifier> modifiers = typeModifierRepository.findByTemplate(template.id());
-        return renderer.render(template, contributions, modifiers);
+        List<TemplateEnchantment> enchantments = enchantmentRepository.findByTemplate(template.id());
+        return renderer.render(template, contributions, modifiers, enchantments);
     }
 
     private ItemTemplate requireTemplate(String key) {
@@ -161,12 +187,14 @@ public final class ItemTemplateService {
         templateRepository.update(bumped);
         snapshotRepository.insert(snapshotOf(bumped,
                 damageContributionRepository.findByTemplate(bumped.id()),
-                typeModifierRepository.findByTemplate(bumped.id())));
+                typeModifierRepository.findByTemplate(bumped.id()),
+                enchantmentRepository.findByTemplate(bumped.id())));
         return bumped;
     }
 
-    private TemplateSnapshot snapshotOf(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers) {
+    private TemplateSnapshot snapshotOf(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
+                                         List<TemplateEnchantment> enchantments) {
         return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(),
-                template.baseMaterial(), template.customModelData(), contributions, modifiers, template.updatedAt());
+                template.baseMaterial(), template.customModelData(), contributions, modifiers, enchantments, template.updatedAt());
     }
 }

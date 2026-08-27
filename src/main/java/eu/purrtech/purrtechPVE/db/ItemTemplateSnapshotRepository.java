@@ -3,6 +3,7 @@ package eu.purrtech.purrtechPVE.db;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
+import eu.purrtech.purrtechPVE.item.TemplateEnchantment;
 import eu.purrtech.purrtechPVE.item.TemplateSnapshot;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import org.bukkit.Material;
@@ -39,8 +40,8 @@ public final class ItemTemplateSnapshotRepository {
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT OR REPLACE INTO item_template_snapshot
                          (template_id, version, template_key, display_name, base_material, custom_model_data,
-                          damage_contributions, type_modifiers, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?)
+                          damage_contributions, type_modifiers, enchantments, created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?)
                      """)) {
             statement.setString(1, snapshot.templateId().toString());
             statement.setInt(2, snapshot.version());
@@ -54,7 +55,8 @@ public final class ItemTemplateSnapshotRepository {
             }
             statement.setString(7, encodeContributions(snapshot.damageContributions()));
             statement.setString(8, encodeModifiers(snapshot.typeModifiers()));
-            statement.setLong(9, snapshot.createdAt());
+            statement.setString(9, encodeEnchantments(snapshot.enchantments()));
+            statement.setLong(10, snapshot.createdAt());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
@@ -90,6 +92,7 @@ public final class ItemTemplateSnapshotRepository {
                 customModelDataBoxed,
                 decodeContributions(rs.getString("damage_contributions")),
                 decodeModifiers(rs.getString("type_modifiers")),
+                decodeEnchantments(rs.getString("enchantments")),
                 rs.getLong("created_at")
         );
     }
@@ -127,6 +130,24 @@ public final class ItemTemplateSnapshotRepository {
         for (String entry : raw.split(";")) {
             String[] fields = entry.split("\\|");
             out.add(new TypeModifier(fields[0], Double.parseDouble(fields[1])));
+        }
+        return out;
+    }
+
+    private static String encodeEnchantments(List<TemplateEnchantment> enchantments) {
+        return enchantments.stream()
+                .map(e -> e.enchantmentKey() + "|" + e.level())
+                .collect(Collectors.joining(";"));
+    }
+
+    private static List<TemplateEnchantment> decodeEnchantments(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        List<TemplateEnchantment> out = new ArrayList<>();
+        for (String entry : raw.split(";")) {
+            String[] fields = entry.split("\\|");
+            out.add(new TemplateEnchantment(fields[0], Integer.parseInt(fields[1])));
         }
         return out;
     }

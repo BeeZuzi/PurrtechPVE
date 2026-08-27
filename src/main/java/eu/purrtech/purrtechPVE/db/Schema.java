@@ -1,6 +1,7 @@
 package eu.purrtech.purrtechPVE.db;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -61,10 +62,17 @@ final class Schema {
                         custom_model_data INTEGER,
                         damage_contributions TEXT NOT NULL,
                         type_modifiers TEXT NOT NULL,
+                        enchantments TEXT NOT NULL DEFAULT '',
                         created_at INTEGER NOT NULL,
                         PRIMARY KEY (template_id, version)
                     )
                     """);
+            // CREATE TABLE IF NOT EXISTS above is a no-op on a database that already has this
+            // table from before `enchantments` existed (every server that's already run this
+            // plugin) - ALTER TABLE is the only way an already-shipped table picks up a new
+            // column. SQLite allows adding a NOT NULL column as long as it has a DEFAULT, which
+            // backfills every existing row.
+            addColumnIfMissing(connection, "item_template_snapshot", "enchantments", "TEXT NOT NULL DEFAULT ''");
 
             // damage_type_key is NOT a FK to damage_type_definitions: DamageTypeRegistry is
             // still in-memory-only (Fáze 1), that table stays unpopulated until a later
@@ -193,8 +201,37 @@ final class Schema {
                     )
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_mob_equipment_template ON mob_equipment(template_id)");
+
+            // A template's applied enchantments (vanilla or otherwise registered in the server's
+            // Enchantment registry) - a stat like damage contributions/type modifiers, so it's
+            // versioned/snapshotted the same way (see item_template_snapshot.enchantments above).
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_template_enchantment (
+                        template_id TEXT NOT NULL REFERENCES item_templates(id) ON DELETE CASCADE,
+                        enchantment_key TEXT NOT NULL,
+                        level INTEGER NOT NULL,
+                        PRIMARY KEY (template_id, enchantment_key)
+                    )
+                    """);
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_item_template_enchantment_template "
+                    + "ON item_template_enchantment(template_id)");
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize database schema", e);
+        }
+    }
+
+    /** Adds {@code column} to {@code table} if it isn't already there - see the item_template_snapshot.enchantments migration above. */
+    private static void addColumnIfMissing(Connection connection, String table, String column, String columnDefinition) throws SQLException {
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                if (column.equalsIgnoreCase(rs.getString("name"))) {
+                    return;
+                }
+            }
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + columnDefinition);
         }
     }
 }

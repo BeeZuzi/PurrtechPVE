@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Reads ValhallaMMO's own item-stat encoding straight off an {@link
@@ -27,21 +28,59 @@ import java.util.Optional;
  * {@code actual_stats} if that's the only one present) shaped like
  * {@code ATTRIBUTE:value:OPERATION:hidden;ATTRIBUTE2:value2:...}.
  *
- * <p>Only ValhallaMMO's elemental "extra damage" and "resistance" attributes
- * have a clean 1:1 mapping onto our {@link DamageContribution}/{@link
- * TypeModifier} model - their damage-type *multiplier* stats (e.g. {@code
- * DAMAGE_FIRE}) and non-elemental mechanics (crit chance, life steal, bleed
- * chance...) don't have an equivalent here yet (no generic attribute system,
- * see Fáze 6's "Attributes tab" gap), so those come back in {@code
- * ImportResult.skipped} instead of being silently dropped.
+ * <p>Three attribute families have a mapping onto our {@link
+ * DamageContribution}/{@link TypeModifier} model, all confirmed against
+ * {@code ItemAttributesRegistry}'s {@code StatFormat} for each attribute
+ * rather than guessed:
+ * <ul>
+ *     <li>{@code EXTRA_<TYPE>_DAMAGE} and the standalone {@code BLEED_DAMAGE}/
+ *     {@code ARROW_DAMAGE}/{@code DAMAGE_ALL} (all {@code StatFormat.FLOAT_P2}
+ *     or, for {@code DAMAGE_ALL}, deliberately treated as flat too - see its
+ *     own note below) are flat, dealt on every hit -> {@link DamageContribution}.
+ *     <li>{@code <TYPE>_RESISTANCE} (including {@code DAMAGE_RESISTANCE},
+ *     {@code BLEED_RESISTANCE}, {@code BLUDGEONING_RESISTANCE}, {@code
+ *     PROJECTILE_RESISTANCE}) are all {@code StatFormat.PERCENTILE_BASE_1_*} -
+ *     a 0-1 fraction, stored as percent here (fraction * 100) -> {@link
+ *     TypeModifier}. {@code DAMAGE_RESISTANCE} has no single type of its own
+ *     in ValhallaMMO (it reduces ALL incoming damage) so it fans out into one
+ *     {@link TypeModifier} per damage type we know about.
+ *     <li>{@code DAMAGE_<TYPE>} (fire/magic/poison/radiant/freezing/explosion/
+ *     lightning/necrotic/bludgeoning) are also {@code PERCENTILE_BASE_1_*} but
+ *     mean something different: "increase whatever damage of this type the
+ *     item already deals by N%", not a new contribution of its own. If the
+ *     item has no {@code EXTRA_<TYPE>_DAMAGE} (or other flat contribution of
+ *     that type) to begin with, ValhallaMMO's own stat has nothing to
+ *     multiply and the result is 0 - so, per explicit instruction, no
+ *     contribution is added at all rather than a spurious zero-value one.
+ * </ul>
+ *
+ * <p>{@code DAMAGE_ALL} is the one exception carved out of the percentage
+ * family above despite sharing its {@code StatFormat}: it has no {@code
+ * EXTRA_ALL_DAMAGE} flat counterpart to multiply (there's no generic
+ * "physical" flat stat in ValhallaMMO at all), so treating it as a
+ * percentage would always resolve to zero and be pointless. Per explicit
+ * instruction, it's imported as a flat contribution instead, into our
+ * {@code physical} type (this project's generic/fallback damage bucket -
+ * see {@code DamageTypeRegistry.FALLBACK_PHYSICAL}).
+ *
+ * <p>Everything else (crit chance/damage, stun, reflect, armor class/
+ * penetration, absorption, directional protection, movement speed, and
+ * target/attack-conditional bonuses like {@code DAMAGE_MELEE}/{@code
+ * DAMAGE_PLAYER}/{@code VELOCITY_DAMAGE}) has no equivalent mechanic in this
+ * plugin at all - those aren't damage-type-keyed stats the way everything
+ * above is, they're entirely different systems this plugin doesn't
+ * implement, so they come back in {@code ImportResult.skipped} rather than
+ * being force-fit or silently dropped.
  */
 public final class ValhallaMmoImporter {
 
     private static final NamespacedKey DEFAULT_STATS = new NamespacedKey("valhallammo", "default_stats");
     private static final NamespacedKey ACTUAL_STATS = new NamespacedKey("valhallammo", "actual_stats");
 
-    /** ValhallaMMO "extra X damage" attribute -> our damage type key. Flat, dealt on every hit. */
-    private static final Map<String, String> EXTRA_DAMAGE_TO_TYPE = Map.ofEntries(
+    private static final String DAMAGE_RESISTANCE_ATTRIBUTE = "DAMAGE_RESISTANCE";
+
+    /** Flat, dealt-on-every-hit ValhallaMMO attribute -> our damage type key ({@code StatFormat.FLOAT_P2}, plus DAMAGE_ALL - see class javadoc). */
+    private static final Map<String, String> FLAT_DAMAGE_TO_TYPE = Map.ofEntries(
             Map.entry("EXTRA_FIRE_DAMAGE", "fire"),
             Map.entry("EXTRA_EXPLOSION_DAMAGE", "explosive"),
             Map.entry("EXTRA_POISON_DAMAGE", "poison"),
@@ -50,7 +89,10 @@ public final class ValhallaMmoImporter {
             Map.entry("EXTRA_LIGHTNING_DAMAGE", "lightning"),
             Map.entry("EXTRA_FREEZING_DAMAGE", "frozen"),
             Map.entry("EXTRA_RADIANT_DAMAGE", "radiant"),
-            Map.entry("EXTRA_NECROTIC_DAMAGE", "necrotic")
+            Map.entry("EXTRA_NECROTIC_DAMAGE", "necrotic"),
+            Map.entry("BLEED_DAMAGE", "bleed"),
+            Map.entry("ARROW_DAMAGE", "piercing"),
+            Map.entry("DAMAGE_ALL", "physical")
     );
 
     /** ValhallaMMO "X resistance" attribute -> our damage type key. Stored as a fraction (e.g. 0.2 = 20%), we store percent. */
@@ -63,7 +105,23 @@ public final class ValhallaMmoImporter {
             Map.entry("FREEZING_RESISTANCE", "frozen"),
             Map.entry("RADIANT_RESISTANCE", "radiant"),
             Map.entry("NECROTIC_RESISTANCE", "necrotic"),
-            Map.entry("MELEE_RESISTANCE", "physical")
+            Map.entry("MELEE_RESISTANCE", "physical"),
+            Map.entry("BLEED_RESISTANCE", "bleed"),
+            Map.entry("BLUDGEONING_RESISTANCE", "blunt"),
+            Map.entry("PROJECTILE_RESISTANCE", "piercing")
+    );
+
+    /** "Increase whatever damage of this type the item already deals by N%" - see class javadoc; multiplies FLAT_DAMAGE_TO_TYPE's result, doesn't add its own. */
+    private static final Map<String, String> DAMAGE_MULTIPLIER_TO_TYPE = Map.ofEntries(
+            Map.entry("DAMAGE_FIRE", "fire"),
+            Map.entry("DAMAGE_BLUDGEONING", "blunt"),
+            Map.entry("DAMAGE_MAGIC", "magic"),
+            Map.entry("DAMAGE_POISON", "poison"),
+            Map.entry("DAMAGE_RADIANT", "radiant"),
+            Map.entry("DAMAGE_FREEZING", "frozen"),
+            Map.entry("DAMAGE_EXPLOSION", "explosive"),
+            Map.entry("DAMAGE_LIGHTNING", "lightning"),
+            Map.entry("DAMAGE_NECROTIC", "necrotic")
     );
 
     private ValhallaMmoImporter() {
@@ -84,7 +142,7 @@ public final class ValhallaMmoImporter {
     public record ImportResult(List<DamageContribution> contributions, List<TypeModifier> modifiers, List<String> skipped) {
     }
 
-    public static ImportResult parse(String raw) {
+    public static ImportResult parse(String raw, Set<String> allDamageTypeKeys) {
         Map<String, Double> attributes = new LinkedHashMap<>();
         if (raw != null && !raw.isBlank()) {
             for (String entry : raw.split(";")) {
@@ -102,26 +160,31 @@ public final class ValhallaMmoImporter {
                 attributes.put(fields[0], value);
             }
         }
-        return fromAttributes(attributes);
+        return fromAttributes(attributes, allDamageTypeKeys);
     }
 
     /**
-     * Same attribute -> damage type/resistance mapping as {@link #parse(String)}, but starting
-     * from an already-decoded attribute/value map instead of the raw {@code "ATTR:value:OP:hidden;..."}
+     * Same attribute -> damage type/resistance mapping as {@link #parse}, but starting from an
+     * already-decoded attribute/value map instead of the raw {@code "ATTR:value:OP:hidden;..."}
      * PDC string - shared with {@link ValhallaMmoBulkImporter}, which reads its attribute/value
      * pairs out of ValhallaMMO's {@code items.json} instead of a held item's PDC.
+     *
+     * @param allDamageTypeKeys every damage type this plugin currently knows about (see {@code
+     *                          DamageTypeRegistry.all().keySet()}) - only needed to fan {@code
+     *                          DAMAGE_RESISTANCE} out into one {@link TypeModifier} per type.
      */
-    public static ImportResult fromAttributes(Map<String, Double> attributes) {
-        List<DamageContribution> contributions = new ArrayList<>();
+    public static ImportResult fromAttributes(Map<String, Double> attributes, Set<String> allDamageTypeKeys) {
         List<TypeModifier> modifiers = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
+        Map<String, Double> flatByType = new LinkedHashMap<>();
+
         for (Map.Entry<String, Double> entry : attributes.entrySet()) {
             String attribute = entry.getKey();
             double value = entry.getValue();
 
-            String damageType = EXTRA_DAMAGE_TO_TYPE.get(attribute);
-            if (damageType != null) {
-                contributions.add(new DamageContribution(damageType, value, DamageMode.FLAT, ModifierContext.WIELDED));
+            String flatType = FLAT_DAMAGE_TO_TYPE.get(attribute);
+            if (flatType != null) {
+                flatByType.merge(flatType, value, Double::sum);
                 continue;
             }
             String resistType = RESISTANCE_TO_TYPE.get(attribute);
@@ -129,7 +192,33 @@ public final class ValhallaMmoImporter {
                 modifiers.add(new TypeModifier(resistType, value * 100.0));
                 continue;
             }
+            if (DAMAGE_RESISTANCE_ATTRIBUTE.equals(attribute)) {
+                for (String typeKey : allDamageTypeKeys) {
+                    modifiers.add(new TypeModifier(typeKey, value * 100.0));
+                }
+                continue;
+            }
+            if (DAMAGE_MULTIPLIER_TO_TYPE.containsKey(attribute)) {
+                continue; // applied in the second pass below, once every flat contribution is known
+            }
             skipped.add(attribute);
+        }
+
+        for (Map.Entry<String, String> entry : DAMAGE_MULTIPLIER_TO_TYPE.entrySet()) {
+            Double percent = attributes.get(entry.getKey());
+            if (percent == null) {
+                continue;
+            }
+            Double existing = flatByType.get(entry.getValue());
+            if (existing == null) {
+                continue; // item deals none of this type to begin with - nothing to multiply, stays 0
+            }
+            flatByType.put(entry.getValue(), existing * (1 + percent));
+        }
+
+        List<DamageContribution> contributions = new ArrayList<>();
+        for (Map.Entry<String, Double> entry : flatByType.entrySet()) {
+            contributions.add(new DamageContribution(entry.getKey(), entry.getValue(), DamageMode.FLAT, ModifierContext.WIELDED));
         }
         return new ImportResult(contributions, modifiers, skipped);
     }

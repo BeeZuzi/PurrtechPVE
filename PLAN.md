@@ -698,6 +698,80 @@
     nějaké API plochy nad rámec toho, co dělá čistý Paper, tohle by to
     nezachytilo. Nejbližší dostupná aproximace v tomhle sandboxu.
 
+- **Import celého itemu (enchanty, custom model data) + rozšíření
+  ValhallaMMO damage mapování (2026-08-27), na žádost.**
+  - **Enchanty jsou nová vlastnost šablony**, ne jen importní detail -
+    nová tabulka `item_template_enchantment` (template_id, enchantment_key,
+    level) + `TemplateEnchantmentRepository`, verzované/snapshotované
+    stejně jako damage contributions/type modifiers (`TemplateSnapshot`
+    dostal nové pole `enchantments`, `ItemTemplateService.setEnchantment/
+    removeEnchantment/enchantments`). `ItemRenderer` je aplikuje přes
+    `meta.addEnchant(..., ignoreLevelRestriction=true)` - jde o
+    adminem definované custom itemy, takže úrovně nejsou omezené
+    vanilla maximem. Příkazy `/pve item enchant set|remove <key>
+    <enchant> <level>` - enchant se zadává BEZ `minecraft:` prefixu
+    (Brigadier neumí neuvozenou hodnotu s dvojtečkou; s prefixem jde
+    zadat jen v uvozovkách, viz ověření níže).
+    - **Migrace existující DB**: `item_template_snapshot` už měla
+      produkční data na živém serveru, takže `CREATE TABLE IF NOT
+      EXISTS` s novým sloupcem samo o sobě nestačí (no-op na existující
+      tabulce) - přidán `Schema.addColumnIfMissing` helper, co pustí
+      `ALTER TABLE ... ADD COLUMN enchantments TEXT NOT NULL DEFAULT
+      ''` jen když sloupec ještě neexistuje. **Ověřeno** ručně
+      sestavenou "pre-migrační" DB (starý formát bez sloupce, se
+      skutečnými daty) - boot proběhl čistě, sloupec se přidal,
+      existující řádek se dobackfilloval na `''`, nová tabulka
+      `item_template_enchantment` vznikla, a `/pve item list` na
+      existujícím itemu fungovalo beze změny.
+  - **Custom model data teď jde nastavit i při vytvoření** (dřív jen
+    přes pozdější rebase) - nový `ItemTemplateService.create(key,
+    material, customModelData, displayName, createdBy)` overload
+    (starý 4-argumentový beze změny, jen deleguje s `null`).
+  - **Import teď přenáší CMD i enchanty**: `/pve item import valhalla`
+    (jednotlivý item z ruky) i `/pve item import valhallaall` (hromadný
+    z JSON) čtou `ItemMeta`/`ItemStack` drženého/dekódovaného itemu a
+    volají `create(..., customModelData, ...)` + `setEnchantment` pro
+    každý enchant. **Ověřeno živě**: fixture s DIAMOND_SWORD, custom
+    model data 1234, sharpness 7 a unbreaking 3 - po hromadném importu
+    `SELECT` přímo z DB potvrdil `custom_model_data=1234` a oba dva
+    enchanty se správnými úrovněmi.
+  - **Rozšíření ValhallaMMO mapování** (viz `ValhallaMmoImporter`'s
+    class javadoc pro plné zdůvodnění, ověřeno čtením jejich
+    `ItemAttributesRegistry`'s `StatFormat` pro každý atribut, ne
+    odhadem):
+    - Nové flat kontribuce: `BLEED_DAMAGE`→bleed, `ARROW_DAMAGE`→piercing.
+    - `DAMAGE_ALL`→physical, taky flat i přesto, že sdílí `StatFormat`
+      s procentuální rodinou níže - nemá totiž svůj vlastní flat
+      protějšek (žádné `EXTRA_ALL_DAMAGE`), takže jako procento by vždy
+      vyšlo 0 a bylo by k ničemu. Explicitní rozhodnutí na tvoje
+      vyžádání, ne přehlédnutí.
+    - Nové odolnosti: `BLEED_RESISTANCE`→bleed, `BLUDGEONING_RESISTANCE`
+      →blunt, `PROJECTILE_RESISTANCE`→piercing (aproximace).
+    - `DAMAGE_RESISTANCE` (odolnost vůči VŠEMU) rozprostřena na
+      `TypeModifier` pro každý registrovaný damage typ najednou.
+    - **Nová procentuální rodina** `DAMAGE_<TYP>` (fire/magic/poison/
+      radiant/freezing/explosion/lightning/necrotic/bludgeoning):
+      "zvyš poškození typu X, který item už dává, o N %" - NENÍ nová
+      kontribuce, násobí existující flat hodnotu (z `EXTRA_<TYP>_
+      DAMAGE`) faktorem `(1 + N)`. Pokud item žádné poškození toho typu
+      nedává, není co násobit → **žádná kontribuce se nepřidá** (zůstane
+      na 0), přesně jak jsi zadal.
+    - `DAMAGE_MELEE`, `CRIT_DAMAGE`, `DAMAGE_PLAYER`, `VELOCITY_DAMAGE`
+      **zůstávají nenamapované** i po tvém doplnění seznamu - nejsou to
+      damage-type-klíčované staty jako zbytek (melee/crit/hráč/rychlost
+      jsou samostatné mechaniky, který tenhle plugin vůbec nemá -
+      crit systém, PvP-podmíněný bonus, útok-podle-kategorie), takže na
+      ně stejné pravidlo procenta/flat nejde aplikovat (není typ, co
+      by se násobil/přičítal). Nahlášené v `import-skipped` jako dřív.
+  - 6 nových JUnit testů (`ValhallaMmoImporterTest`) + 1 rozšířený
+    (`ItemTemplateSnapshotRepositoryTest` o enchant round-trip). 120
+    testů celkem zelených.
+  - **Neověřeno**: vizuální vzhled enchantů na skutečném vydaném itemu
+    (lore/glint) - potřebuje připojeného hráče, stejné omezení jako
+    jinde. Databázové round-tripy a `ItemRenderer`'s volání `meta.
+    addEnchant` jsou ale ověřené (kompilace proti reálné 1.21.11 API +
+    JUnit na repository vrstvě).
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

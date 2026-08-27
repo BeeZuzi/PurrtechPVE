@@ -8,6 +8,8 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -53,19 +55,21 @@ public final class ItemRenderer {
     }
 
     /** Renders from the template's current live data - always the newest version, used for freshly given items. */
-    public ItemStack render(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers) {
+    public ItemStack render(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
+                             List<TemplateEnchantment> enchantments) {
         return render(template.key(), template.version(), template.displayName(), template.baseMaterial(),
-                template.customModelData(), contributions, modifiers);
+                template.customModelData(), contributions, modifiers, enchantments);
     }
 
     /** Renders exactly as a given historical version looked - used to catch up a stack pinned behind the live version. */
     public ItemStack renderSnapshot(TemplateSnapshot snapshot) {
         return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.baseMaterial(),
-                snapshot.customModelData(), snapshot.damageContributions(), snapshot.typeModifiers());
+                snapshot.customModelData(), snapshot.damageContributions(), snapshot.typeModifiers(), snapshot.enchantments());
     }
 
     private ItemStack render(String key, int version, String displayName, Material baseMaterial,
-                              Integer customModelData, List<DamageContribution> contributions, List<TypeModifier> modifiers) {
+                              Integer customModelData, List<DamageContribution> contributions, List<TypeModifier> modifiers,
+                              List<TemplateEnchantment> enchantments) {
         ItemStack stack = new ItemStack(baseMaterial);
         ItemMeta meta = stack.getItemMeta();
 
@@ -75,12 +79,25 @@ public final class ItemRenderer {
         }
         meta.lore(buildLore(contributions, modifiers));
 
+        for (TemplateEnchantment enchantment : enchantments) {
+            resolveEnchantment(enchantment.enchantmentKey())
+                    // ignoreLevelRestriction=true: these are admin-defined custom items, levels
+                    // aren't capped at whatever vanilla considers the enchantment's usual max.
+                    .ifPresent(e -> meta.addEnchant(e, enchantment.level(), true));
+        }
+
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         pdc.set(templateKeyPdc, PersistentDataType.STRING, key);
         pdc.set(templateVersionPdc, PersistentDataType.INTEGER, version);
 
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    /** {@code null}/empty on a key this server's Enchantment registry doesn't recognize - skipped rather than failing the whole render. */
+    private Optional<Enchantment> resolveEnchantment(String enchantmentKey) {
+        NamespacedKey key = NamespacedKey.fromString(enchantmentKey);
+        return key == null ? Optional.empty() : Optional.ofNullable(Registry.ENCHANTMENT.get(key));
     }
 
     /** {@code templateKey}/{@code templateVersion} as stamped by {@link #render}, if the stack carries our PDC tags at all. */

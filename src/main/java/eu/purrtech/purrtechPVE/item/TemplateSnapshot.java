@@ -21,6 +21,7 @@ public record TemplateSnapshot(
         Integer customModelData,
         List<DamageContribution> damageContributions,
         List<TypeModifier> typeModifiers,
+        List<TemplateEnchantment> enchantments,
         long createdAt
 ) {
 }
