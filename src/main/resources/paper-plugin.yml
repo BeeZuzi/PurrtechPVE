@@ -4,7 +4,7 @@ description: Custom damage types, armor resistances/weaknesses and trinkets, dee
 authors: [ Purrtech ]
 
 main: eu.purrtech.purrtechPVE.PurrtechPVE
-api-version: '26.2'
+api-version: '1.21'
 load: POSTWORLD
 softdepend: [ MythicMobs ]
 

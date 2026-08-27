@@ -660,6 +660,44 @@
     je to spolehlivější než opravovat každý mismatch jednotlivě, jak se
     objeví.
 
+- **Přecílení buildu na produkční verzi: Leaf 1.21.11 (2026-08-27), na
+  žádost po předchozím bugfixu.** Řeší kořenovou příčinu celé třídy
+  API-mismatch pádů výše, ne jen jeden konkrétní symptom.
+  - `build.gradle.kts`: `compileOnly`/`testImplementation` na
+    `io.papermc.paper:paper-api:26.2.build.+` nahrazeny za
+    `cn.dreeam.leaf:leaf-api:1.21.11-R0.1-SNAPSHOT` (repo
+    `maven.leafmc.one/snapshots`, ověřeno přes jejich `maven-metadata.xml`,
+    že tahle verze fakticky existuje - odpovídá přesně tomu, co je vidět
+    ve tvém stack trace). Leaf je API-kompatibilní s Paperem (stejné
+    `org.bukkit`/`io.papermc.paper` třídy), takže je to jinak 1:1 náhrada.
+  - `com.google.code.gson:gson` sníženo z `2.14.0` na `2.13.2` - zjištěno
+    reálným stažením skutečného Paper 1.21.11 buildu (`run/libraries/...`
+    po `runServer` s `minecraftVersion("1.21.11")`), ne odhadem. Stejná
+    logika jako u leaf-api - novější Gson, než co je fakticky na
+    runtime classpath, riskuje stejnou třídu `NoSuchMethodError`, kterou
+    řešil předchozí bugfix.
+  - `paper-plugin.yml`: `api-version` opraveno z `'26.2'` na `'1.21'` -
+    bylo nastavené na budoucí/neexistující API verzi vzhledem k reálnému
+    serveru, což je samo o sobě podezřelé z přispění k mismatch chování.
+  - `runServer` task (`minecraftVersion`) přepnut z `"26.2"` na
+    `"1.21.11"` - lokální dev-server teď boot­uje skutečný PaperMC build
+    pro STEJNOU verzi Minecraftu jako tvůj live server (samotný Leaf jar
+    tenhle Gradle plugin stáhnout neumí, ale skutečný Paper na stejné MC
+    verzi je nesrovnatelně blíž realitě než nejnovější dostupný build).
+  - **Ověřeno**: čistá kompilace i běh všech 114 testů proti `leaf-api`
+    beze změny (žádný z nich nepoužívá nic, co by se mezi verzemi lišilo).
+    Živě: reálný Paper `1.21.11-132-ver` boot čistý bez výjimky
+    (`Implementing API version 1.21.11-R0.1-SNAPSHOT` - `api-version`
+    teď sedí), a celá command-line posloupnost (create → damage set →
+    resist set → list → set create → addmember → set list) proběhla
+    přesně stejně jako předtím na 26.2. Starou `run/world` složku bylo
+    potřeba smazat - nejde otevřít novější formát světa (z předchozích
+    26.2 běhů) starším serverem, nesouvisí s pluginem.
+  - **Nedá se ověřit v sandboxu**: skutečný Leaf jar (jen "opravdový
+    Paper 1.21.11" jako náhrada) - pokud Leaf sám patchuje/mění chování
+    nějaké API plochy nad rámec toho, co dělá čistý Paper, tohle by to
+    nezachytilo. Nejbližší dostupná aproximace v tomhle sandboxu.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
