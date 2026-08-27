@@ -177,12 +177,34 @@ class ValhallaMmoImporterTest {
     }
 
     @Test
-    void damagePercentMultiplierWithNoMatchingFlatContributionAddsNothing() {
+    void damagePercentMultiplierWithNoMatchingFlatContributionBecomesPercentOfTotal() {
         // the item deals no fire damage to begin with - ValhallaMMO's own multiplier has
-        // nothing to multiply, so per spec this must NOT show up as a contribution at all.
+        // nothing to multiply, so per updated spec it's imported directly as our own
+        // PERCENT_OF_TOTAL contribution instead of being dropped.
         var result = ValhallaMmoImporter.fromAttributes(Map.of("DAMAGE_FIRE", 0.5), DAMAGE_TYPE_KEYS);
 
-        assertTrue(result.contributions().isEmpty());
+        assertEquals(1, result.contributions().size());
+        DamageContribution c = findContribution(result, "fire");
+        assertEquals(50.0, c.amount());
+        assertEquals(DamageMode.PERCENT_OF_TOTAL, c.mode());
+        assertEquals(ModifierContext.WIELDED, c.context());
+    }
+
+    @Test
+    void damagePercentMultiplierMixOfMatchedAndUnmatchedTypesInOneImport() {
+        // fire has a flat base to scale, lightning doesn't - each should be handled independently.
+        var result = ValhallaMmoImporter.fromAttributes(Map.of(
+                "EXTRA_FIRE_DAMAGE", 4.0,
+                "DAMAGE_FIRE", 0.5,
+                "DAMAGE_LIGHTNING", 0.2), DAMAGE_TYPE_KEYS);
+
+        assertEquals(2, result.contributions().size());
+        DamageContribution fire = findContribution(result, "fire");
+        assertEquals(6.0, fire.amount());
+        assertEquals(DamageMode.FLAT, fire.mode());
+        DamageContribution lightning = findContribution(result, "lightning");
+        assertEquals(20.0, lightning.amount());
+        assertEquals(DamageMode.PERCENT_OF_TOTAL, lightning.mode());
     }
 
     @Test

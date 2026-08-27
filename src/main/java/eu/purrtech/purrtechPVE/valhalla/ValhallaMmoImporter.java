@@ -48,10 +48,12 @@ import java.util.Set;
  *     lightning/necrotic/bludgeoning) are also {@code PERCENTILE_BASE_1_*} but
  *     mean something different: "increase whatever damage of this type the
  *     item already deals by N%", not a new contribution of its own. If the
- *     item has no {@code EXTRA_<TYPE>_DAMAGE} (or other flat contribution of
- *     that type) to begin with, ValhallaMMO's own stat has nothing to
- *     multiply and the result is 0 - so, per explicit instruction, no
- *     contribution is added at all rather than a spurious zero-value one.
+ *     item HAS an {@code EXTRA_<TYPE>_DAMAGE} (or other flat contribution of
+ *     that type) to multiply, that flat amount is scaled by {@code 1+N} -
+ *     same as before. If it doesn't, there's nothing to multiply, so per
+ *     updated instruction the raw ValhallaMMO percentage is imported
+ *     directly as our own {@link DamageMode#PERCENT_OF_TOTAL} {@link
+ *     DamageContribution} for that type instead of being dropped.
  * </ul>
  *
  * <p>{@code DAMAGE_ALL} is the one exception carved out of the percentage
@@ -177,6 +179,9 @@ public final class ValhallaMmoImporter {
         List<TypeModifier> modifiers = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
         Map<String, Double> flatByType = new LinkedHashMap<>();
+        // DAMAGE_<TYPE> multipliers that had no matching flat contribution to scale end up here
+        // instead, as a PERCENT_OF_TOTAL contribution of their own - see class javadoc.
+        Map<String, Double> percentByType = new LinkedHashMap<>();
 
         for (Map.Entry<String, Double> entry : attributes.entrySet()) {
             String attribute = entry.getKey();
@@ -211,7 +216,11 @@ public final class ValhallaMmoImporter {
             }
             Double existing = flatByType.get(entry.getValue());
             if (existing == null) {
-                continue; // item deals none of this type to begin with - nothing to multiply, stays 0
+                // item deals none of this type as a flat contribution - nothing to multiply, so
+                // import the raw ValhallaMMO percentage directly as our own PERCENT_OF_TOTAL
+                // contribution instead of dropping it (per updated instruction).
+                percentByType.merge(entry.getValue(), percent * 100.0, Double::sum);
+                continue;
             }
             flatByType.put(entry.getValue(), existing * (1 + percent));
         }
@@ -219,6 +228,9 @@ public final class ValhallaMmoImporter {
         List<DamageContribution> contributions = new ArrayList<>();
         for (Map.Entry<String, Double> entry : flatByType.entrySet()) {
             contributions.add(new DamageContribution(entry.getKey(), entry.getValue(), DamageMode.FLAT, ModifierContext.WIELDED));
+        }
+        for (Map.Entry<String, Double> entry : percentByType.entrySet()) {
+            contributions.add(new DamageContribution(entry.getKey(), entry.getValue(), DamageMode.PERCENT_OF_TOTAL, ModifierContext.WIELDED));
         }
         return new ImportResult(contributions, modifiers, skipped);
     }

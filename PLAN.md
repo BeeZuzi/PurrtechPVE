@@ -1011,6 +1011,42 @@
     (`/pve item edit <key>` → tab Custom Damages → Add → vyber typ →
     napiš do chatu částku/mode/context).
 
+- **ValhallaMMO import: DAMAGE_&lt;TYPE&gt; bez EXTRA_ teď dá % místo
+  ničeho (2026-08-27), na žádost.** Změna rozhodnutí z dřívějška (viz
+  "Import celého itemu..." sekce výš): dřív platilo, že `DAMAGE_<TYPE>`
+  (fire/magic/poison/radiant/freezing/explosion/lightning/necrotic/
+  bludgeoning - procentuální "zvyš to, co item už dává za tenhle typ, o
+  N %") se, když item neměl odpovídající flat `EXTRA_<TYPE>_DAMAGE`
+  (nic k vynásobení), prostě zahodilo (žádný contribution, "zůstane na
+  0"). Teď se v tom případě místo zahození uloží rovnou jako vlastní
+  `DamageContribution` s `DamageMode.PERCENT_OF_TOTAL` (hodnota =
+  ValhallaMMO zlomek × 100, stejně jako u odolností) - využívá stejný
+  mód, co je teď vidět i v GUI (viz předchozí sekce).
+  - Pokud flat protějšek EXISTUJE, chování beze změny (vynásobí ho
+    `1+N`, uloží jako FLAT - jako dřív).
+  - `ValhallaMmoImporter.fromAttributes` teď má vedle `flatByType` i
+    `percentByType` mapu pro tenhle případ; obě se na konci sloučí do
+    jednoho seznamu `DamageContribution` (FLAT i PERCENT_OF_TOTAL
+    zároveň, podle toho, co který typ potřeboval). `ValhallaMmoBulkImporter`
+    a `/pve item import` sdílí stejnou metodu, takže je to zapojené
+    všude automaticky (obě už předávaly `c.mode()`/`c.context()`
+    generickty, žádná další úprava).
+  - Upraven test `damagePercentMultiplierWithNoMatchingFlatContributionAddsNothing`
+    (přejmenován na `...BecomesPercentOfTotal`, teď ověřuje
+    `PERCENT_OF_TOTAL` + hodnotu 50.0 pro `DAMAGE_FIRE:0.5` bez flat
+    protějšku) + nový test na smíšený případ (jeden typ s flat
+    protějškem → FLAT, druhý bez něj → PERCENT_OF_TOTAL, v jednom
+    importu zároveň). 153 testů celkem (bylo 152, jeden přejmenován,
+    jeden nový).
+  - Čistě logická změna v `fromAttributes`/mapovacích tabulkách - žádná
+    nová perzistence ani migrace (ukládá se přes existující
+    `DamageContribution`/`setDamageContribution`, co to umí odjakživa).
+    Čistý `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Nedá se ověřit v sandboxu**: reálný import z ValhallaMMO itemu
+    (žádný takový plugin/item tu není) - jen unit testy na `fromAttributes`
+    s ručně sestavenými attribute mapami, stejně jako celý zbytek
+    importeru odjakživa.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
