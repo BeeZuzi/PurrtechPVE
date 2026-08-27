@@ -67,7 +67,7 @@ public final class CombatDamageListener implements Listener {
         }
 
         Map<String, Double> typedDamage = equipmentResolver.resolveOutgoingTypedDamage(attacker, event.getDamage());
-        Map<String, Double> resistance = equipmentResolver.resolveResistance(defender);
+        Map<String, Double> resistance = equipmentResolver.resolveResistance(attacker, defender);
         DamagePipeline.Result result = DamagePipeline.applyDetailed(event.getDamage(), typedDamage, resistance);
         event.setDamage(result.total());
 

@@ -14,11 +14,13 @@ item:
     damage: "<gray>Poškození při útoku:"
     passive: "<gray>Pasivní bonus (nasazeno):"
     resist: "<gray>Odolnosti / slabiny:"
+    penetration: "<gray>Penetrace armoru:"
   line:
     damage-flat: "<white> +<amount> <type>"
     damage-percent: "<white> +<amount>% <type>"
     resist: "<green> +<amount>% <type>"
     weakness: "<red> -<amount>% <type>"
+    penetration: "<white> -<amount>% armoru typu <class></white>"
   created: "<green>Šablona <white><key></white> vytvořena."
   deleted: "<green>Šablona <white><key></white> smazána."
   not-found: "<red>Šablona <white><key></white> neexistuje."
@@ -48,6 +50,8 @@ item:
   unknown-armor-class: "<red>Neznámý typ armoru: <white><class></white> (použij light, medium, heavy nebo none)"
   armor-set: "<green>Typ armoru <white><class></white> nastaven na šabloně <white><key></white>."
   armor-cleared: "<green>Typ armoru odebrán ze šablony <white><key></white>."
+  penetration-set: "<green>Penetrace armoru typu <white><class></white> nastavena na šabloně <white><key></white>."
+  penetration-removed: "<green>Penetrace armoru typu <white><class></white> odebrána ze šablony <white><key></white>."
 
 mobprofile:
   set: "<green>Odolnost/slabina <white><type></white> nastavena pro MythicMobs typ <white><mob></white>."

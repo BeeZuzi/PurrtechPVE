@@ -22,6 +22,7 @@ public record TemplateSnapshot(
         List<DamageContribution> damageContributions,
         List<TypeModifier> typeModifiers,
         List<TemplateEnchantment> enchantments,
+        List<ArmorPenetration> armorPenetration,
         long createdAt
 ) {
 }

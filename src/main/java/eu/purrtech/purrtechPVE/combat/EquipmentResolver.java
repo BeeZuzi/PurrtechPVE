@@ -10,6 +10,7 @@ import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
+import eu.purrtech.purrtechPVE.item.ArmorPenetration;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemRenderer;
@@ -69,6 +70,15 @@ import java.util.UUID;
  * resistance/weakness {@code armor_class_profile} defines for that class,
  * on top of its own {@code item_type_modifier} rows - live/global, like
  * {@code mob_damage_profile}, not versioned per item.
+ *
+ * <p>Armor penetration: the attacker's wielded weapon's {@link
+ * ArmorPenetration} stats (pinned to its snapshot, like any other weapon
+ * stat) reduce whatever the defender's gear got from {@code
+ * armor_class_profile} for the matching class, for that one hit's
+ * resistance calculation only - see {@link ArmorPenetration}'s javadoc for
+ * why it's scoped to just the class-wide profile and not an item's own
+ * individually-set resistance, and why nothing is ever touched in anyone's
+ * inventory.
  */
 public final class EquipmentResolver {
 
@@ -158,10 +168,14 @@ public final class EquipmentResolver {
     /**
      * Sum of item_type_modifier percent across every equipped piece respecting allowedSlots (positive resists,
      * negative weakens), plus any active set-threshold resistance bonuses, plus the entity's MythicMobs
-     * mob_damage_profile if it is one of its mobs.
+     * mob_damage_profile if it is one of its mobs, minus whatever the attacker's weapon's armor penetration
+     * eats into the defender's armor-class-profile resistance.
      */
-    public Map<String, Double> resolveResistance(LivingEntity defender) {
+    public Map<String, Double> resolveResistance(LivingEntity attacker, LivingEntity defender) {
         Map<String, Double> resist = new HashMap<>();
+        // Tracked separately so armor penetration only eats into THIS (the shared, per-class
+        // bonus), never an item's own individually-set resistance - see ArmorPenetration's javadoc.
+        Map<ArmorClass, Map<String, Double>> classProfileContribution = new HashMap<>();
 
         EntityEquipment equipment = defender.getEquipment();
         if (equipment != null) {
@@ -170,6 +184,10 @@ public final class EquipmentResolver {
                 for (TypeModifier modifier : modifiersAllowedIn(entry.getValue(), entry.getKey())) {
                     resist.merge(modifier.damageTypeKey(), modifier.percent(), Double::sum);
                 }
+                classProfileModifiersAllowedIn(entry.getValue(), entry.getKey()).forEach((armorClass, byType) ->
+                        byType.forEach((type, percent) -> classProfileContribution
+                                .computeIfAbsent(armorClass, k -> new HashMap<>())
+                                .merge(type, percent, Double::sum)));
             }
 
             for (Map.Entry<UUID, Integer> setCount : countEquippedSetPieces(pieces).entrySet()) {
@@ -191,7 +209,48 @@ public final class EquipmentResolver {
             }
         }
 
+        applyArmorPenetration(attacker, classProfileContribution, resist);
         return resist;
+    }
+
+    /**
+     * Reduces {@code resist} by the attacker's wielded weapon's {@link ArmorPenetration}, per damage type the
+     * matching armor class's profile touched - purely this hit's math, nothing persisted. Deliberately not
+     * clamped to the class's own contribution size (so over-penetrating can push a type into net weakness),
+     * matching how "penetration exceeding total armor deals bonus damage" conventionally works.
+     */
+    private void applyArmorPenetration(LivingEntity attacker, Map<ArmorClass, Map<String, Double>> classProfileContribution,
+                                        Map<String, Double> resist) {
+        EntityEquipment attackerEquipment = attacker.getEquipment();
+        if (attackerEquipment == null) {
+            return;
+        }
+        List<ArmorPenetration> penetration = resolvedItemOf(attackerEquipment.getItemInMainHand())
+                .map(item -> item.snapshot().armorPenetration())
+                .orElse(List.of());
+        for (ArmorPenetration p : penetration) {
+            Map<String, Double> byType = classProfileContribution.get(p.armorClass());
+            if (byType == null) {
+                continue;
+            }
+            for (String type : byType.keySet()) {
+                resist.merge(type, -p.amount(), Double::sum);
+            }
+        }
+    }
+
+    /** Just the armor-class-profile share of a piece's resistance (see {@link #modifiersAllowedIn}), grouped by class, for {@link #applyArmorPenetration}. */
+    private Map<ArmorClass, Map<String, Double>> classProfileModifiersAllowedIn(ItemStack stack, String slotName) {
+        return resolvedItemOf(stack)
+                .filter(item -> isAllowedInSlot(item.template(), slotName))
+                .map(item -> {
+                    ArmorClass armorClass = item.template().armorClass();
+                    if (armorClass == null) {
+                        return Map.<ArmorClass, Map<String, Double>>of();
+                    }
+                    return Map.of(armorClass, armorClassProfileRepository.findByArmorClass(armorClass.name()));
+                })
+                .orElse(Map.of());
     }
 
     /** How many equipped pieces belong to each set - counts physical pieces, so two rings of the same set template count as 2. */

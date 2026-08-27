@@ -1,5 +1,7 @@
 package eu.purrtech.purrtechPVE.db;
 
+import eu.purrtech.purrtechPVE.item.ArmorClass;
+import eu.purrtech.purrtechPVE.item.ArmorPenetration;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
@@ -40,8 +42,8 @@ public final class ItemTemplateSnapshotRepository {
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT OR REPLACE INTO item_template_snapshot
                          (template_id, version, template_key, display_name, base_material, custom_model_data,
-                          damage_contributions, type_modifiers, enchantments, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?)
+                          damage_contributions, type_modifiers, enchantments, armor_penetration, created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             statement.setString(1, snapshot.templateId().toString());
             statement.setInt(2, snapshot.version());
@@ -56,7 +58,8 @@ public final class ItemTemplateSnapshotRepository {
             statement.setString(7, encodeContributions(snapshot.damageContributions()));
             statement.setString(8, encodeModifiers(snapshot.typeModifiers()));
             statement.setString(9, encodeEnchantments(snapshot.enchantments()));
-            statement.setLong(10, snapshot.createdAt());
+            statement.setString(10, encodeArmorPenetration(snapshot.armorPenetration()));
+            statement.setLong(11, snapshot.createdAt());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
@@ -93,6 +96,7 @@ public final class ItemTemplateSnapshotRepository {
                 decodeContributions(rs.getString("damage_contributions")),
                 decodeModifiers(rs.getString("type_modifiers")),
                 decodeEnchantments(rs.getString("enchantments")),
+                decodeArmorPenetration(rs.getString("armor_penetration")),
                 rs.getLong("created_at")
         );
     }
@@ -148,6 +152,24 @@ public final class ItemTemplateSnapshotRepository {
         for (String entry : raw.split(";")) {
             String[] fields = entry.split("\\|");
             out.add(new TemplateEnchantment(fields[0], Integer.parseInt(fields[1])));
+        }
+        return out;
+    }
+
+    private static String encodeArmorPenetration(List<ArmorPenetration> armorPenetration) {
+        return armorPenetration.stream()
+                .map(p -> p.armorClass().name() + "|" + p.amount())
+                .collect(Collectors.joining(";"));
+    }
+
+    private static List<ArmorPenetration> decodeArmorPenetration(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        List<ArmorPenetration> out = new ArrayList<>();
+        for (String entry : raw.split(";")) {
+            String[] fields = entry.split("\\|");
+            out.add(new ArmorPenetration(ArmorClass.valueOf(fields[0]), Double.parseDouble(fields[1])));
         }
         return out;
     }

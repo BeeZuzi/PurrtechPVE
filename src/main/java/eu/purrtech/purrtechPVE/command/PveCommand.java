@@ -138,7 +138,17 @@ public final class PveCommand {
                         .then(Commands.literal("armor")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .then(Commands.argument("armorClass", StringArgumentType.word())
-                                                .executes(ctx -> setItemArmorClass(plugin, ctx))))))
+                                                .executes(ctx -> setItemArmorClass(plugin, ctx)))))
+                        .then(Commands.literal("penetration")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("armorClass", StringArgumentType.word())
+                                                        .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
+                                                                .executes(ctx -> setItemArmorPenetration(plugin, ctx))))))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("armorClass", StringArgumentType.word())
+                                                        .executes(ctx -> removeItemArmorPenetration(plugin, ctx)))))))
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
@@ -642,6 +652,53 @@ public final class PveCommand {
             return 0;
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.armor-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("class", armorClass.name())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setItemArmorPenetration(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String armorClassArg = StringArgumentType.getString(ctx, "armorClass");
+        double amount = DoubleArgumentType.getDouble(ctx, "amount");
+
+        ArmorClass armorClass = parseArmorClass(armorClassArg);
+        if (armorClass == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-armor-class",
+                    Placeholder.unparsed("class", armorClassArg)));
+            return 0;
+        }
+        try {
+            plugin.getItemTemplateService().setArmorPenetration(key, armorClass, amount);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.penetration-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("class", armorClass.name())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeItemArmorPenetration(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String armorClassArg = StringArgumentType.getString(ctx, "armorClass");
+
+        ArmorClass armorClass = parseArmorClass(armorClassArg);
+        if (armorClass == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-armor-class",
+                    Placeholder.unparsed("class", armorClassArg)));
+            return 0;
+        }
+        try {
+            plugin.getItemTemplateService().removeArmorPenetration(key, armorClass);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.penetration-removed",
                 Placeholder.unparsed("key", key), Placeholder.unparsed("class", armorClass.name())));
         return Command.SINGLE_SUCCESS;
     }

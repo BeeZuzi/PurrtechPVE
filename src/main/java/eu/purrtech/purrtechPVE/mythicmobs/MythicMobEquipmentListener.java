@@ -1,5 +1,6 @@
 package eu.purrtech.purrtechPVE.mythicmobs;
 
+import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.MobEquipmentRepository;
@@ -40,6 +41,7 @@ public final class MythicMobEquipmentListener implements Listener {
     private final DamageContributionRepository damageContributionRepository;
     private final TypeModifierRepository typeModifierRepository;
     private final TemplateEnchantmentRepository enchantmentRepository;
+    private final ArmorPenetrationRepository armorPenetrationRepository;
     private final ItemRenderer renderer;
 
     public MythicMobEquipmentListener(MobEquipmentRepository mobEquipmentRepository,
@@ -47,12 +49,14 @@ public final class MythicMobEquipmentListener implements Listener {
                                        DamageContributionRepository damageContributionRepository,
                                        TypeModifierRepository typeModifierRepository,
                                        TemplateEnchantmentRepository enchantmentRepository,
+                                       ArmorPenetrationRepository armorPenetrationRepository,
                                        ItemRenderer renderer) {
         this.mobEquipmentRepository = mobEquipmentRepository;
         this.templateRepository = templateRepository;
         this.damageContributionRepository = damageContributionRepository;
         this.typeModifierRepository = typeModifierRepository;
         this.enchantmentRepository = enchantmentRepository;
+        this.armorPenetrationRepository = armorPenetrationRepository;
         this.renderer = renderer;
     }
 
@@ -80,7 +84,8 @@ public final class MythicMobEquipmentListener implements Listener {
                 ItemStack rendered = renderer.render(template.get(),
                         damageContributionRepository.findByTemplate(template.get().id()),
                         typeModifierRepository.findByTemplate(template.get().id()),
-                        enchantmentRepository.findByTemplate(template.get().id()));
+                        enchantmentRepository.findByTemplate(template.get().id()),
+                        armorPenetrationRepository.findByTemplate(template.get().id()));
                 entityEquipment.setItem(slot, rendered);
             }
         } catch (Throwable t) {

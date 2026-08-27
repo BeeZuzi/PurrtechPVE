@@ -837,6 +837,66 @@
     + `ArmorClassMenu`) klikací interakce - stejné omezení jako
     všechny ostatní menu v tomhle projektu.
 
+- **Penetrace 3 typů armoru (2026-08-27), na žádost.** Nová zbraňová
+  vlastnost - `LIGHT_ARMOR_PENETRATION`/`MEDIUM_ARMOR_PENETRATION`/
+  `HEAVY_ARMOR_PENETRATION`, přesně jak jsi zadal.
+  - **Přesná mechanika, jak jsi popsal**: než se spočítá poškození
+    útoku, sníží se cílova odolnost o zadaný počet procentních bodů,
+    a TEPRVE POTOM se dopočítá damage - nic se přitom nemaže ani
+    neodebírá z žádného inventáře, je to čistě výpočet pro tenhle
+    jeden zásah.
+  - **Klíčové designové rozhodnutí** (nebylo explicitně zadané, tak
+    vysvětluju): penetrace ubírá jen z toho, co cíli dává SDÍLENÝ
+    bonus jeho typu armoru (`armor_class_profile` z minulého požadavku),
+    NE z vlastní/individuální odolnosti nastavené přímo na tom kusu.
+    Dává to smysl navazovat na featuru, kterou jsme spolu právě
+    postavili - "penetruješ typ armoru" == "obejdeš benefit, co ten typ
+    armoru dává", ne "sundáš cokoliv, co má ten kus nastavené navíc".
+    Řekni, pokud jsi to myslel jinak.
+  - **Nová zbraňová vlastnost** (`ArmorPenetration` record, `item_
+    armor_penetration` tabulka, `ArmorPenetrationRepository`) - na
+    rozdíl od typu armoru (živá klasifikace) je penetrace stat jako
+    damage contribution, takže JE verzovaná/snapshotovaná
+    (`TemplateSnapshot` dostal pole `armorPenetration`, nová migrace
+    `item_template_snapshot.armor_penetration` stejným
+    `addColumnIfMissing` mechanismem).
+  - **`EquipmentResolver.resolveResistance`** teď bere i útočníka (dřív
+    jen obránce) - při počítání obranyho odolnosti si zvlášť eviduje,
+    kolik z toho pochází konkrétně ze sdíleného profilu kterého typu
+    armoru, a na konci od těchto čísel odečte útočníkovu wielded
+    zbraní penetraci daného typu. Není to ošetřené na nulu - pokud
+    penetruješ víc, než cíl z toho typu armoru má, přehoupne se to do
+    mínusu (bonus damage), běžná konvence u penetration mechanik.
+  - **GUI**: nový tab "Penetrace armoru" v `ItemEditorMenu` (3 řádky -
+    Light/Medium/Heavy, klik = zadat procenta přes chat, shift+klik =
+    smazat) + příkazy `/pve item penetration set|remove <key>
+    <light|medium|heavy> <množství>`. Taky se zobrazuje v lore itemu
+    (`ItemRenderer` - nová sekce "Penetrace armoru").
+  - 8 nových JUnit testů (`ArmorPenetrationRepositoryTest` - CRUD,
+    `ItemTemplateServiceTest` - bumpuje verzi na rozdíl od typu
+    armoru, výchozí prázdný seznam) + rozšířený snapshot round-trip
+    test. 136 testů celkem zelených.
+  - **Ověřeno živě**: boot na ručně sestavené DB se starým schématem
+    (bez `armor_penetration` sloupce i bez `item_armor_penetration`
+    tabulky) proběhl čistě, migrace přidala obojí. Celá příkazová
+    posloupnost (set light → set heavy → neplatný typ armoru správně
+    odmítnut → remove light) - verze postupně 1→2→3→4, přesně podle
+    počtu úspěšných mutací. Přímá SQL kontrola potvrdila, že KAŽDÁ
+    verze snapshotu má přesně tu kombinaci penetrací, co v tu chvíli
+    měla platit (v2: jen light, v3: light+heavy, v4: jen heavy) -
+    tohle ověřuje, že se verzování/pinning penetrace chová naprosto
+    stejně jako u damage contributions.
+  - **Nedá se ověřit v sandboxu**: samotný efekt v souboji (žádná
+    živá entita s naším custom weaponem v ruce proti cíli s armor
+    class benefitem - potřebuje buď připojeného hráče, nebo MythicMobs
+    s nakonfigurovaným mobem, ani jedno tu k dispozici). Logika v
+    `EquipmentResolver` prošla důkladným code review a staví na už
+    ověřeném vzoru (`resolvedItemOf`, stejné jako zbytek třídy), ale
+    doporučuju to při první příležitosti vyzkoušet naživo - dej jeden
+    hráč armor s nastaveným typem armoru + benefitem, druhý zbraň s
+    penetrací proti němu, a sleduj action bar breakdown, jestli
+    číslo sedí.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

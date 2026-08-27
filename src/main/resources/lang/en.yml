@@ -14,11 +14,13 @@ item:
     damage: "<gray>Damage on hit:"
     passive: "<gray>Passive bonus (worn):"
     resist: "<gray>Resistances / weaknesses:"
+    penetration: "<gray>Armor penetration:"
   line:
     damage-flat: "<white> +<amount> <type>"
     damage-percent: "<white> +<amount>% <type>"
     resist: "<green> +<amount>% <type>"
     weakness: "<red> -<amount>% <type>"
+    penetration: "<white> -<amount>% <class></white> armor"
   created: "<green>Template <white><key></white> created."
   deleted: "<green>Template <white><key></white> deleted."
   not-found: "<red>Template <white><key></white> does not exist."
@@ -48,6 +50,8 @@ item:
   unknown-armor-class: "<red>Unknown armor class: <white><class></white> (use light, medium, heavy, or none)"
   armor-set: "<green>Armor class <white><class></white> set on template <white><key></white>."
   armor-cleared: "<green>Armor class cleared from template <white><key></white>."
+  penetration-set: "<green>Armor penetration vs <white><class></white> set on template <white><key></white>."
+  penetration-removed: "<green>Armor penetration vs <white><class></white> removed from template <white><key></white>."
 
 mobprofile:
   set: "<green>Resistance/weakness <white><type></white> set for MythicMobs type <white><mob></white>."

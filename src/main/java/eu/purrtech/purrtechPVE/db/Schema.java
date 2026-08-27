@@ -68,16 +68,18 @@ final class Schema {
                         damage_contributions TEXT NOT NULL,
                         type_modifiers TEXT NOT NULL,
                         enchantments TEXT NOT NULL DEFAULT '',
+                        armor_penetration TEXT NOT NULL DEFAULT '',
                         created_at INTEGER NOT NULL,
                         PRIMARY KEY (template_id, version)
                     )
                     """);
             // CREATE TABLE IF NOT EXISTS above is a no-op on a database that already has this
-            // table from before `enchantments` existed (every server that's already run this
-            // plugin) - ALTER TABLE is the only way an already-shipped table picks up a new
-            // column. SQLite allows adding a NOT NULL column as long as it has a DEFAULT, which
-            // backfills every existing row.
+            // table from before `enchantments`/`armor_penetration` existed (every server that's
+            // already run this plugin) - ALTER TABLE is the only way an already-shipped table
+            // picks up a new column. SQLite allows adding a NOT NULL column as long as it has a
+            // DEFAULT, which backfills every existing row.
             addColumnIfMissing(connection, "item_template_snapshot", "enchantments", "TEXT NOT NULL DEFAULT ''");
+            addColumnIfMissing(connection, "item_template_snapshot", "armor_penetration", "TEXT NOT NULL DEFAULT ''");
 
             // damage_type_key is NOT a FK to damage_type_definitions: DamageTypeRegistry is
             // still in-memory-only (Fáze 1), that table stays unpopulated until a later
@@ -235,6 +237,23 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_template_enchantment_template "
                     + "ON item_template_enchantment(template_id)");
+
+            // A weapon's ability to punch through one of the 3 armor classes - see the
+            // ArmorPenetration record's javadoc for exactly what it reduces (the defender's
+            // armor_class_profile-sourced resistance only, not their own per-item stats, and
+            // never anything persisted - purely a per-hit combat calculation in
+            // EquipmentResolver). A stat like damage contributions, so versioned/snapshotted the
+            // same way (see item_template_snapshot.armor_penetration above).
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_armor_penetration (
+                        template_id TEXT NOT NULL REFERENCES item_templates(id) ON DELETE CASCADE,
+                        armor_class TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        PRIMARY KEY (template_id, armor_class)
+                    )
+                    """);
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_item_armor_penetration_template "
+                    + "ON item_armor_penetration(template_id)");
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize database schema", e);
         }

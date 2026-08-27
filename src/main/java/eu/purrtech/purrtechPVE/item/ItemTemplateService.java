@@ -1,6 +1,7 @@
 package eu.purrtech.purrtechPVE.item;
 
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
+import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
@@ -29,6 +30,7 @@ public final class ItemTemplateService {
     private final DamageContributionRepository damageContributionRepository;
     private final TypeModifierRepository typeModifierRepository;
     private final TemplateEnchantmentRepository enchantmentRepository;
+    private final ArmorPenetrationRepository armorPenetrationRepository;
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final DamageTypeRegistry damageTypeRegistry;
     private final ItemRenderer renderer;
@@ -37,6 +39,7 @@ public final class ItemTemplateService {
                                 DamageContributionRepository damageContributionRepository,
                                 TypeModifierRepository typeModifierRepository,
                                 TemplateEnchantmentRepository enchantmentRepository,
+                                ArmorPenetrationRepository armorPenetrationRepository,
                                 ItemTemplateSnapshotRepository snapshotRepository,
                                 DamageTypeRegistry damageTypeRegistry,
                                 ItemRenderer renderer) {
@@ -44,6 +47,7 @@ public final class ItemTemplateService {
         this.damageContributionRepository = damageContributionRepository;
         this.typeModifierRepository = typeModifierRepository;
         this.enchantmentRepository = enchantmentRepository;
+        this.armorPenetrationRepository = armorPenetrationRepository;
         this.snapshotRepository = snapshotRepository;
         this.damageTypeRegistry = damageTypeRegistry;
         this.renderer = renderer;
@@ -62,7 +66,7 @@ public final class ItemTemplateService {
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, baseMaterial, customModelData,
                 false, List.of(), null, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
-        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of()));
+        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of()));
         return template;
     }
 
@@ -129,6 +133,28 @@ public final class ItemTemplateService {
         return enchantmentRepository.findByTemplate(requireTemplate(key).id());
     }
 
+    /**
+     * How much of the given armor class this (presumably a weapon) template's WIELDED hits punch
+     * through - a stat like damage contributions, so it bumps version. See {@link ArmorPenetration}'s
+     * javadoc for exactly what it does at combat time (only ever reduces the defender's {@code
+     * armor_class_profile}-sourced resistance for that one hit, nothing persisted).
+     */
+    public ItemTemplate setArmorPenetration(String key, ArmorClass armorClass, double amount) {
+        ItemTemplate template = requireTemplate(key);
+        armorPenetrationRepository.upsert(template.id(), new ArmorPenetration(armorClass, amount));
+        return bumpVersion(template);
+    }
+
+    public ItemTemplate removeArmorPenetration(String key, ArmorClass armorClass) {
+        ItemTemplate template = requireTemplate(key);
+        armorPenetrationRepository.remove(template.id(), armorClass);
+        return bumpVersion(template);
+    }
+
+    public List<ArmorPenetration> armorPenetration(String key) {
+        return armorPenetrationRepository.findByTemplate(requireTemplate(key).id());
+    }
+
     /** Marks the template's current version as pushed to circulation - the caller still has to actually walk online players (see ItemSyncService). */
     public ItemTemplate propagate(String key) {
         ItemTemplate template = requireTemplate(key);
@@ -186,7 +212,8 @@ public final class ItemTemplateService {
         List<DamageContribution> contributions = damageContributionRepository.findByTemplate(template.id());
         List<TypeModifier> modifiers = typeModifierRepository.findByTemplate(template.id());
         List<TemplateEnchantment> enchantments = enchantmentRepository.findByTemplate(template.id());
-        return renderer.render(template, contributions, modifiers, enchantments);
+        List<ArmorPenetration> armorPenetration = armorPenetrationRepository.findByTemplate(template.id());
+        return renderer.render(template, contributions, modifiers, enchantments, armorPenetration);
     }
 
     private ItemTemplate requireTemplate(String key) {
@@ -205,13 +232,15 @@ public final class ItemTemplateService {
         snapshotRepository.insert(snapshotOf(bumped,
                 damageContributionRepository.findByTemplate(bumped.id()),
                 typeModifierRepository.findByTemplate(bumped.id()),
-                enchantmentRepository.findByTemplate(bumped.id())));
+                enchantmentRepository.findByTemplate(bumped.id()),
+                armorPenetrationRepository.findByTemplate(bumped.id())));
         return bumped;
     }
 
     private TemplateSnapshot snapshotOf(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                                         List<TemplateEnchantment> enchantments) {
+                                         List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration) {
         return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(),
-                template.baseMaterial(), template.customModelData(), contributions, modifiers, enchantments, template.updatedAt());
+                template.baseMaterial(), template.customModelData(), contributions, modifiers, enchantments,
+                armorPenetration, template.updatedAt());
     }
 }

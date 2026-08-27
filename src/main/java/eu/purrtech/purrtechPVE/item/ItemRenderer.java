@@ -56,20 +56,21 @@ public final class ItemRenderer {
 
     /** Renders from the template's current live data - always the newest version, used for freshly given items. */
     public ItemStack render(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                             List<TemplateEnchantment> enchantments) {
+                             List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration) {
         return render(template.key(), template.version(), template.displayName(), template.baseMaterial(),
-                template.customModelData(), contributions, modifiers, enchantments);
+                template.customModelData(), contributions, modifiers, enchantments, armorPenetration);
     }
 
     /** Renders exactly as a given historical version looked - used to catch up a stack pinned behind the live version. */
     public ItemStack renderSnapshot(TemplateSnapshot snapshot) {
         return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.baseMaterial(),
-                snapshot.customModelData(), snapshot.damageContributions(), snapshot.typeModifiers(), snapshot.enchantments());
+                snapshot.customModelData(), snapshot.damageContributions(), snapshot.typeModifiers(), snapshot.enchantments(),
+                snapshot.armorPenetration());
     }
 
     private ItemStack render(String key, int version, String displayName, Material baseMaterial,
                               Integer customModelData, List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                              List<TemplateEnchantment> enchantments) {
+                              List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration) {
         ItemStack stack = new ItemStack(baseMaterial);
         ItemMeta meta = stack.getItemMeta();
 
@@ -77,7 +78,7 @@ public final class ItemRenderer {
         if (customModelData != null) {
             meta.setCustomModelData(customModelData);
         }
-        meta.lore(buildLore(contributions, modifiers));
+        meta.lore(buildLore(contributions, modifiers, armorPenetration));
 
         for (TemplateEnchantment enchantment : enchantments) {
             resolveEnchantment(enchantment.enchantmentKey())
@@ -117,7 +118,8 @@ public final class ItemRenderer {
     public record StampedTemplate(String templateKey, int templateVersion) {
     }
 
-    private List<Component> buildLore(List<DamageContribution> contributions, List<TypeModifier> modifiers) {
+    private List<Component> buildLore(List<DamageContribution> contributions, List<TypeModifier> modifiers,
+                                       List<ArmorPenetration> armorPenetration) {
         List<Component> lore = new ArrayList<>();
 
         List<DamageContribution> wielded = contributions.stream().filter(c -> c.context() == ModifierContext.WIELDED).toList();
@@ -141,6 +143,12 @@ public final class ItemRenderer {
                 lore.add(resistLine(m));
             }
         }
+        if (!armorPenetration.isEmpty()) {
+            lore.add(messages.render(locale, "item.header.penetration"));
+            for (ArmorPenetration p : armorPenetration) {
+                lore.add(penetrationLine(p));
+            }
+        }
         return lore;
     }
 
@@ -156,6 +164,12 @@ public final class ItemRenderer {
         return messages.render(locale, key,
                 Placeholder.unparsed("amount", formatAmount(Math.abs(m.percent()))),
                 Placeholder.unparsed("type", displayName(m.damageTypeKey())));
+    }
+
+    private Component penetrationLine(ArmorPenetration p) {
+        return messages.render(locale, "item.line.penetration",
+                Placeholder.unparsed("amount", formatAmount(p.amount())),
+                Placeholder.unparsed("class", p.armorClass().name()));
     }
 
     private String displayName(String damageTypeKey) {

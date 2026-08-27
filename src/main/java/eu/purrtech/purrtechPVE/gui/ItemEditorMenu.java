@@ -3,6 +3,7 @@ package eu.purrtech.purrtechPVE.gui;
 import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.damage.DamageType;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
+import eu.purrtech.purrtechPVE.item.ArmorPenetration;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
@@ -44,8 +45,9 @@ public final class ItemEditorMenu {
     private static final int TAB_RESIST = 2;
     private static final int TAB_TRINKET = 3;
     private static final int TAB_ARMOR_CLASS = 4;
-    private static final int TAB_MOBS = 5;
-    private static final int TAB_PUBLISH = 6;
+    private static final int TAB_ARMOR_PENETRATION = 5;
+    private static final int TAB_MOBS = 6;
+    private static final int TAB_PUBLISH = 7;
     private static final int CLOSE_SLOT = 8;
     private static final int PREVIEW_SLOT = 13;
     private static final int PUBLISH_BUTTON_SLOT = 22;
@@ -85,6 +87,7 @@ public final class ItemEditorMenu {
             case RESIST -> renderResist(plugin, inventory, templateKey);
             case TRINKET -> renderTrinket(plugin, inventory, templateKey);
             case ARMOR_CLASS -> renderArmorClass(plugin, inventory, templateKey);
+            case ARMOR_PENETRATION -> renderArmorPenetration(plugin, inventory, templateKey);
             case MOBS -> renderMobs(plugin, inventory, templateKey);
             case PUBLISH -> renderPublish(plugin, inventory, templateKey);
         }
@@ -96,6 +99,7 @@ public final class ItemEditorMenu {
         inventory.setItem(TAB_RESIST, tabIcon(Material.SHIELD, "Odolnosti / Slabiny", active == ItemEditorTab.RESIST));
         inventory.setItem(TAB_TRINKET, tabIcon(Material.NAME_TAG, "Trinket sloty", active == ItemEditorTab.TRINKET));
         inventory.setItem(TAB_ARMOR_CLASS, tabIcon(Material.IRON_CHESTPLATE, "Typ armoru", active == ItemEditorTab.ARMOR_CLASS));
+        inventory.setItem(TAB_ARMOR_PENETRATION, tabIcon(Material.NETHERITE_AXE, "Penetrace armoru", active == ItemEditorTab.ARMOR_PENETRATION));
         inventory.setItem(TAB_MOBS, tabIcon(Material.ZOMBIE_HEAD, "MythicMobs", active == ItemEditorTab.MOBS));
         inventory.setItem(TAB_PUBLISH, tabIcon(Material.EMERALD, "Uložit & Publikovat", active == ItemEditorTab.PUBLISH));
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, Component.text("Zavřít", NamedTextColor.RED)));
@@ -407,6 +411,91 @@ public final class ItemEditorMenu {
         render(plugin, holder.getInventory(), holder.templateKey(), ItemEditorTab.ARMOR_CLASS);
     }
 
+    // ---- ARMOR_PENETRATION ----
+
+    private static void renderArmorPenetration(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+        List<ArmorPenetration> penetration = plugin.getItemTemplateService().armorPenetration(templateKey);
+        ArmorClass[] classes = ArmorClass.values();
+        for (int i = 0; i < classes.length; i++) {
+            ArmorClass armorClass = classes[i];
+            Optional<ArmorPenetration> current = penetration.stream()
+                    .filter(p -> p.armorClass() == armorClass).findFirst();
+
+            List<Component> lore = new ArrayList<>();
+            if (current.isPresent()) {
+                lore.add(Component.text("Penetrace: " + formatAmount(current.get().amount()) + "%", NamedTextColor.GREEN));
+            } else {
+                lore.add(Component.text("(nenastaveno)", NamedTextColor.DARK_GRAY));
+            }
+            lore.add(Component.empty());
+            lore.add(Component.text("Klik: nastavit", NamedTextColor.YELLOW));
+            lore.add(Component.text("Shift+klik: smazat", NamedTextColor.RED));
+
+            ItemStack icon = named(armorClassIcon(armorClass), Component.text(armorClass.name(), NamedTextColor.AQUA));
+            ItemMeta meta = icon.getItemMeta();
+            meta.lore(lore);
+            icon.setItemMeta(meta);
+            inventory.setItem(CONTENT_START + i, icon);
+        }
+
+        ItemStack info = named(Material.PAPER, Component.text("Před výpočtem poškození sníží", NamedTextColor.GRAY));
+        ItemMeta infoMeta = info.getItemMeta();
+        infoMeta.lore(List.of(
+                Component.text("cílovu odolnost z benefitu daného", NamedTextColor.GRAY),
+                Component.text("typu armoru o tolik procentních", NamedTextColor.GRAY),
+                Component.text("bodů. Nic se přitom nemaže z invu.", NamedTextColor.GRAY)));
+        info.setItemMeta(infoMeta);
+        inventory.setItem(PREVIEW_SLOT, info);
+    }
+
+    private static void handleArmorPenetrationClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
+        ArmorClass[] classes = ArmorClass.values();
+        int index = slot - CONTENT_START;
+        if (index < 0 || index >= classes.length) {
+            return;
+        }
+        ArmorClass armorClass = classes[index];
+
+        if (shift) {
+            plugin.getItemTemplateService().removeArmorPenetration(holder.templateKey(), armorClass);
+            player.sendMessage(Component.text("Penetrace armoru " + armorClass.name() + " smazána.", NamedTextColor.GREEN));
+            render(plugin, holder.getInventory(), holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
+            return;
+        }
+
+        player.closeInventory();
+        player.sendMessage(Component.text("Napiš do chatu procenta penetrace, např. 10", NamedTextColor.YELLOW));
+        player.sendMessage(Component.text("(nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
+            if (isCancel(rawInput)) {
+                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                open(plugin, p, holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
+                return;
+            }
+            Double amount = parseDouble(rawInput.trim());
+            if (amount == null) {
+                p.sendMessage(Component.text("Neplatné číslo, zkus to znovu z menu.", NamedTextColor.RED));
+                open(plugin, p, holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
+                return;
+            }
+            try {
+                plugin.getItemTemplateService().setArmorPenetration(holder.templateKey(), armorClass, amount);
+                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+            } catch (TemplateNotFoundException e) {
+                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+            }
+            open(plugin, p, holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
+        });
+    }
+
+    private static Material armorClassIcon(ArmorClass armorClass) {
+        return switch (armorClass) {
+            case LIGHT -> Material.LEATHER_CHESTPLATE;
+            case MEDIUM -> Material.IRON_CHESTPLATE;
+            case HEAVY -> Material.NETHERITE_CHESTPLATE;
+        };
+    }
+
     // ---- MOBS ----
 
     private static void renderMobs(PurrtechPVE plugin, Inventory inventory, String templateKey) {
@@ -561,6 +650,7 @@ public final class ItemEditorMenu {
             case TAB_RESIST -> switchTab(plugin, player, holder, ItemEditorTab.RESIST);
             case TAB_TRINKET -> switchTab(plugin, player, holder, ItemEditorTab.TRINKET);
             case TAB_ARMOR_CLASS -> switchTab(plugin, player, holder, ItemEditorTab.ARMOR_CLASS);
+            case TAB_ARMOR_PENETRATION -> switchTab(plugin, player, holder, ItemEditorTab.ARMOR_PENETRATION);
             case TAB_MOBS -> switchTab(plugin, player, holder, ItemEditorTab.MOBS);
             case TAB_PUBLISH -> switchTab(plugin, player, holder, ItemEditorTab.PUBLISH);
             case CLOSE_SLOT -> player.closeInventory();
@@ -571,6 +661,7 @@ public final class ItemEditorMenu {
                     case RESIST -> handleResistClick(plugin, player, holder, slot, shift);
                     case TRINKET -> handleTrinketClick(plugin, player, holder, slot);
                     case ARMOR_CLASS -> handleArmorClassClick(plugin, player, holder, slot);
+                    case ARMOR_PENETRATION -> handleArmorPenetrationClick(plugin, player, holder, slot, shift);
                     case MOBS -> handleMobsClick(plugin, player, holder, slot, shift);
                     case PUBLISH -> handlePublishClick(plugin, player, holder, slot);
                 }

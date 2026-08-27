@@ -8,6 +8,7 @@ import eu.purrtech.purrtechPVE.config.WorldToggleSettings;
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.AccessoryRepository;
 import eu.purrtech.purrtechPVE.db.ArmorClassProfileRepository;
+import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.Database;
 import eu.purrtech.purrtechPVE.db.ItemSetDamageThresholdRepository;
@@ -73,6 +74,7 @@ public final class PurrtechPVE extends JavaPlugin {
         DamageContributionRepository damageContributionRepository = new DamageContributionRepository(database);
         TypeModifierRepository typeModifierRepository = new TypeModifierRepository(database);
         TemplateEnchantmentRepository enchantmentRepository = new TemplateEnchantmentRepository(database);
+        ArmorPenetrationRepository armorPenetrationRepository = new ArmorPenetrationRepository(database);
         mobDamageProfileRepository = new MobDamageProfileRepository(database);
         armorClassProfileRepository = new ArmorClassProfileRepository(database);
         accessoryRepository = new AccessoryRepository(database);
@@ -87,6 +89,7 @@ public final class PurrtechPVE extends JavaPlugin {
                 damageContributionRepository,
                 typeModifierRepository,
                 enchantmentRepository,
+                armorPenetrationRepository,
                 snapshotRepository,
                 damageTypeRegistry,
                 itemRenderer);
@@ -122,7 +125,7 @@ public final class PurrtechPVE extends JavaPlugin {
             try {
                 getServer().getPluginManager().registerEvents(new MythicMobEquipmentListener(
                         mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
-                        typeModifierRepository, enchantmentRepository, itemRenderer), this);
+                        typeModifierRepository, enchantmentRepository, armorPenetrationRepository, itemRenderer), this);
             } catch (Throwable t) {
                 getLogger().warning("Failed to register the MythicMobs mob-equipment listener ("
                         + t.getClass().getSimpleName()
