@@ -615,6 +615,51 @@
     projít stránkování při >45 šablonách (např. po ValhallaMMO importu),
     a proklikat všechny 3 akce na pár itemech.
 
+- **Bugfix (2026-08-27): pád na `NoSuchMethodError:
+  TextComponent$Builder.build()` na reálném serveru uživatele.** Nahlášeno
+  z produkce - spadlo při KAŽDÉM souboji s zapojeným hráčem
+  (`CombatDamageListener` volá `DamageFeedback.render` pro action bar).
+  Server běží na "Leaf" 1.21.11 (Paper fork) + ModelEngine 4.1.0.
+  - **Kořenová příčina**: stejná rodina bugů jako předchozí MythicMobs
+    pád, ale tentokrát u Adventure (Kyori) - `DamageFeedback.render`
+    stavěl text přes `TextComponent.Builder builder = Component.text();
+    ...; builder.build();`. `TextComponent.Builder.build()` je covariantní
+    override generické `Buildable.Builder<Component>.build()` metody -
+    javac k tomu při kompilaci vygeneruje bridge metodu, jejíž přesná
+    signatura závisí na tom, jak přesně je ta hierarchie rozhraní
+    strukturovaná v KONKRÉTNÍ verzi Adventure knihovny. Tenhle plugin se
+    kompiluje proti Paperu `26.2.build.+` (nejnovější dostupná verze v
+    tomhle sandboxu), ale uživatelův živý server běží o dost starší/jinak
+    sestavený Paper fork (Leaf na Minecraftu 1.21.11) s jinou verzí
+    Adventure - ta bridge metoda, kterou zkompilovaný bytecode volá,
+    na runtime prostě neexistuje → `NoSuchMethodError`.
+  - **Oprava**: `DamageFeedback.render` přepsán, aby se `TextComponent.
+    Builder`/`.build()` vůbec nedotkl - skládá se přes opakované
+    `Component.append(Component)` na neměnném `Component` (počínaje
+    `Component.empty()`), což je mnohem starší a stabilnější metoda přímo
+    na `Component`, bez jakékoliv builder/bridge-metody k rozlišení.
+    Jediné místo v celém projektu, které `TextComponent.Builder`
+    používalo (ověřeno grepem).
+  - **Ověřeno**: kompilace čistá, všech 5 existujících `DamageFeedbackTest`
+    testů (čistá logika/serializace, žádný živý server potřeba) prošlo
+    beze změny výstupu - stejný text/pořadí/formátování jako předtím.
+    114 testů celkem zelených. `runServer` boot bez výjimky. **Nejde
+    100% reprodukovat tenhle konkrétní `NoSuchMethodError` v sandboxu**,
+    protože sandbox i testy běží na STEJNÉ (novější) Adventure verzi, na
+    které se to kompiluje - přesně to samé zjištění platí obecně pro
+    tuhle třídu bugů (verze API se liší jen na uživatelově reálném
+    serveru). Oprava se ale opírá o vyhýbání se konkrétní API ploše z
+    hlášeného stack trace, ne o hádání - `Component.append`/`Component.
+    empty` jsou v Adventure beze změny od verze 4.0.
+  - **Širší riziko, které tenhle bug odhalil**: pokud se cílová verze
+    serveru (Leaf 1.21.11) dost liší od té, proti které se tenhle plugin
+    kompiluje (Paper 26.2 - nejnovější v sandboxu), můžou se objevit další
+    podobné `NoSuchMethodError`/`NoSuchFieldError` na jiných API plochách,
+    ne jen Adventure. Zvaž mi říct přesnou verzi Paperu/Minecraftu, na
+    kterou svůj live server provozuješ, ať buildujeme přímo proti tomu -
+    je to spolehlivější než opravovat každý mismatch jednotlivě, jak se
+    objeví.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
