@@ -170,9 +170,13 @@ public final class EquipmentResolver {
         }
 
         if (mythicMobsBridge != null) {
-            mythicMobsBridge.mythicMobInternalName(defender).ifPresent(internalName ->
-                    mobDamageProfileRepository.findByMob(internalName)
-                            .forEach((type, percent) -> resist.merge(type, percent, Double::sum)));
+            try {
+                mythicMobsBridge.mythicMobInternalName(defender).ifPresent(internalName ->
+                        mobDamageProfileRepository.findByMob(internalName)
+                                .forEach((type, percent) -> resist.merge(type, percent, Double::sum)));
+            } catch (Throwable t) {
+                // an incompatible MythicMobs build shouldn't break vanilla combat resolution - see MythicMobsBridge's javadoc
+            }
         }
 
         return resist;

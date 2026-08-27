@@ -89,13 +89,27 @@ public final class PurrtechPVE extends JavaPlugin {
                 damageTypeRegistry);
 
         boolean mythicMobsPresent = getServer().getPluginManager().isPluginEnabled("MythicMobs");
-        // only ever constructed when MythicMobs is confirmed enabled - see MythicMobsBridge's own javadoc
-        MythicMobsBridge mythicMobsBridge = mythicMobsPresent ? new MythicMobsBridge() : null;
+        // A plugin literally named "MythicMobs" being enabled doesn't guarantee its classes match
+        // the API this was built against (older/forked/incompatible builds still pass the name
+        // check) - probe() forces that class resolution right now, where a mismatch is loud and
+        // diagnosable, rather than crashing every single damage event later. See MythicMobsBridge's javadoc.
+        MythicMobsBridge mythicMobsBridge = null;
+        if (mythicMobsPresent) {
+            try {
+                MythicMobsBridge bridge = new MythicMobsBridge();
+                bridge.probe();
+                mythicMobsBridge = bridge;
+            } catch (Throwable t) {
+                getLogger().warning("A plugin named MythicMobs is enabled, but its API doesn't match what "
+                        + "PurrtechPVE was built against (" + t.getClass().getSimpleName()
+                        + (t.getMessage() != null ? ": " + t.getMessage() : "") + ") - running without MythicMobs integration.");
+            }
+        }
         EquipmentResolver equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
                 mobDamageProfileRepository, accessoryRepository, itemSetMemberRepository,
                 itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, mythicMobsBridge);
 
-        getLogger().info("MythicMobs integration: " + (mythicMobsPresent ? "enabled" : "not found, running standalone"));
+        getLogger().info("MythicMobs integration: " + (mythicMobsBridge != null ? "enabled" : "not found, running standalone"));
         getLogger().info("World toggles: " + worldToggles.disabledWorlds().size() + " disabled world(s), "
                 + "PvP " + (worldToggles.pvpEnabled() ? "on" : "off") + ", PvE " + (worldToggles.pveEnabled() ? "on" : "off"));
         getLogger().info("Accessory slots: " + accessorySettings.slots());

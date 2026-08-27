@@ -487,6 +487,53 @@
     projeví v action baru (viz předchozí feature) až budeš mít nasazený
     dostatečný počet kusů.
 
+- **Bugfix (2026-08-27): pád na `NoClassDefFoundError: io/lumine/mythic/
+  bukkit/MythicBukkit` na reálném serveru uživatele.** Nahlášeno z produkce -
+  `EquipmentResolver.resolveResistance` spadlo při KAŽDÉM
+  `EntityDamageByEntityEvent` (hráč útočil na Wolf moba, server běžel na
+  Leaf/Paper 1.21.11 s ModelEngine 4.1.0 nainstalovaným).
+  - **Kořenová příčina**: `PurrtechPVE.onEnable` bral
+    `isPluginEnabled("MythicMobs")` jako důkaz, že MythicMobs API (přesně
+    `io.lumine:Mythic-Dist:5.10.0`, na které je `MythicMobsBridge`
+    zkompilovaný) je na runtime classpath dostupné. To je špatný
+    předpoklad - **plugin doslova pojmenovaný "MythicMobs" může běžet a
+    projít touhle kontrolou, aniž by měl kompatibilní/vůbec žádné tyhle
+    třídy** (starší/forkovaná/nekompatibilní verze) - `NoClassDefFoundError`
+    pak vyletí až při PRVNÍM sáhnutí na `MythicBukkit`, tedy při prvním
+    souboji, ne při startu, a to při KAŽDÉM dalším souboji znovu (event
+    listener nikdy nedostal šanci to zachytit a zapamatovat si to).
+  - **Oprava, dvě vrstvy obrany**:
+    1. `MythicMobsBridge.probe()` (nová metoda) - vynutí rozřešení
+       MythicMobs tříd hned při startu, na jednom kontrolovaném místě.
+       `PurrtechPVE.onEnable` obalí konstrukci bridge + `probe()` do
+       `catch (Throwable t)` (nejen `Exception` - `NoClassDefFoundError` je
+       `Error`) - při neshodě to jednou nahlásí varování do konzole
+       ("...jeho API neodpovídá tomu, pro co je PurrtechPVE postavený...")
+       a `mythicMobsBridge` zůstane `null`, přesně jako kdyby MythicMobs
+       vůbec nebyl nainstalovaný.
+    2. `EquipmentResolver`'s jediné volání bridge (`mythicMobInternalName`
+       v `resolveResistance`) je navíc taky obalené v `catch (Throwable)` -
+       obrana do hloubky, kdyby probe() prošel, ale konkrétní volání za
+       běhu selhalo z jiného důvodu (částečná nekompatibilita API).
+  - **Ověřeno dvěma způsoby**:
+    1. **3 nové JUnit testy** (`MythicMobsBridgeTest`) - `Mythic-Dist` je
+       `compileOnly`, takže na testovacím runtime classpath chybí úplně
+       stejně jako u nekompatibilní verze na produkci - `probe()`/
+       `isMythicMob()`/`mythicMobInternalName()` **skutečně a deterministicky
+       hodí `NoClassDefFoundError`** v testu, čímž se přesně reprodukuje
+       produkční pád bez potřeby živého serveru. 105 testů celkem zelených.
+    2. Živě: zkusil jsem postavit falešný plugin doslova pojmenovaný
+       "MythicMobs" (žádné skutečné MythicMobs třídy) a nainstalovat ho
+       vedle PurrtechPVE - narazil jsem přitom na zajímavost, že
+       `paper-plugin.yml`-formátované pluginy (PurrtechPVE) se enable-ují
+       v jiné (dřívější) fázi než klasické `plugin.yml` pluginy, takže
+       `isPluginEnabled` u PurrtechPVE ve chvíli jeho `onEnable` byl false a
+       tenhle konkrétní test tak akorát ověřil "MythicMobs není přítomen"
+       větev (taky správně, bez pádu) - reálnou "isPluginEnabled=true ale
+       třída chybí" cestu spolehlivě prokazují až ty JUnit testy výše.
+  - Živě ověřeno i to, že souboj (`/damage ... by ...` mezi dvěma zombie
+    entitami, žádný hráč potřeba) po opravě proběhne čistě bez pádu.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

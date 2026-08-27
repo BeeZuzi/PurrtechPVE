@@ -15,8 +15,23 @@ import java.util.Optional;
  * loads and runs fine on a server that doesn't have MythicMobs installed
  * (declared as {@code softdepend} in paper-plugin.yml, {@code compileOnly}
  * in the build).
+ *
+ * <p>A plugin literally named "MythicMobs" being enabled does NOT guarantee
+ * its classes match this API - an older/forked/incompatible build can still
+ * satisfy {@code isPluginEnabled} while missing the exact classes compiled
+ * against here, which throws {@link NoClassDefFoundError} the first time
+ * they're touched (seen in production - see {@code probe()}). Both {@code
+ * PurrtechPVE.onEnable} (via {@link #probe()}) and every call site in {@code
+ * EquipmentResolver} additionally guard with a {@code catch (Throwable)} so
+ * a mismatch degrades to "no MythicMobs integration" instead of breaking
+ * every single damage event.
  */
 public final class MythicMobsBridge {
+
+    /** Forces the MythicMobs API classes to resolve right now, at a controlled point, instead of lazily mid-combat. */
+    public void probe() {
+        MythicBukkit.inst().getMobManager();
+    }
 
     public boolean isMythicMob(Entity entity) {
         return MythicBukkit.inst().getMobManager().isActiveMob(entity.getUniqueId());
