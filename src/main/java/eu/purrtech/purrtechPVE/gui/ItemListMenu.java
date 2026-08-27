@@ -15,6 +15,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -90,16 +91,21 @@ public final class ItemListMenu {
         int start = page * PAGE_SIZE;
         for (int i = 0; i < PAGE_SIZE && start + i < templates.size(); i++) {
             ItemTemplate template = templates.get(start + i);
-            ItemStack icon = named(template.baseMaterial(), Component.text(template.displayName(), NamedTextColor.AQUA));
+            // The exact same stack renderGiveable() would hand you via shift+left-click below -
+            // base material, custom model data, damage/resist/enchant lore, all of it - so the
+            // preview in this grid IS what you'd actually get, not just a generic named icon.
+            ItemStack icon = plugin.getItemTemplateService().renderGiveable(template.key());
             ItemMeta meta = icon.getItemMeta();
-            meta.lore(List.of(
-                    Component.text(template.key(), NamedTextColor.GRAY),
-                    Component.text("v" + template.version()
-                            + (template.isFullySynced() ? "" : " (nepropsáno)"), NamedTextColor.DARK_GRAY),
-                    Component.empty(),
-                    Component.text("Klik: upravit", NamedTextColor.YELLOW),
-                    Component.text("Shift+levý klik: dát kopii do inventáře", NamedTextColor.GREEN),
-                    Component.text("Shift+pravý klik: smazat", NamedTextColor.RED)));
+            List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
+            lore.add(Component.empty());
+            lore.add(Component.text(template.key(), NamedTextColor.GRAY));
+            lore.add(Component.text("v" + template.version()
+                    + (template.isFullySynced() ? "" : " (nepropsáno)"), NamedTextColor.DARK_GRAY));
+            lore.add(Component.empty());
+            lore.add(Component.text("Klik: upravit", NamedTextColor.YELLOW));
+            lore.add(Component.text("Shift+levý klik: dát kopii do inventáře", NamedTextColor.GREEN));
+            lore.add(Component.text("Shift+pravý klik: smazat", NamedTextColor.RED));
+            meta.lore(lore);
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
         }
