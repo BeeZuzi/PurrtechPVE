@@ -1047,6 +1047,47 @@
     s ručně sestavenými attribute mapami, stejně jako celý zbytek
     importeru odjakživa.
 
+- **"Add" tlačítko rozšířeno na RESIST a MOBS tab (2026-08-27), na
+  žádost ("udělej to přidávání pro všechny ty věci co se tam
+  přidává").** Stejný vzor jako u DAMAGE tabu výš (jen konfigurované +
+  Add tlačítko → picker nenastavených), teď i na:
+  - **RESIST tab** - beze změny chování, jen vizuálně: místo všech ~19
+    typů poškození ukazuje jen ty, co item má nastavené jako
+    odolnost/slabinu, + "+ Přidat odolnost/slabinu" tlačítko. Klik na
+    typ v pickeru vede do stejného chatového promptu na procenta jako
+    dřív klik na kterýkoli typ v plném výpisu.
+  - **MOBS tab** - stejný vzor, ale klíčovaný stringem (mob type z
+    MythicMobs), ne `DamageType` - tady to dává asi největší smysl,
+    protože seznam typů mobů může být mnohem delší než ~19 typů
+    poškození. Ukazuje jen moby, kterým je item už nasazený, + "+
+    Nasadit mobovi" tlačítko; picker nabídne jen moby, kde item ještě
+    nasazený není. Klik na moba v pickeru rovnou nasadí (žádný chat
+    prompt netřeba, je to jen akce, ne zadávání hodnoty) a vrátí zpět
+    na běžný seznam.
+  - **Refaktoring**: `ItemEditorHolder`'s `damageTypePickerOpen` flag
+    přejmenován na obecné `pickerOpen` - sdílí ho všechny tři taby
+    (v danou chvíli je vidět jen jeden tab a `switchTab` ho stejně vždy
+    resetuje, takže jeden flag stačí). Vytažené sdílené helpery
+    `addButton(String label)` a `renderTypePicker(Inventory, List<DamageType>)`
+    pro DAMAGE/RESIST (MOBS má vlastní verzi kvůli jinému typu klíče -
+    String místo DamageType). Smazána mrtvá `damageTypeAt(...)` metoda
+    (po přechodu DAMAGE i RESIST na configured/unconfigured indexování
+    už ji nikdo nevolal).
+  - `render(...)` teď volá `renderResist`/`renderMobs` s `holder`
+    místo `templateKey` (stejná úprava jako u DAMAGE minule).
+  - Žádná nová perzistence/migrace/JUnit testy (čistě GUI, stejná
+    konvence jako předtím). 153 testů beze změny, čistý
+    `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Ověřeno živě**: `runServer` boot proběhl čistě, plugin se povolil
+    bez chyby. Samotné proklikání Add/picker na RESIST i MOBS tabu
+    **nedá se ověřit v sandboxu** (potřeba připojený hráč, stejné
+    omezení jako u DAMAGE tabu a všech ostatních GUI screenů v tomhle
+    projektu). TRINKET, ARMOR_CLASS, ARMOR_PENETRATION a SPECIAL_EFFECTS
+    tahle úprava záměrně nedostaly - jsou to buď pevné/malé výčty
+    (3-6 položek, nemá smysl je schovávat za Add) nebo single-select
+    volby, ne rostoucí seznam "věcí, co se přidávají"; řekni, pokud má
+    jít i tam.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

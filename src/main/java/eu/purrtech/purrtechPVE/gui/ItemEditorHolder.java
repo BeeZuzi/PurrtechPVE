@@ -10,10 +10,12 @@ public final class ItemEditorHolder implements InventoryHolder {
     private final String templateKey;
     private ItemEditorTab tab;
     private Inventory inventory;
-    // Sub-screen of the DAMAGE tab: instead of always listing every registered damage type,
-    // that tab shows only the already-configured ones plus an "Add" button - clicking it flips
-    // this flag and the tab re-renders as a picker of the not-yet-configured types instead.
-    private boolean damageTypePickerOpen;
+    // Sub-screen shared by every tab that lists "things you can add" (DAMAGE, RESIST, MOBS):
+    // instead of always listing every possible option, those tabs show only the already-configured
+    // ones plus an "Add" button - clicking it flips this flag and the same tab re-renders as a
+    // picker of the not-yet-configured options instead. One flag is enough since only one tab is
+    // ever visible at a time and switchTab() always resets it.
+    private boolean pickerOpen;
 
     public ItemEditorHolder(String templateKey, ItemEditorTab tab) {
         this.templateKey = templateKey;
@@ -41,11 +43,11 @@ public final class ItemEditorHolder implements InventoryHolder {
         this.tab = tab;
     }
 
-    public boolean isDamageTypePickerOpen() {
-        return damageTypePickerOpen;
+    public boolean isPickerOpen() {
+        return pickerOpen;
     }
 
-    public void setDamageTypePickerOpen(boolean damageTypePickerOpen) {
-        this.damageTypePickerOpen = damageTypePickerOpen;
+    public void setPickerOpen(boolean pickerOpen) {
+        this.pickerOpen = pickerOpen;
     }
 }

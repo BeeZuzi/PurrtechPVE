@@ -84,7 +84,7 @@ public final class ItemEditorMenu {
 
     private static void switchTab(PurrtechPVE plugin, Player player, ItemEditorHolder holder, ItemEditorTab tab) {
         holder.setTab(tab);
-        holder.setDamageTypePickerOpen(false);
+        holder.setPickerOpen(false);
         render(plugin, holder.getInventory(), holder);
     }
 
@@ -96,12 +96,12 @@ public final class ItemEditorMenu {
         switch (tab) {
             case BASE -> renderBase(plugin, inventory, templateKey);
             case DAMAGE -> renderDamage(plugin, inventory, holder);
-            case RESIST -> renderResist(plugin, inventory, templateKey);
+            case RESIST -> renderResist(plugin, inventory, holder);
             case TRINKET -> renderTrinket(plugin, inventory, templateKey);
             case ARMOR_CLASS -> renderArmorClass(plugin, inventory, templateKey);
             case ARMOR_PENETRATION -> renderArmorPenetration(plugin, inventory, templateKey);
             case SPECIAL_EFFECTS -> renderSpecialEffects(plugin, inventory, templateKey);
-            case MOBS -> renderMobs(plugin, inventory, templateKey);
+            case MOBS -> renderMobs(plugin, inventory, holder);
             case PUBLISH -> renderPublish(plugin, inventory, templateKey);
         }
     }
@@ -163,7 +163,7 @@ public final class ItemEditorMenu {
 
     // ---- DAMAGE ----
     // Only damage types the item already has a contribution for are listed, followed by an
-    // "Add" button - clicking it flips ItemEditorHolder.damageTypePickerOpen and the same tab
+    // "Add" button - clicking it flips ItemEditorHolder.pickerOpen and the same tab
     // re-renders as a picker of the remaining (not yet configured) types instead. Picking one
     // there (or clicking an already-listed type) both funnel into the same chat prompt, which is
     // where flat-vs-percent is actually chosen (see promptDamageContribution) - the picker only
@@ -171,7 +171,7 @@ public final class ItemEditorMenu {
 
     private static void renderDamage(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder) {
         String templateKey = holder.templateKey();
-        if (holder.isDamageTypePickerOpen()) {
+        if (holder.isPickerOpen()) {
             renderDamageTypePicker(plugin, inventory, templateKey);
             return;
         }
@@ -200,38 +200,13 @@ public final class ItemEditorMenu {
         }
         int addSlot = CONTENT_START + configured.size();
         if (addSlot < SIZE) {
-            inventory.setItem(addSlot, damageAddButton());
+            inventory.setItem(addSlot, addButton("+ Přidat poškození"));
         }
-    }
-
-    private static ItemStack damageAddButton() {
-        ItemStack icon = named(Material.LIME_DYE, Component.text("+ Přidat poškození", NamedTextColor.GREEN));
-        ItemMeta meta = icon.getItemMeta();
-        meta.lore(List.of(Component.text("Klik: vybrat typ poškození, který chceš přidat", NamedTextColor.YELLOW)));
-        icon.setItemMeta(meta);
-        return icon;
     }
 
     private static void renderDamageTypePicker(PurrtechPVE plugin, Inventory inventory, String templateKey) {
         List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(templateKey);
-        List<DamageType> available = unconfiguredDamageTypes(plugin, contributions);
-        for (int i = 0; i < available.size() && CONTENT_START + i < SIZE; i++) {
-            DamageType type = available.get(i);
-            ItemStack icon = named(iconFor(type.key()), Component.text(type.icon() + " " + type.displayName(), NamedTextColor.AQUA));
-            ItemMeta meta = icon.getItemMeta();
-            meta.lore(List.of(Component.text("Klik: přidat toto poškození", NamedTextColor.YELLOW)));
-            icon.setItemMeta(meta);
-            inventory.setItem(CONTENT_START + i, icon);
-        }
-        if (available.isEmpty()) {
-            inventory.setItem(CONTENT_START, named(Material.PAPER,
-                    Component.text("Všechny typy poškození už jsou přidané.", NamedTextColor.GRAY)));
-        }
-        ItemStack back = named(Material.ARROW, Component.text("Zpět", NamedTextColor.RED));
-        ItemMeta backMeta = back.getItemMeta();
-        backMeta.lore(List.of(Component.text("Klik: zpět na seznam přidaných poškození", NamedTextColor.YELLOW)));
-        back.setItemMeta(backMeta);
-        inventory.setItem(PREVIEW_SLOT, back);
+        renderTypePicker(inventory, unconfiguredDamageTypes(plugin, contributions));
     }
 
     private static List<DamageType> configuredDamageTypes(PurrtechPVE plugin, List<DamageContribution> contributions) {
@@ -247,7 +222,7 @@ public final class ItemEditorMenu {
     }
 
     private static void handleDamageClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
-        if (holder.isDamageTypePickerOpen()) {
+        if (holder.isPickerOpen()) {
             handleDamageTypePickerClick(plugin, player, holder, slot);
             return;
         }
@@ -255,7 +230,7 @@ public final class ItemEditorMenu {
         List<DamageType> configured = configuredDamageTypes(plugin, contributions);
         int index = slot - CONTENT_START;
         if (index == configured.size()) {
-            holder.setDamageTypePickerOpen(true);
+            holder.setPickerOpen(true);
             render(plugin, holder.getInventory(), holder);
             return;
         }
@@ -275,7 +250,7 @@ public final class ItemEditorMenu {
 
     private static void handleDamageTypePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
         if (slot == PREVIEW_SLOT) {
-            holder.setDamageTypePickerOpen(false);
+            holder.setPickerOpen(false);
             render(plugin, holder.getInventory(), holder);
             return;
         }
@@ -324,25 +299,28 @@ public final class ItemEditorMenu {
     }
 
     // ---- RESIST ----
+    // Same "only configured + Add button" shape as DAMAGE above, just for TypeModifier instead of
+    // DamageContribution - see that section's comment for the shared picker mechanics.
 
-    private static void renderResist(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderResist(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder) {
+        String templateKey = holder.templateKey();
+        if (holder.isPickerOpen()) {
+            renderResistTypePicker(plugin, inventory, templateKey);
+            return;
+        }
         List<TypeModifier> modifiers = plugin.getItemTemplateService().typeModifiers(templateKey);
-        List<DamageType> types = plugin.getDamageTypeRegistry().all().values().stream().toList();
-        for (int i = 0; i < types.size() && CONTENT_START + i < SIZE; i++) {
-            DamageType type = types.get(i);
-            Optional<TypeModifier> modifier = modifiers.stream().filter(m -> m.damageTypeKey().equals(type.key())).findFirst();
+        List<DamageType> configured = configuredResistTypes(plugin, modifiers);
+        for (int i = 0; i < configured.size() && CONTENT_START + i < SIZE; i++) {
+            DamageType type = configured.get(i);
+            TypeModifier modifier = modifiers.stream().filter(m -> m.damageTypeKey().equals(type.key())).findFirst().orElseThrow();
+            double percent = modifier.percent();
+            String label = percent >= 0 ? "Odolnost" : "Slabina";
+            NamedTextColor color = percent >= 0 ? NamedTextColor.GREEN : NamedTextColor.RED;
 
             List<Component> lore = new ArrayList<>();
-            if (modifier.isPresent()) {
-                double percent = modifier.get().percent();
-                String label = percent >= 0 ? "Odolnost" : "Slabina";
-                NamedTextColor color = percent >= 0 ? NamedTextColor.GREEN : NamedTextColor.RED;
-                lore.add(Component.text(label + ": " + formatAmount(Math.abs(percent)) + "%", color));
-            } else {
-                lore.add(Component.text("(nenastaveno)", NamedTextColor.DARK_GRAY));
-            }
+            lore.add(Component.text(label + ": " + formatAmount(Math.abs(percent)) + "%", color));
             lore.add(Component.empty());
-            lore.add(Component.text("Klik: nastavit (kladné = odolnost, záporné = slabina)", NamedTextColor.YELLOW));
+            lore.add(Component.text("Klik: upravit (kladné = odolnost, záporné = slabina)", NamedTextColor.YELLOW));
             lore.add(Component.text("Shift+klik: smazat", NamedTextColor.RED));
 
             ItemStack icon = named(iconFor(type.key()), Component.text(type.icon() + " " + type.displayName(), NamedTextColor.AQUA));
@@ -351,21 +329,72 @@ public final class ItemEditorMenu {
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
         }
+        int addSlot = CONTENT_START + configured.size();
+        if (addSlot < SIZE) {
+            inventory.setItem(addSlot, addButton("+ Přidat odolnost/slabinu"));
+        }
+    }
+
+    private static void renderResistTypePicker(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+        List<TypeModifier> modifiers = plugin.getItemTemplateService().typeModifiers(templateKey);
+        List<DamageType> available = unconfiguredResistTypes(plugin, modifiers);
+        renderTypePicker(inventory, available);
+    }
+
+    private static List<DamageType> configuredResistTypes(PurrtechPVE plugin, List<TypeModifier> modifiers) {
+        Set<String> keys = modifiers.stream().map(TypeModifier::damageTypeKey)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return plugin.getDamageTypeRegistry().all().values().stream().filter(t -> keys.contains(t.key())).toList();
+    }
+
+    private static List<DamageType> unconfiguredResistTypes(PurrtechPVE plugin, List<TypeModifier> modifiers) {
+        Set<String> keys = modifiers.stream().map(TypeModifier::damageTypeKey)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return plugin.getDamageTypeRegistry().all().values().stream().filter(t -> !keys.contains(t.key())).toList();
     }
 
     private static void handleResistClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
-        Optional<DamageType> typeOpt = damageTypeAt(plugin, slot);
-        if (typeOpt.isEmpty()) {
+        if (holder.isPickerOpen()) {
+            handleResistTypePickerClick(plugin, player, holder, slot);
             return;
         }
-        DamageType type = typeOpt.get();
+        List<TypeModifier> modifiers = plugin.getItemTemplateService().typeModifiers(holder.templateKey());
+        List<DamageType> configured = configuredResistTypes(plugin, modifiers);
+        int index = slot - CONTENT_START;
+        if (index == configured.size()) {
+            holder.setPickerOpen(true);
+            render(plugin, holder.getInventory(), holder);
+            return;
+        }
+        if (index < 0 || index >= configured.size()) {
+            return;
+        }
+        DamageType type = configured.get(index);
         if (shift) {
             plugin.getItemTemplateService().removeTypeModifier(holder.templateKey(), type.key());
             player.sendMessage(Component.text("Odolnost/slabina " + type.displayName() + " smazána.", NamedTextColor.GREEN));
             render(plugin, holder.getInventory(), holder);
             return;
         }
+        promptResistValue(plugin, player, holder, type);
+    }
 
+    private static void handleResistTypePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
+        if (slot == PREVIEW_SLOT) {
+            holder.setPickerOpen(false);
+            render(plugin, holder.getInventory(), holder);
+            return;
+        }
+        List<TypeModifier> modifiers = plugin.getItemTemplateService().typeModifiers(holder.templateKey());
+        List<DamageType> available = unconfiguredResistTypes(plugin, modifiers);
+        int index = slot - CONTENT_START;
+        if (index < 0 || index >= available.size()) {
+            return;
+        }
+        promptResistValue(plugin, player, holder, available.get(index));
+    }
+
+    private static void promptResistValue(PurrtechPVE plugin, Player player, ItemEditorHolder holder, DamageType type) {
         player.closeInventory();
         player.sendMessage(Component.text("Napiš do chatu procenta (kladné = odolnost, záporné = slabina), např. 50 nebo -25", NamedTextColor.YELLOW));
         player.sendMessage(Component.text("(nebo napiš 'zrusit')", NamedTextColor.GRAY));
@@ -731,8 +760,11 @@ public final class ItemEditorMenu {
     }
 
     // ---- MOBS ----
+    // Same "only configured + Add button" shape as DAMAGE/RESIST above, just keyed by mob type
+    // name (a plain String from MythicMobs, not a DamageType) instead of a damage type - mob type
+    // lists can get a lot longer than the ~19 damage types, so this is where it matters most.
 
-    private static void renderMobs(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderMobs(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder) {
         if (plugin.getMythicMobsBridge() == null) {
             ItemStack info = named(Material.BARRIER, Component.text("MythicMobs není dostupný", NamedTextColor.RED));
             ItemMeta infoMeta = info.getItemMeta();
@@ -745,23 +777,21 @@ public final class ItemEditorMenu {
             return;
         }
 
+        String templateKey = holder.templateKey();
+        if (holder.isPickerOpen()) {
+            renderMobPicker(plugin, inventory, templateKey);
+            return;
+        }
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
-        List<String> mobTypes = listMobTypesSafely(plugin);
-        for (int i = 0; i < mobTypes.size() && CONTENT_START + i < SIZE; i++) {
-            String mobType = mobTypes.get(i);
-            Map<String, UUID> equipment = plugin.getMobEquipmentRepository().findByMob(mobType);
-            Optional<String> assignedSlot = equipment.entrySet().stream()
-                    .filter(e -> e.getValue().equals(template.id())).map(Map.Entry::getKey).findFirst();
+        List<String> assigned = assignedMobTypes(plugin, template.id());
+        for (int i = 0; i < assigned.size() && CONTENT_START + i < SIZE; i++) {
+            String mobType = assigned.get(i);
+            String assignedSlot = mobEquipmentSlot(plugin, mobType, template.id()).orElseThrow();
 
             List<Component> lore = new ArrayList<>();
-            if (assignedSlot.isPresent()) {
-                lore.add(Component.text("Nasazeno v: " + assignedSlot.get(), NamedTextColor.GREEN));
-            } else {
-                lore.add(Component.text("(nenasazeno)", NamedTextColor.DARK_GRAY));
-            }
+            lore.add(Component.text("Nasazeno v: " + assignedSlot, NamedTextColor.GREEN));
             lore.add(Component.empty());
-            lore.add(Component.text("Klik: dát tenhle item mobovi", NamedTextColor.YELLOW));
-            lore.add(Component.text("(slot se určí podle materiálu)", NamedTextColor.YELLOW));
+            lore.add(Component.text("Klik: znovu nasadit (dle materiálu)", NamedTextColor.YELLOW));
             lore.add(Component.text("Shift+klik: odebrat", NamedTextColor.RED));
 
             ItemStack icon = named(Material.ZOMBIE_HEAD, Component.text(mobType, NamedTextColor.AQUA));
@@ -770,35 +800,102 @@ public final class ItemEditorMenu {
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
         }
+        int addSlot = CONTENT_START + assigned.size();
+        if (addSlot < SIZE) {
+            inventory.setItem(addSlot, addButton("+ Nasadit mobovi"));
+        }
+    }
+
+    private static void renderMobPicker(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
+        List<String> available = unassignedMobTypes(plugin, template.id());
+        for (int i = 0; i < available.size() && CONTENT_START + i < SIZE; i++) {
+            String mobType = available.get(i);
+            ItemStack icon = named(Material.ZOMBIE_HEAD, Component.text(mobType, NamedTextColor.AQUA));
+            ItemMeta meta = icon.getItemMeta();
+            meta.lore(List.of(
+                    Component.text("Klik: nasadit tenhle item mobovi", NamedTextColor.YELLOW),
+                    Component.text("(slot se určí podle materiálu)", NamedTextColor.YELLOW)));
+            icon.setItemMeta(meta);
+            inventory.setItem(CONTENT_START + i, icon);
+        }
+        if (available.isEmpty()) {
+            inventory.setItem(CONTENT_START, named(Material.PAPER,
+                    Component.text("Item je nasazený už u všech mobů.", NamedTextColor.GRAY)));
+        }
+        ItemStack back = named(Material.ARROW, Component.text("Zpět", NamedTextColor.RED));
+        ItemMeta backMeta = back.getItemMeta();
+        backMeta.lore(List.of(Component.text("Klik: zpět na seznam nasazených mobů", NamedTextColor.YELLOW)));
+        back.setItemMeta(backMeta);
+        inventory.setItem(PREVIEW_SLOT, back);
+    }
+
+    private static Optional<String> mobEquipmentSlot(PurrtechPVE plugin, String mobType, UUID templateId) {
+        Map<String, UUID> equipment = plugin.getMobEquipmentRepository().findByMob(mobType);
+        return equipment.entrySet().stream().filter(e -> e.getValue().equals(templateId)).map(Map.Entry::getKey).findFirst();
+    }
+
+    private static List<String> assignedMobTypes(PurrtechPVE plugin, UUID templateId) {
+        return listMobTypesSafely(plugin).stream().filter(m -> mobEquipmentSlot(plugin, m, templateId).isPresent()).toList();
+    }
+
+    private static List<String> unassignedMobTypes(PurrtechPVE plugin, UUID templateId) {
+        return listMobTypesSafely(plugin).stream().filter(m -> mobEquipmentSlot(plugin, m, templateId).isEmpty()).toList();
     }
 
     private static void handleMobsClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
         if (plugin.getMythicMobsBridge() == null) {
             return;
         }
-        List<String> mobTypes = listMobTypesSafely(plugin);
-        int index = slot - CONTENT_START;
-        if (index < 0 || index >= mobTypes.size()) {
+        if (holder.isPickerOpen()) {
+            handleMobPickerClick(plugin, player, holder, slot);
             return;
         }
-        String mobType = mobTypes.get(index);
         ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
-
-        if (shift) {
-            Map<String, UUID> equipment = plugin.getMobEquipmentRepository().findByMob(mobType);
-            Optional<String> assignedSlot = equipment.entrySet().stream()
-                    .filter(e -> e.getValue().equals(template.id())).map(Map.Entry::getKey).findFirst();
-            if (assignedSlot.isPresent()) {
-                plugin.getMobEquipmentRepository().remove(mobType, assignedSlot.get());
-                player.sendMessage(Component.text("Odebráno z moba " + mobType + ".", NamedTextColor.GREEN));
-            }
-        } else {
-            EquipmentSlot equipSlot = autoSlotFor(template.baseMaterial());
-            plugin.getMobEquipmentRepository().set(mobType, equipSlot.name(), template.id());
-            player.sendMessage(Component.text("Item nasazen mobovi " + mobType + " do slotu "
-                    + equipSlot.name() + ".", NamedTextColor.GREEN));
+        List<String> assigned = assignedMobTypes(plugin, template.id());
+        int index = slot - CONTENT_START;
+        if (index == assigned.size()) {
+            holder.setPickerOpen(true);
+            render(plugin, holder.getInventory(), holder);
+            return;
         }
+        if (index < 0 || index >= assigned.size()) {
+            return;
+        }
+        String mobType = assigned.get(index);
+        if (shift) {
+            String assignedSlot = mobEquipmentSlot(plugin, mobType, template.id()).orElseThrow();
+            plugin.getMobEquipmentRepository().remove(mobType, assignedSlot);
+            player.sendMessage(Component.text("Odebráno z moba " + mobType + ".", NamedTextColor.GREEN));
+            render(plugin, holder.getInventory(), holder);
+            return;
+        }
+        equipToMob(plugin, player, template, mobType);
         render(plugin, holder.getInventory(), holder);
+    }
+
+    private static void handleMobPickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
+        if (slot == PREVIEW_SLOT) {
+            holder.setPickerOpen(false);
+            render(plugin, holder.getInventory(), holder);
+            return;
+        }
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
+        List<String> available = unassignedMobTypes(plugin, template.id());
+        int index = slot - CONTENT_START;
+        if (index < 0 || index >= available.size()) {
+            return;
+        }
+        equipToMob(plugin, player, template, available.get(index));
+        holder.setPickerOpen(false);
+        render(plugin, holder.getInventory(), holder);
+    }
+
+    private static void equipToMob(PurrtechPVE plugin, Player player, ItemTemplate template, String mobType) {
+        EquipmentSlot equipSlot = autoSlotFor(template.baseMaterial());
+        plugin.getMobEquipmentRepository().set(mobType, equipSlot.name(), template.id());
+        player.sendMessage(Component.text("Item nasazen mobovi " + mobType + " do slotu "
+                + equipSlot.name() + ".", NamedTextColor.GREEN));
     }
 
     /** Guesses the equipment slot from the base material's vanilla naming convention (helmet/chestplate/... suffix, shield). */
@@ -907,13 +1004,33 @@ public final class ItemEditorMenu {
 
     // ---- helpers ----
 
-    private static Optional<DamageType> damageTypeAt(PurrtechPVE plugin, int slot) {
-        int index = slot - CONTENT_START;
-        List<DamageType> types = plugin.getDamageTypeRegistry().all().values().stream().toList();
-        if (index < 0 || index >= types.size()) {
-            return Optional.empty();
+    /** Shared "+ Add" button icon used by every tab's configured-list + picker pattern (DAMAGE, RESIST, MOBS). */
+    private static ItemStack addButton(String label) {
+        ItemStack icon = named(Material.LIME_DYE, Component.text(label, NamedTextColor.GREEN));
+        ItemMeta meta = icon.getItemMeta();
+        meta.lore(List.of(Component.text("Klik: vybrat, co chceš přidat", NamedTextColor.YELLOW)));
+        icon.setItemMeta(meta);
+        return icon;
+    }
+
+    /** Shared damage-type picker screen (DAMAGE/RESIST tabs) - a "Zpět" arrow in PREVIEW_SLOT, one icon per not-yet-configured type. */
+    private static void renderTypePicker(Inventory inventory, List<DamageType> available) {
+        for (int i = 0; i < available.size() && CONTENT_START + i < SIZE; i++) {
+            DamageType type = available.get(i);
+            ItemStack icon = named(iconFor(type.key()), Component.text(type.icon() + " " + type.displayName(), NamedTextColor.AQUA));
+            ItemMeta meta = icon.getItemMeta();
+            meta.lore(List.of(Component.text("Klik: přidat", NamedTextColor.YELLOW)));
+            icon.setItemMeta(meta);
+            inventory.setItem(CONTENT_START + i, icon);
         }
-        return Optional.of(types.get(index));
+        if (available.isEmpty()) {
+            inventory.setItem(CONTENT_START, named(Material.PAPER, Component.text("Všechno už je přidané.", NamedTextColor.GRAY)));
+        }
+        ItemStack back = named(Material.ARROW, Component.text("Zpět", NamedTextColor.RED));
+        ItemMeta backMeta = back.getItemMeta();
+        backMeta.lore(List.of(Component.text("Klik: zpět na seznam", NamedTextColor.YELLOW)));
+        back.setItemMeta(backMeta);
+        inventory.setItem(PREVIEW_SLOT, back);
     }
 
     private static ItemStack named(Material material, Component name) {
