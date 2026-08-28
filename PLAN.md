@@ -1217,6 +1217,52 @@
     **nedá ověřit v sandboxu** - stejné omezení, jaké `setbase` mělo
     odjakživa.
 
+- **Oprava: custom textura na helmě se nenačetla po nasazení (2026-08-28),
+  bug report.** "měla texturu v invu ale když jsem si ji nasadil tak se
+  nenačetla na hlavě, itemy do ruky fungují normálně." Kořen problému:
+  `customModelData` a to, co se zobrazí na TĚLE při nasazení, jsou od
+  1.21.2 DVĚ ÚPLNĚ ODDĚLENÉ věci v Minecraftu samotném (ne bug v
+  našem kódu jako takovém, spíš chybějící kus):
+  - `customModelData` (starý `overrides`/predicate systém, pořád
+    funkční kvůli zpětné kompatibilitě) mění jen model v ruce/inventáři
+    - proto to tam fungovalo.
+  - Co se vykreslí NA HRÁČI při nasazení, řídí samostatná `equippable`
+    data component (`assets/<namespace>/equipment/<id>.json` v
+    resource packu) - bez ní hráč vidí defaultní vanilla texturu pro
+    ten materiál (nebo nic zvláštního), i když `customModelData` je
+    nastavená.
+  - `ItemRenderer` teď u itemů s nastavenou `customModelData`, jejichž
+    základní materiál je opravdová helma/hruď/nohavice/boty (`Material
+    .getEquipmentSlot()` je HEAD/CHEST/LEGS/FEET - záměrně NE u
+    zbraní/nástrojů, aby se jim náhodou nezměnilo, jak fungují při
+    pravém kliku), nastaví `EquippableComponent.setModel(...)` na
+    `<plugin-namespace>:<template-key>` (lowercase klíč šablony).
+  - **Co je potřeba udělat na straně resource packu**: přidat soubor
+    `assets/purrtechpve/equipment/<template-key>.json` (název podle
+    klíče šablony, malými písmeny) definující vrstvy pro helmu/brnění -
+    bez tohohle souboru se pořád zobrazí jen defaultní vanilla textura
+    daného materiálu (žádná chyba, jen chybí definice v packu).
+  - Žádná nová perzistence/migrace/JUnit testy (`ItemRenderer` jich
+    nemá vůbec, stejná konvence jako vždy - dotýká se živého
+    `ItemStack`/`ItemMeta`). Přidán defenzivní null-check na
+    `meta.getEquippable()` (dokumentovaně/očekávaně nikdy `null` pro
+    skutečný armor materiál, ale tenhle konkrétní kód se nedá v
+    sandboxu vůbec spustit, viz níž, tak radši bezpečně přeskočit než
+    spadnout, kdyby ten předpoklad byl špatně).
+  - Ověřeno přes `javap` na skutečném `leaf-api` jaru (ne odhad), že
+    `EquippableComponent`/`Material.getEquipmentSlot()` mají přesně
+    tenhle tvar v 1.21.11. 157 testů beze změny, čistý
+    `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Nedá se ověřit v sandboxu vůbec**: tenhle kód se spustí jen uvnitř
+    `ItemRenderer.render(...)`, který se volá jen z `/pve item give`
+    (potřeba připojený hráč jako cíl) nebo GUI preview (taky hráč) -
+    není způsob, jak ho spustit z konzole bez hráče. Samotný vizuální
+    výsledek (fakt se zobrazí custom textura na hlavě) navíc potřebuje
+    hotový resource pack s `equipment/<key>.json` u hráče. Doporučuju
+    vyzkoušet naživo: vytvoř helmu s `customModelData`, přidej
+    `assets/purrtechpve/equipment/<key>.json` do packu, dej si ji a
+    nasaď.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

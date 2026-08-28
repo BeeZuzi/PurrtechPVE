@@ -11,9 +11,11 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.components.EquippableComponent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
@@ -84,6 +86,30 @@ public final class ItemRenderer {
         meta.displayName(Component.text(displayName).decoration(TextDecoration.ITALIC, false));
         if (customModelData != null) {
             meta.setCustomModelData(customModelData);
+            // customModelData alone only re-skins the in-hand/inventory model (the old
+            // overrides-predicate system, still honored for backward compat) - it has NO effect
+            // on what texture shows on the player's body once the item is actually worn. Since
+            // 1.21.2, that's an entirely separate data component (equippable.model, here Bukkit's
+            // EquippableComponent#setModel) pointing at assets/<namespace>/equipment/<key>.json in
+            // the resource pack. Only touched for base materials that are real armor pieces
+            // (helmet/chestplate/leggings/boots) - overriding it on a sword/tool would make that
+            // item itself equippable via right-click into whatever slot the vanilla default
+            // component says, which is not something a customModelData weapon should ever do.
+            EquipmentSlot armorSlot = baseMaterial.getEquipmentSlot();
+            if (armorSlot == EquipmentSlot.HEAD || armorSlot == EquipmentSlot.CHEST
+                    || armorSlot == EquipmentSlot.LEGS || armorSlot == EquipmentSlot.FEET) {
+                EquippableComponent equippable = meta.getEquippable();
+                // getEquippable() is documented/expected to hand back the material's implicit
+                // default component (matching hasFood()/getFood()'s established pattern elsewhere
+                // in this same component API) rather than null for a real armor material - null-
+                // checked anyway since this exact call can't be exercised in this sandbox (needs a
+                // connected player to even trigger a render), so a wrong assumption here should
+                // degrade to "no custom worn texture" rather than crash the whole render.
+                if (equippable != null) {
+                    equippable.setModel(new NamespacedKey(plugin, key.toLowerCase(Locale.ROOT)));
+                    meta.setEquippable(equippable);
+                }
+            }
         }
         meta.lore(buildLore(contributions, modifiers, armorPenetration, bleedEffect, criticalEffect, attributeModifiers));
 
