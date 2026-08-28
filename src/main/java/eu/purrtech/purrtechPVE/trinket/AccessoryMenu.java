@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE.trinket;
 
 import eu.purrtech.purrtechPVE.config.AccessorySettings;
 import eu.purrtech.purrtechPVE.db.AccessoryRepository;
+import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -19,12 +20,12 @@ public final class AccessoryMenu {
     private AccessoryMenu() {
     }
 
-    public static void open(Player player, AccessorySettings settings, AccessoryRepository repository) {
+    public static void open(Player player, Messages messages, AccessorySettings settings, AccessoryRepository repository) {
         List<String> slotNames = settings.slots();
         int size = Math.max(9, ((slotNames.size() + 8) / 9) * 9);
 
         AccessoryInventoryHolder holder = new AccessoryInventoryHolder(player.getUniqueId(), slotNames);
-        Inventory inventory = Bukkit.createInventory(holder, size, Component.text("Doplňky"));
+        Inventory inventory = Bukkit.createInventory(holder, size, messages.render(player.locale(), "gui.accessory.title"));
         holder.setInventory(inventory);
 
         Map<String, ItemStack> saved = repository.findAll(player.getUniqueId());

@@ -1273,7 +1273,7 @@ public final class PveCommand {
             sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
             return 0;
         }
-        AccessoryMenu.open(player, plugin.getAccessorySettings(), plugin.getAccessoryRepository());
+        AccessoryMenu.open(player, plugin.getMessages(), plugin.getAccessorySettings(), plugin.getAccessoryRepository());
         return Command.SINGLE_SUCCESS;
     }
 

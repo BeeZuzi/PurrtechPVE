@@ -3,9 +3,10 @@ package eu.purrtech.purrtechPVE.gui;
 import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.damage.DamageType;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
+import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -42,24 +43,26 @@ public final class ArmorClassMenu {
     }
 
     public static void open(PurrtechPVE plugin, Player player, ArmorClass armorClass) {
+        Locale locale = player.locale();
         ArmorClassHolder holder = new ArmorClassHolder(armorClass);
-        Inventory inventory = Bukkit.createInventory(holder, SIZE, Component.text("Typy armoru: benefity"));
+        Inventory inventory = Bukkit.createInventory(holder, SIZE, plugin.getMessages().render(locale, "gui.armor-class.title"));
         holder.setInventory(inventory);
-        render(plugin, inventory, armorClass);
+        render(plugin, inventory, armorClass, locale);
         player.openInventory(inventory);
     }
 
-    private static void switchTab(PurrtechPVE plugin, ArmorClassHolder holder, ArmorClass armorClass) {
+    private static void switchTab(PurrtechPVE plugin, ArmorClassHolder holder, ArmorClass armorClass, Locale locale) {
         holder.setArmorClass(armorClass);
-        render(plugin, holder.getInventory(), armorClass);
+        render(plugin, holder.getInventory(), armorClass, locale);
     }
 
-    private static void render(PurrtechPVE plugin, Inventory inventory, ArmorClass armorClass) {
+    private static void render(PurrtechPVE plugin, Inventory inventory, ArmorClass armorClass, Locale locale) {
         inventory.clear();
-        inventory.setItem(TAB_LIGHT, tabIcon(Material.LEATHER_CHESTPLATE, "Lehký", armorClass == ArmorClass.LIGHT));
-        inventory.setItem(TAB_MEDIUM, tabIcon(Material.IRON_CHESTPLATE, "Střední", armorClass == ArmorClass.MEDIUM));
-        inventory.setItem(TAB_HEAVY, tabIcon(Material.NETHERITE_CHESTPLATE, "Těžký", armorClass == ArmorClass.HEAVY));
-        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, Component.text("Zavřít", NamedTextColor.RED)));
+        Messages messages = plugin.getMessages();
+        inventory.setItem(TAB_LIGHT, tabIcon(messages, locale, Material.LEATHER_CHESTPLATE, "gui.armor-class.tab.light", armorClass == ArmorClass.LIGHT));
+        inventory.setItem(TAB_MEDIUM, tabIcon(messages, locale, Material.IRON_CHESTPLATE, "gui.armor-class.tab.medium", armorClass == ArmorClass.MEDIUM));
+        inventory.setItem(TAB_HEAVY, tabIcon(messages, locale, Material.NETHERITE_CHESTPLATE, "gui.armor-class.tab.heavy", armorClass == ArmorClass.HEAVY));
+        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.armor-class.close")));
 
         Map<String, Double> profile = plugin.getArmorClassProfileRepository().findByArmorClass(armorClass.name());
         List<DamageType> types = plugin.getDamageTypeRegistry().all().values().stream().toList();
@@ -69,17 +72,17 @@ public final class ArmorClassMenu {
 
             List<Component> lore = new ArrayList<>();
             if (percent != null) {
-                String label = percent >= 0 ? "Odolnost" : "Slabina";
-                NamedTextColor color = percent >= 0 ? NamedTextColor.GREEN : NamedTextColor.RED;
-                lore.add(Component.text(label + ": " + formatAmount(Math.abs(percent)) + "%", color));
+                String key = percent >= 0 ? "gui.armor-class.lore.resist" : "gui.armor-class.lore.weakness";
+                lore.add(messages.render(locale, key, Placeholder.unparsed("amount", formatAmount(Math.abs(percent)))));
             } else {
-                lore.add(Component.text("(nenastaveno)", NamedTextColor.DARK_GRAY));
+                lore.add(messages.render(locale, "gui.armor-class.lore.not-set"));
             }
             lore.add(Component.empty());
-            lore.add(Component.text("Klik: nastavit (kladné = odolnost, záporné = slabina)", NamedTextColor.YELLOW));
-            lore.add(Component.text("Shift+klik: smazat", NamedTextColor.RED));
+            lore.add(messages.render(locale, "gui.armor-class.lore.hint-set"));
+            lore.add(messages.render(locale, "gui.armor-class.lore.hint-remove"));
 
-            ItemStack icon = named(iconFor(type.key()), Component.text(type.icon() + " " + type.displayName(), NamedTextColor.AQUA));
+            ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.armor-class.type-icon",
+                    Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
@@ -88,16 +91,19 @@ public final class ArmorClassMenu {
     }
 
     public static void handleClick(PurrtechPVE plugin, Player player, ArmorClassHolder holder, int slot, boolean shift) {
+        Locale locale = player.locale();
         switch (slot) {
-            case TAB_LIGHT -> switchTab(plugin, holder, ArmorClass.LIGHT);
-            case TAB_MEDIUM -> switchTab(plugin, holder, ArmorClass.MEDIUM);
-            case TAB_HEAVY -> switchTab(plugin, holder, ArmorClass.HEAVY);
+            case TAB_LIGHT -> switchTab(plugin, holder, ArmorClass.LIGHT, locale);
+            case TAB_MEDIUM -> switchTab(plugin, holder, ArmorClass.MEDIUM, locale);
+            case TAB_HEAVY -> switchTab(plugin, holder, ArmorClass.HEAVY, locale);
             case CLOSE_SLOT -> player.closeInventory();
             default -> handleContentClick(plugin, player, holder, slot, shift);
         }
     }
 
     private static void handleContentClick(PurrtechPVE plugin, Player player, ArmorClassHolder holder, int slot, boolean shift) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         List<DamageType> types = plugin.getDamageTypeRegistry().all().values().stream().toList();
         int index = slot - CONTENT_START;
         if (index < 0 || index >= types.size()) {
@@ -108,35 +114,36 @@ public final class ArmorClassMenu {
 
         if (shift) {
             plugin.getArmorClassProfileRepository().remove(armorClass.name(), type.key());
-            player.sendMessage(Component.text("Odolnost/slabina " + type.displayName() + " smazána pro typ armoru "
-                    + armorClass.name() + ".", NamedTextColor.GREEN));
-            render(plugin, holder.getInventory(), armorClass);
+            player.sendMessage(messages.render(locale, "gui.armor-class.removed",
+                    Placeholder.unparsed("type", type.displayName()), Placeholder.unparsed("class", armorClass.name())));
+            render(plugin, holder.getInventory(), armorClass, locale);
             return;
         }
 
         player.closeInventory();
-        player.sendMessage(Component.text("Napiš do chatu procenta (kladné = odolnost, záporné = slabina), např. 50 nebo -25", NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("(nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        player.sendMessage(messages.render(locale, "gui.armor-class.prompt-set"));
+        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
-                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
                 open(plugin, p, armorClass);
                 return;
             }
             Double percent = parseDouble(rawInput.trim());
             if (percent == null) {
-                p.sendMessage(Component.text("Neplatné číslo, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
                 open(plugin, p, armorClass);
                 return;
             }
             plugin.getArmorClassProfileRepository().upsert(armorClass.name(), type.key(), percent);
-            p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+            p.sendMessage(messages.render(locale, "gui.prompt.done"));
             open(plugin, p, armorClass);
         });
     }
 
-    private static ItemStack tabIcon(Material material, String label, boolean active) {
-        Component name = Component.text((active ? "▶ " : "") + label, active ? NamedTextColor.GREEN : NamedTextColor.WHITE);
+    private static ItemStack tabIcon(Messages messages, Locale locale, Material material, String labelKey, boolean active) {
+        String prefixKey = active ? "gui.armor-class.tab-active" : "gui.armor-class.tab-inactive";
+        Component name = messages.render(locale, prefixKey, Placeholder.unparsed("label", messages.plain(locale, labelKey)));
         return named(material, name);
     }
 

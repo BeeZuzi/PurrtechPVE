@@ -4,9 +4,10 @@ import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import eu.purrtech.purrtechPVE.item.TemplateNotFoundException;
+import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -18,6 +19,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * The {@code /pve item menu} admin GUI - every created item template in one
@@ -44,12 +46,13 @@ public final class ItemListMenu {
     }
 
     public static void open(PurrtechPVE plugin, Player player, int page) {
+        Locale locale = player.locale();
         List<ItemTemplate> templates = sortedTemplates(plugin);
         int clampedPage = Math.max(0, Math.min(page, lastPage(templates)));
         ItemListHolder holder = new ItemListHolder(clampedPage);
-        Inventory inventory = Bukkit.createInventory(holder, SIZE, Component.text("Itemy (šablony)"));
+        Inventory inventory = Bukkit.createInventory(holder, SIZE, plugin.getMessages().render(locale, "gui.item-list.title"));
         holder.setInventory(inventory);
-        render(plugin, inventory, clampedPage);
+        render(plugin, inventory, clampedPage, locale);
         player.openInventory(inventory);
     }
 
@@ -67,25 +70,27 @@ public final class ItemListMenu {
                 .toList();
     }
 
-    private static void render(PurrtechPVE plugin, Inventory inventory, int page) {
+    private static void render(PurrtechPVE plugin, Inventory inventory, int page, Locale locale) {
         inventory.clear();
+        Messages messages = plugin.getMessages();
         List<ItemTemplate> templates = sortedTemplates(plugin);
         int totalPages = lastPage(templates) + 1;
 
-        inventory.setItem(ADD_SLOT, named(Material.LIME_DYE, Component.text("+ Vytvořit item", NamedTextColor.GREEN)));
-        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, Component.text("Zavřít", NamedTextColor.RED)));
+        inventory.setItem(ADD_SLOT, named(Material.LIME_DYE, messages.render(locale, "gui.item-list.add")));
+        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.item-list.close")));
 
-        ItemStack info = named(Material.BOOK, Component.text("Strana " + (page + 1) + "/" + totalPages, NamedTextColor.AQUA));
+        ItemStack info = named(Material.BOOK, messages.render(locale, "gui.item-list.page",
+                Placeholder.unparsed("page", String.valueOf(page + 1)), Placeholder.unparsed("total", String.valueOf(totalPages))));
         ItemMeta infoMeta = info.getItemMeta();
-        infoMeta.lore(List.of(Component.text(templates.size() + " itemů celkem", NamedTextColor.GRAY)));
+        infoMeta.lore(List.of(messages.render(locale, "gui.item-list.count", Placeholder.unparsed("count", String.valueOf(templates.size())))));
         info.setItemMeta(infoMeta);
         inventory.setItem(INFO_SLOT, info);
 
         if (page > 0) {
-            inventory.setItem(PREV_SLOT, named(Material.ARROW, Component.text("← Předchozí strana", NamedTextColor.YELLOW)));
+            inventory.setItem(PREV_SLOT, named(Material.ARROW, messages.render(locale, "gui.item-list.prev-page")));
         }
         if (page < totalPages - 1) {
-            inventory.setItem(NEXT_SLOT, named(Material.ARROW, Component.text("Další strana →", NamedTextColor.YELLOW)));
+            inventory.setItem(NEXT_SLOT, named(Material.ARROW, messages.render(locale, "gui.item-list.next-page")));
         }
 
         int start = page * PAGE_SIZE;
@@ -98,13 +103,13 @@ public final class ItemListMenu {
             ItemMeta meta = icon.getItemMeta();
             List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
             lore.add(Component.empty());
-            lore.add(Component.text(template.key(), NamedTextColor.GRAY));
-            lore.add(Component.text("v" + template.version()
-                    + (template.isFullySynced() ? "" : " (nepropsáno)"), NamedTextColor.DARK_GRAY));
+            lore.add(messages.render(locale, "gui.item-list.key", Placeholder.unparsed("key", template.key())));
+            String syncSuffixKey = template.isFullySynced() ? "gui.item-list.version" : "gui.item-list.version-unsynced";
+            lore.add(messages.render(locale, syncSuffixKey, Placeholder.unparsed("version", String.valueOf(template.version()))));
             lore.add(Component.empty());
-            lore.add(Component.text("Klik: upravit", NamedTextColor.YELLOW));
-            lore.add(Component.text("Shift+levý klik: dát kopii do inventáře", NamedTextColor.GREEN));
-            lore.add(Component.text("Shift+pravý klik: smazat", NamedTextColor.RED));
+            lore.add(messages.render(locale, "gui.item-list.hint-edit"));
+            lore.add(messages.render(locale, "gui.item-list.hint-copy"));
+            lore.add(messages.render(locale, "gui.item-list.hint-delete"));
             meta.lore(lore);
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
@@ -112,6 +117,8 @@ public final class ItemListMenu {
     }
 
     public static void handleClick(PurrtechPVE plugin, Player player, ItemListHolder holder, int slot, ClickType click) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         if (slot == ADD_SLOT) {
             promptCreate(plugin, player, holder.page());
             return;
@@ -142,15 +149,15 @@ public final class ItemListMenu {
 
         if (click == ClickType.SHIFT_RIGHT) {
             plugin.getItemTemplateService().delete(template.key());
-            player.sendMessage(Component.text("Šablona " + template.key() + " smazána.", NamedTextColor.GREEN));
+            player.sendMessage(messages.render(locale, "gui.item-list.deleted", Placeholder.unparsed("key", template.key())));
             reopen(plugin, player, holder.page());
         } else if (click == ClickType.SHIFT_LEFT) {
             try {
                 ItemStack copy = plugin.getItemTemplateService().renderGiveable(template.key());
                 player.getInventory().addItem(copy);
-                player.sendMessage(Component.text("Dostal jsi kopii itemu " + template.key() + ".", NamedTextColor.GREEN));
+                player.sendMessage(messages.render(locale, "gui.item-list.got-copy", Placeholder.unparsed("key", template.key())));
             } catch (TemplateNotFoundException e) {
-                player.sendMessage(Component.text("Šablona mezitím zmizela.", NamedTextColor.RED));
+                player.sendMessage(messages.render(locale, "gui.item-list.vanished"));
                 reopen(plugin, player, holder.page());
             }
         } else {
@@ -159,18 +166,20 @@ public final class ItemListMenu {
     }
 
     private static void promptCreate(PurrtechPVE plugin, Player player, int page) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         player.closeInventory();
-        player.sendMessage(Component.text("Napiš do chatu: <klíč> <materiál> <zobrazovaný název>", NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("Například: fire-sword IRON_SWORD Plamenný meč   (nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        player.sendMessage(messages.render(locale, "gui.item-list.create-prompt"));
+        player.sendMessage(messages.render(locale, "gui.item-list.create-prompt-example"));
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
-                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
                 open(plugin, p, page);
                 return;
             }
             String[] parts = rawInput.trim().split("\\s+", 3);
             if (parts.length != 3) {
-                p.sendMessage(Component.text("Neplatný vstup, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-list.create-invalid"));
                 open(plugin, p, page);
                 return;
             }
@@ -178,15 +187,15 @@ public final class ItemListMenu {
             Material material = Material.matchMaterial(parts[1]);
             String displayName = parts[2];
             if (material == null) {
-                p.sendMessage(Component.text("Neznámý item: " + parts[1], NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "error.invalid-material", Placeholder.unparsed("material", parts[1])));
                 open(plugin, p, page);
                 return;
             }
             try {
                 plugin.getItemTemplateService().create(key, material, displayName, p.getUniqueId().toString());
-                p.sendMessage(Component.text("Šablona " + key + " vytvořena.", NamedTextColor.GREEN));
+                p.sendMessage(messages.render(locale, "item.created", Placeholder.unparsed("key", key)));
             } catch (DuplicateTemplateKeyException e) {
-                p.sendMessage(Component.text("Šablona s klíčem " + key + " už existuje.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "item.duplicate-key", Placeholder.unparsed("key", key)));
             }
             open(plugin, p, page);
         });
