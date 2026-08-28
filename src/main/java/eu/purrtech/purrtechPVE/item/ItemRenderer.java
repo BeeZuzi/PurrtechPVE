@@ -79,14 +79,15 @@ public final class ItemRenderer {
                               Integer customModelData, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                               List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                               BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
-        ItemStack stack = new ItemStack(baseMaterial);
+        // Starts from a full clone of whatever real item this template was created/rebased from
+        // (raw NBT, not just Bukkit's PersistentDataContainer view of it - see BaseItemSnapshots for
+        // exactly why that distinction is the whole fix) instead of a bare new ItemStack, so
+        // anything a third-party plugin needs to recognize/render its own custom item (ItemsAdder,
+        // Nexo, Oraxen, ...) rides along automatically. Everything below then overwrites/adds onto
+        // that base exactly as it always has, so this plugin's own name/lore/enchants/attributes/
+        // stamp still always win.
+        ItemStack stack = BaseItemSnapshots.restore(baseItemSnapshot, baseMaterial);
         ItemMeta meta = stack.getItemMeta();
-
-        // Carries forward whatever custom_data the original item (that this template was
-        // created/rebased from) had - minus ValhallaMMO's own stat keys, see BaseItemSnapshots -
-        // BEFORE anything else touches the meta, so our own name/lore/enchants/stamp below always
-        // take priority over anything (unexpectedly) present in the captured blob.
-        BaseItemSnapshots.apply(meta, baseItemSnapshot);
 
         meta.displayName(Component.text(displayName).decoration(TextDecoration.ITALIC, false));
         if (customModelData != null) {

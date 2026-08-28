@@ -1330,6 +1330,58 @@
     `replace`) s originálním ItemsAdder+ValhallaMMO itemem v ruce, dát si
     výsledek na hlavu a zkontrolovat, že model/textura sedí.
 
+- **Skutečná příčina nalezena: PersistentDataContainer nevidí ItemsAdderova
+  data vůbec (2026-08-28), po srovnání NBT dat uživatelem.** Uživatel po
+  otestování minulé opravy nahlásil, že `custom_data.itemsadder` na
+  vyrenderovaném itemu pořád úplně chybí. Klíčové zjištění ze srovnání
+  syrových NBT dat (poskytnutých uživatelem): v originálu
+  `"minecraft:custom_data": {itemsadder: {namespace: "rajce", id:
+  "cosmo_helmet"}, PublicBukkitValues: {"valhallammo:actual_stats": ...}}`
+  - `itemsadder` sedí jako SOUROZENEC vedle `PublicBukkitValues`, NE
+  uvnitř něj! A přitom Bukkitovo `PersistentDataContainer` (na čem stála
+  celá minulá oprava) vidí a umí kopírovat VÝHRADNĚ to, co je uvnitř
+  `PublicBukkitValues` - to je vnitřní implementační detail, jak Bukkit
+  PDC vždycky fungovalo (ověřeno v reálném zdrojovém kódu `paper-api`
+  přes staženej `-sources.jar`, ne odhadem). ItemsAdder svůj marker
+  zapisuje mimo tenhle mechanismus (přímo do syrového NBT přes NMS) -
+  proto ho `copyTo`/`serializeToBytes` z minula NIKDY nemohlo vidět, ani
+  kdyby byl kód jinak stoprocentně správně. Nexo i Oraxen podle všeho
+  dělají to samé (svůj vlastní top-level tag, ne přes Bukkit PDC).
+  - **Oprava**: `BaseItemSnapshots` už nekopíruje jen
+    `PersistentDataContainer` - zachytává a obnovuje CELÝ item jako
+    syrové NBT bajty přes `ItemStack.serializeAsBytes()`/
+    `ItemStack.deserializeBytes(...)` (přesně stejná technika, jakou už
+    v projektu používá `AccessoryRepository` pro plnohodnotné uložení
+    libovolných itemů v trinket slotech - ověřeno v `-sources.jar`, že
+    tahle metoda je "raw NBT", ne Bukkitem omezená serializace). Tohle
+    vidí ÚPLNĚ VŠECHNO bez ohledu na to, jak si to který plugin zapsal -
+    je to obecné řešení, ne nic specifického pro ItemsAdder.
+  - `ItemRenderer.render(...)` teď rovnou START uje z `BaseItemSnapshots
+    .restore(baseItemSnapshot, baseMaterial)` (plnohodnotný klon
+    zachyceného originálu, nebo `new ItemStack(baseMaterial)` když nic
+    zachyceno nebylo) místo `new ItemStack(baseMaterial)` odjakživa -
+    naše vlastní jméno/lore/enchanty/atributy/stamp se pak aplikují NA
+    TOHLE, přesně jak už fungovalo. `capture()` teď stripuje
+    ValhallaMMO klíče na KLONU drženého itemu (nikdy ne na tom, co hráč
+    fakt drží v ruce) před serializací, ne až za běhu.
+  - Vedlejší (očekávaný, neschválně nezabráněný) efekt: cokoliv dalšího,
+    co originál měl (`dyed_color`, reálné vanilla `attribute_modifiers`
+    z ValhallaMMO jako `GENERIC_ARMOR +1.0`, `tooltip_display`, ...),
+    teď taky projde - ne jen `custom_data`. Jméno/lore se pořád
+    přepisuje naší vlastní verzí (beze změny).
+  - Žádné nové JUnit testy (`ItemStack.serializeAsBytes/deserializeBytes`
+    potřebuje živý server stejně jako celý zbytek `ItemRenderer`u). 157
+    testů beze změny, čistý `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Ověřeno živě**: `runServer` boot, `create`/`list` fungují beze
+    změny (fallback větev bez zachyceného snapshotu = přesně stejné
+    chování jako vždycky).
+  - **Nedá se ověřit v sandboxu**: samotné zachycení/obnovení reálného
+    ItemsAdder itemu (potřeba připojený hráč s reálným itemem v ruce) a
+    hlavně vizuální výsledek. Doporučuju vyzkoušet přesně to samé znovu:
+    `/pve item import valhalla` (nebo `replace`) s originálním
+    ItemsAdder+ValhallaMMO itemem v ruce, porovnat NBT výsledku - `custom_data
+    .itemsadder` by teď měl být přítomný a shodný s originálem.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
