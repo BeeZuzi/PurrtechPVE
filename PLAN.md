@@ -1194,6 +1194,29 @@
     atributem do accessory slotu a zkontroluj `/attribute get` po
     zavření menu.
 
+- **Oprava `/pve item replace` (2026-08-28), na žádost.** Zadání
+  upřesněno: "Ten replace jsem myslel tak že ti to vezme item co máš v
+  ruce a nahradí ho tím" - moje první verze (typed `<material>` argument
+  s tab-completion na názvy materiálů) neodpovídala zadání. `replace`
+  teď dělá přesně to co `setBaseFromHand`/`setbase` - vezme item, co
+  hráč drží v ruce, a ten se stane novým základem šablony - jen s
+  hezčím jménem a s tab-completion na `<key>` (existující klíče šablon,
+  přes nový `templateKeySuggestions` - tohle je to "nabídku těch
+  předmětů", ne původně domýšlené tab-completion na materiál).
+  `replaceTemplateBase` teď jen deleguje na `setBaseFromHand` (identická
+  logika, jen jiný literal ve stromu příkazů) - `setbase` zůstal
+  zachovaný beze změny (bez suggestions), aby nerozbil případné
+  existující zvyky/skripty.
+  - Materiálová `.suggests(MATERIAL_SUGGESTIONS)` na `create` zůstala -
+    tu žádost neupřesnila, dává smysl i samostatně.
+  - **Ověřeno živě**: `runServer` boot, `create` proběhlo, `replace`
+    z konzole korektně odmítnuto s "Tenhle příkaz může použít jen
+    hráč." (stejné, jaké `setbase` vždycky vracelo) - potvrzuje, že se
+    příkaz zaregistroval se správným (jedním) argumentem a routuje na
+    správný handler. Samotná výměna itemu v ruce (vyžaduje hráče) se
+    **nedá ověřit v sandboxu** - stejné omezení, jaké `setbase` mělo
+    odjakživa.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

@@ -123,6 +123,19 @@ public final class PveCommand {
         };
     }
 
+    /** Existing template keys - "give me a list of those items" for commands that target an already-created template. */
+    private static SuggestionProvider<CommandSourceStack> templateKeySuggestions(PurrtechPVE plugin) {
+        return (ctx, builder) -> {
+            String remaining = builder.getRemainingLowerCase();
+            for (ItemTemplate template : plugin.getItemTemplateService().listAll()) {
+                if (template.key().toLowerCase(Locale.ROOT).startsWith(remaining)) {
+                    builder.suggest(template.key());
+                }
+            }
+            return builder.buildFuture();
+        };
+    }
+
     public static LiteralCommandNode<CommandSourceStack> create(PurrtechPVE plugin) {
         return Commands.literal("pve")
                 .then(Commands.literal("item")
@@ -135,9 +148,8 @@ public final class PveCommand {
                                                         .executes(ctx -> createTemplate(plugin, ctx))))))
                         .then(Commands.literal("replace")
                                 .then(Commands.argument("key", StringArgumentType.word())
-                                        .then(Commands.argument("material", StringArgumentType.word())
-                                                .suggests(MATERIAL_SUGGESTIONS)
-                                                .executes(ctx -> replaceTemplateBase(plugin, ctx)))))
+                                        .suggests(templateKeySuggestions(plugin))
+                                        .executes(ctx -> replaceTemplateBase(plugin, ctx))))
                         .then(Commands.literal("attribute")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
@@ -552,29 +564,15 @@ public final class PveCommand {
     }
 
     /** Same as {@link #setBaseFromHand}, but the material is typed (with tab-completion, see {@link #MATERIAL_SUGGESTIONS}) instead of read off a held item. */
+    /**
+     * Exactly {@link #setBaseFromHand} - same "hold the item you want as the new base" behavior,
+     * just under a friendlier name with tab-completion on {@code key} (see {@link
+     * #templateKeySuggestions}) instead of {@code setbase}'s plain, unsuggested one. Kept as a
+     * separate literal rather than replacing {@code setbase} outright so existing scripts/muscle
+     * memory using {@code setbase} keep working.
+     */
     private static int replaceTemplateBase(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
-        CommandSender sender = ctx.getSource().getSender();
-        Locale locale = localeOf(plugin, sender);
-        String key = StringArgumentType.getString(ctx, "key");
-        String materialArg = StringArgumentType.getString(ctx, "material");
-
-        Material material = Material.matchMaterial(materialArg);
-        if (material == null) {
-            sender.sendMessage(plugin.getMessages().render(locale, "error.invalid-material",
-                    Placeholder.unparsed("material", materialArg)));
-            return 0;
-        }
-        Optional<ItemTemplate> existing = plugin.getItemTemplateService().findByKey(key);
-        if (existing.isEmpty()) {
-            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
-            return 0;
-        }
-        // Only the material changes here - custom model data (if any) is carried over as-is,
-        // same as any other single-field edit in this command layer.
-        plugin.getItemTemplateService().rebase(key, material, existing.get().customModelData());
-        sender.sendMessage(plugin.getMessages().render(locale, "item.setbase-done",
-                Placeholder.unparsed("key", key), Placeholder.unparsed("material", material.name())));
-        return Command.SINGLE_SUCCESS;
+        return setBaseFromHand(plugin, ctx);
     }
 
     private static int giveTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
