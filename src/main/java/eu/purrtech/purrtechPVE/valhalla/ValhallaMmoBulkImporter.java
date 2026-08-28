@@ -3,6 +3,7 @@ package eu.purrtech.purrtechPVE.valhalla;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import eu.purrtech.purrtechPVE.item.BaseItemSnapshots;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
 import eu.purrtech.purrtechPVE.item.ItemTemplateService;
@@ -119,8 +120,9 @@ public final class ValhallaMmoBulkImporter {
             String displayName = displayNameOf(decoded, id);
             Integer customModelData = decoded.hasItemMeta() && decoded.getItemMeta().hasCustomModelData()
                     ? decoded.getItemMeta().getCustomModelData() : null;
+            byte[] baseItemSnapshot = BaseItemSnapshots.capture(decoded);
             try {
-                itemTemplateService.create(key, decoded.getType(), customModelData, displayName, createdBy);
+                itemTemplateService.create(key, decoded.getType(), customModelData, baseItemSnapshot, displayName, createdBy);
             } catch (DuplicateTemplateKeyException e) {
                 outcomes.add(new ItemImportOutcome(id, false, "an item template with key '" + key + "' already exists"));
                 continue;

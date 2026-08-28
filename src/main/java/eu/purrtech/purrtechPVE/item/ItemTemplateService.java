@@ -68,17 +68,28 @@ public final class ItemTemplateService {
     }
 
     public ItemTemplate create(String key, Material baseMaterial, String displayName, String createdBy) {
-        return create(key, baseMaterial, null, displayName, createdBy);
+        return create(key, baseMaterial, null, null, displayName, createdBy);
     }
 
     /** Same as {@link #create(String, Material, String, String)}, but also seeds the base's custom model data (e.g. imported from a real item's ItemMeta). */
     public ItemTemplate create(String key, Material baseMaterial, Integer customModelData, String displayName, String createdBy) {
+        return create(key, baseMaterial, customModelData, null, displayName, createdBy);
+    }
+
+    /**
+     * Same as {@link #create(String, Material, Integer, String, String)}, but also seeds {@code
+     * baseItemSnapshot} - the imported item's own custom_data (see {@link BaseItemSnapshots}),
+     * carried forward onto every future render so third-party plugins (ItemsAdder, etc.) that key
+     * their own rendering off it keep working.
+     */
+    public ItemTemplate create(String key, Material baseMaterial, Integer customModelData, byte[] baseItemSnapshot,
+                                String displayName, String createdBy) {
         if (templateRepository.findByKey(key).isPresent()) {
             throw new DuplicateTemplateKeyException(key);
         }
         long now = System.currentTimeMillis();
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, baseMaterial, customModelData,
-                false, List.of(), null, 1, 1, now, now, createdBy);
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, baseMaterial, baseItemSnapshot,
+                customModelData, false, List.of(), null, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
         snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, List.of()));
         return template;
@@ -245,8 +256,8 @@ public final class ItemTemplateService {
     public ItemTemplate setAllowedSlots(String key, List<String> slotNames) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.baseMaterial(),
-                template.customModelData(), !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(), template.version(),
-                template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+                template.baseItemSnapshot(), template.customModelData(), !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(),
+                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -262,21 +273,24 @@ public final class ItemTemplateService {
     public ItemTemplate setArmorClass(String key, ArmorClass armorClass) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.baseMaterial(),
-                template.customModelData(), template.trinket(), template.allowedSlots(), armorClass, template.version(),
-                template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+                template.baseItemSnapshot(), template.customModelData(), template.trinket(), template.allowedSlots(), armorClass,
+                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
 
     /**
-     * Swaps the template's base material/custom model data - a stat like any other, so it bumps version and
-     * writes a snapshot same as damage/resist changes (an un-synced rebase has zero effect on circulating items).
+     * Swaps the template's base material/custom model data/{@code baseItemSnapshot} - a stat like any other, so it
+     * bumps version and writes a snapshot same as damage/resist changes (an un-synced rebase has zero effect on
+     * circulating items). {@code newBaseItemSnapshot} replaces whatever was captured before outright (not merged) -
+     * see {@link BaseItemSnapshots#capture}, the caller is expected to have captured it from whatever real item
+     * this rebase is sourced from, {@code null} if there isn't one (e.g. a rebase not sourced from any held item).
      */
-    public ItemTemplate rebase(String key, Material newBaseMaterial, Integer newCustomModelData) {
+    public ItemTemplate rebase(String key, Material newBaseMaterial, Integer newCustomModelData, byte[] newBaseItemSnapshot) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate withNewBase = new ItemTemplate(template.id(), template.key(), template.displayName(), newBaseMaterial,
-                newCustomModelData, template.trinket(), template.allowedSlots(), template.armorClass(), template.version(),
-                template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
+                newBaseItemSnapshot, newCustomModelData, template.trinket(), template.allowedSlots(), template.armorClass(),
+                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(withNewBase);
     }
 
@@ -320,7 +334,7 @@ public final class ItemTemplateService {
                                          List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                                          BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(),
-                template.baseMaterial(), template.customModelData(), contributions, modifiers, enchantments,
-                armorPenetration, bleedEffect, criticalEffect, attributeModifiers, template.updatedAt());
+                template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), contributions, modifiers,
+                enchantments, armorPenetration, bleedEffect, criticalEffect, attributeModifiers, template.updatedAt());
     }
 }

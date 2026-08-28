@@ -27,9 +27,9 @@ public final class ItemTemplateRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT INTO item_templates
-                         (id, key, display_name, base_material, custom_model_data, is_trinket, allowed_slots,
-                          armor_class, version, synced_version, created_at, updated_at, created_by)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         (id, key, display_name, base_material, base_item_snapshot, custom_model_data, is_trinket,
+                          allowed_slots, armor_class, version, synced_version, created_at, updated_at, created_by)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             bind(statement, template);
             statement.executeUpdate();
@@ -42,25 +42,30 @@ public final class ItemTemplateRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      UPDATE item_templates
-                     SET key = ?, display_name = ?, base_material = ?, custom_model_data = ?, is_trinket = ?,
-                         allowed_slots = ?, armor_class = ?, version = ?, synced_version = ?, updated_at = ?
+                     SET key = ?, display_name = ?, base_material = ?, base_item_snapshot = ?, custom_model_data = ?,
+                         is_trinket = ?, allowed_slots = ?, armor_class = ?, version = ?, synced_version = ?, updated_at = ?
                      WHERE id = ?
                      """)) {
             statement.setString(1, template.key());
             statement.setString(2, template.displayName());
             statement.setString(3, template.baseMaterial().name());
-            if (template.customModelData() != null) {
-                statement.setInt(4, template.customModelData());
+            if (template.baseItemSnapshot() != null) {
+                statement.setBytes(4, template.baseItemSnapshot());
             } else {
-                statement.setNull(4, Types.INTEGER);
+                statement.setNull(4, Types.BLOB);
             }
-            statement.setInt(5, template.trinket() ? 1 : 0);
-            statement.setString(6, String.join(",", template.allowedSlots()));
-            statement.setString(7, template.armorClass() != null ? template.armorClass().name() : null);
-            statement.setInt(8, template.version());
-            statement.setInt(9, template.syncedVersion());
-            statement.setLong(10, template.updatedAt());
-            statement.setString(11, template.id().toString());
+            if (template.customModelData() != null) {
+                statement.setInt(5, template.customModelData());
+            } else {
+                statement.setNull(5, Types.INTEGER);
+            }
+            statement.setInt(6, template.trinket() ? 1 : 0);
+            statement.setString(7, String.join(",", template.allowedSlots()));
+            statement.setString(8, template.armorClass() != null ? template.armorClass().name() : null);
+            statement.setInt(9, template.version());
+            statement.setInt(10, template.syncedVersion());
+            statement.setLong(11, template.updatedAt());
+            statement.setString(12, template.id().toString());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to update item template " + template.key(), e);
@@ -117,19 +122,24 @@ public final class ItemTemplateRepository {
         statement.setString(2, template.key());
         statement.setString(3, template.displayName());
         statement.setString(4, template.baseMaterial().name());
-        if (template.customModelData() != null) {
-            statement.setInt(5, template.customModelData());
+        if (template.baseItemSnapshot() != null) {
+            statement.setBytes(5, template.baseItemSnapshot());
         } else {
-            statement.setNull(5, Types.INTEGER);
+            statement.setNull(5, Types.BLOB);
         }
-        statement.setInt(6, template.trinket() ? 1 : 0);
-        statement.setString(7, String.join(",", template.allowedSlots()));
-        statement.setString(8, template.armorClass() != null ? template.armorClass().name() : null);
-        statement.setInt(9, template.version());
-        statement.setInt(10, template.syncedVersion());
-        statement.setLong(11, template.createdAt());
-        statement.setLong(12, template.updatedAt());
-        statement.setString(13, template.createdBy());
+        if (template.customModelData() != null) {
+            statement.setInt(6, template.customModelData());
+        } else {
+            statement.setNull(6, Types.INTEGER);
+        }
+        statement.setInt(7, template.trinket() ? 1 : 0);
+        statement.setString(8, String.join(",", template.allowedSlots()));
+        statement.setString(9, template.armorClass() != null ? template.armorClass().name() : null);
+        statement.setInt(10, template.version());
+        statement.setInt(11, template.syncedVersion());
+        statement.setLong(12, template.createdAt());
+        statement.setLong(13, template.updatedAt());
+        statement.setString(14, template.createdBy());
     }
 
     private ItemTemplate map(ResultSet rs) throws SQLException {
@@ -149,6 +159,7 @@ public final class ItemTemplateRepository {
                 rs.getString("key"),
                 rs.getString("display_name"),
                 Material.valueOf(rs.getString("base_material")),
+                rs.getBytes("base_item_snapshot"),
                 customModelDataBoxed,
                 rs.getInt("is_trinket") != 0,
                 allowedSlots,

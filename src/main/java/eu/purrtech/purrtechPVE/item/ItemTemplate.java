@@ -6,10 +6,19 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * An admin-defined item blueprint. {@code baseItemSnapshot}-based rebasing
- * (dragging another item onto this template's base, or {@code /pve item
- * setbase} from hand) is a later phase - for now the base is just a vanilla
- * {@link Material} + optional custom model data.
+ * An admin-defined item blueprint. The base is a vanilla {@link Material} +
+ * optional custom model data, plus (activating what this field's own javadoc
+ * used to call "a later phase") {@code baseItemSnapshot}: a serialized
+ * {@link org.bukkit.persistence.PersistentDataContainer} captured from
+ * whatever real item was in hand when this template was created/rebased
+ * (import, {@code /pve item setbase}/{@code replace}, or the BASE tab's
+ * rebase click) - see {@code BaseItemSnapshots} for exactly what's kept
+ * (everything except ValhallaMMO's own two stat keys and this plugin's own
+ * stamp keys) and why (third-party plugins - ItemsAdder chief among them -
+ * key their own custom armor/item rendering off a {@code custom_data} PDC
+ * entry that our own from-scratch render would otherwise silently drop,
+ * which is what caused a custom-model helmet to show no texture at all once
+ * worn even though its in-hand/inventory model was fine).
  *
  * <p>{@code version} bumps on every saved change; {@code syncedVersion} is
  * the version that has actually been pushed out to circulating items
@@ -30,6 +39,7 @@ public record ItemTemplate(
         String key,
         String displayName,
         Material baseMaterial,
+        byte[] baseItemSnapshot,
         Integer customModelData,
         boolean trinket,
         List<String> allowedSlots,
@@ -42,12 +52,12 @@ public record ItemTemplate(
 ) {
 
     public ItemTemplate withBumpedVersion(long updatedAt) {
-        return new ItemTemplate(id, key, displayName, baseMaterial, customModelData, trinket, allowedSlots, armorClass,
+        return new ItemTemplate(id, key, displayName, baseMaterial, baseItemSnapshot, customModelData, trinket, allowedSlots, armorClass,
                 version + 1, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public ItemTemplate withSyncedVersion(int syncedVersion, long updatedAt) {
-        return new ItemTemplate(id, key, displayName, baseMaterial, customModelData, trinket, allowedSlots, armorClass,
+        return new ItemTemplate(id, key, displayName, baseMaterial, baseItemSnapshot, customModelData, trinket, allowedSlots, armorClass,
                 version, syncedVersion, createdAt, updatedAt, createdBy);
     }
 

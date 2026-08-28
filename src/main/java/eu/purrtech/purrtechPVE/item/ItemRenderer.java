@@ -11,11 +11,9 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.components.EquippableComponent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
@@ -65,51 +63,34 @@ public final class ItemRenderer {
                              List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                              BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         return render(template.key(), template.version(), template.displayName(), template.baseMaterial(),
-                template.customModelData(), contributions, modifiers, enchantments, armorPenetration, bleedEffect,
-                criticalEffect, attributeModifiers);
+                template.baseItemSnapshot(), template.customModelData(), contributions, modifiers, enchantments,
+                armorPenetration, bleedEffect, criticalEffect, attributeModifiers);
     }
 
     /** Renders exactly as a given historical version looked - used to catch up a stack pinned behind the live version. */
     public ItemStack renderSnapshot(TemplateSnapshot snapshot) {
         return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.baseMaterial(),
-                snapshot.customModelData(), snapshot.damageContributions(), snapshot.typeModifiers(), snapshot.enchantments(),
-                snapshot.armorPenetration(), snapshot.bleedEffect(), snapshot.criticalEffect(), snapshot.attributeModifiers());
+                snapshot.baseItemSnapshot(), snapshot.customModelData(), snapshot.damageContributions(), snapshot.typeModifiers(),
+                snapshot.enchantments(), snapshot.armorPenetration(), snapshot.bleedEffect(), snapshot.criticalEffect(),
+                snapshot.attributeModifiers());
     }
 
-    private ItemStack render(String key, int version, String displayName, Material baseMaterial,
+    private ItemStack render(String key, int version, String displayName, Material baseMaterial, byte[] baseItemSnapshot,
                               Integer customModelData, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                               List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                               BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         ItemStack stack = new ItemStack(baseMaterial);
         ItemMeta meta = stack.getItemMeta();
 
+        // Carries forward whatever custom_data the original item (that this template was
+        // created/rebased from) had - minus ValhallaMMO's own stat keys, see BaseItemSnapshots -
+        // BEFORE anything else touches the meta, so our own name/lore/enchants/stamp below always
+        // take priority over anything (unexpectedly) present in the captured blob.
+        BaseItemSnapshots.apply(meta, baseItemSnapshot);
+
         meta.displayName(Component.text(displayName).decoration(TextDecoration.ITALIC, false));
         if (customModelData != null) {
             meta.setCustomModelData(customModelData);
-            // customModelData alone only re-skins the in-hand/inventory model (the old
-            // overrides-predicate system, still honored for backward compat) - it has NO effect
-            // on what texture shows on the player's body once the item is actually worn. Since
-            // 1.21.2, that's an entirely separate data component (equippable.model, here Bukkit's
-            // EquippableComponent#setModel) pointing at assets/<namespace>/equipment/<key>.json in
-            // the resource pack. Only touched for base materials that are real armor pieces
-            // (helmet/chestplate/leggings/boots) - overriding it on a sword/tool would make that
-            // item itself equippable via right-click into whatever slot the vanilla default
-            // component says, which is not something a customModelData weapon should ever do.
-            EquipmentSlot armorSlot = baseMaterial.getEquipmentSlot();
-            if (armorSlot == EquipmentSlot.HEAD || armorSlot == EquipmentSlot.CHEST
-                    || armorSlot == EquipmentSlot.LEGS || armorSlot == EquipmentSlot.FEET) {
-                EquippableComponent equippable = meta.getEquippable();
-                // getEquippable() is documented/expected to hand back the material's implicit
-                // default component (matching hasFood()/getFood()'s established pattern elsewhere
-                // in this same component API) rather than null for a real armor material - null-
-                // checked anyway since this exact call can't be exercised in this sandbox (needs a
-                // connected player to even trigger a render), so a wrong assumption here should
-                // degrade to "no custom worn texture" rather than crash the whole render.
-                if (equippable != null) {
-                    equippable.setModel(new NamespacedKey(plugin, key.toLowerCase(Locale.ROOT)));
-                    meta.setEquippable(equippable);
-                }
-            }
         }
         meta.lore(buildLore(contributions, modifiers, armorPenetration, bleedEffect, criticalEffect, attributeModifiers));
 

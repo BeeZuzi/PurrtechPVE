@@ -85,6 +85,7 @@ final class Schema {
             addColumnIfMissing(connection, "item_template_snapshot", "bleed_effect", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "critical_effect", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "attribute_modifiers", "TEXT NOT NULL DEFAULT ''");
+            addColumnIfMissing(connection, "item_template_snapshot", "base_item_snapshot", "BLOB");
 
             // damage_type_key is NOT a FK to damage_type_definitions: DamageTypeRegistry is
             // still in-memory-only (Fáze 1), that table stays unpopulated until a later

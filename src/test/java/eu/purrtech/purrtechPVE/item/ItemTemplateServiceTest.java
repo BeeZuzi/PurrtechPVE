@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.File;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -126,21 +127,24 @@ class ItemTemplateServiceTest {
     @Test
     void rebaseChangesMaterialAndBumpsVersionLikeAnyOtherStat() {
         service.create("fire-sword", Material.IRON_SWORD, "Plamenný meč", "console");
-        ItemTemplate rebased = service.rebase("fire-sword", Material.NETHERITE_SWORD, 42);
+        byte[] snapshotBytes = {1, 2, 3};
+        ItemTemplate rebased = service.rebase("fire-sword", Material.NETHERITE_SWORD, 42, snapshotBytes);
 
         assertEquals(Material.NETHERITE_SWORD, rebased.baseMaterial());
         assertEquals(42, rebased.customModelData());
+        assertArrayEquals(snapshotBytes, rebased.baseItemSnapshot());
         assertEquals(2, rebased.version());
         assertEquals(1, rebased.syncedVersion());
 
         TemplateSnapshot snapshot = snapshotRepository.find(rebased.id(), 2).orElseThrow();
         assertEquals(Material.NETHERITE_SWORD, snapshot.baseMaterial());
         assertEquals(42, snapshot.customModelData());
+        assertArrayEquals(snapshotBytes, snapshot.baseItemSnapshot());
     }
 
     @Test
     void rebaseRejectsUnknownTemplate() {
-        assertThrows(TemplateNotFoundException.class, () -> service.rebase("does-not-exist", Material.STONE, null));
+        assertThrows(TemplateNotFoundException.class, () -> service.rebase("does-not-exist", Material.STONE, null, null));
     }
 
     @Test

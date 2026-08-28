@@ -30,7 +30,7 @@ class ArmorPenetrationRepositoryTest {
         repository = new ArmorPenetrationRepository(database);
 
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-axe", "Test Axe", Material.IRON_AXE,
-                null, false, List.of(), null, 1, 1, 0L, 0L, "console");
+                null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
     }

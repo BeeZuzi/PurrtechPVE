@@ -48,8 +48,8 @@ public final class ItemTemplateSnapshotRepository {
                      INSERT OR REPLACE INTO item_template_snapshot
                          (template_id, version, template_key, display_name, base_material, custom_model_data,
                           damage_contributions, type_modifiers, enchantments, armor_penetration, bleed_effect,
-                          critical_effect, attribute_modifiers, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                          critical_effect, attribute_modifiers, base_item_snapshot, created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             statement.setString(1, snapshot.templateId().toString());
             statement.setInt(2, snapshot.version());
@@ -68,7 +68,12 @@ public final class ItemTemplateSnapshotRepository {
             statement.setString(11, encodeBleedEffect(snapshot.bleedEffect()));
             statement.setString(12, encodeCriticalEffect(snapshot.criticalEffect()));
             statement.setString(13, encodeAttributeModifiers(snapshot.attributeModifiers()));
-            statement.setLong(14, snapshot.createdAt());
+            if (snapshot.baseItemSnapshot() != null) {
+                statement.setBytes(14, snapshot.baseItemSnapshot());
+            } else {
+                statement.setNull(14, Types.BLOB);
+            }
+            statement.setLong(15, snapshot.createdAt());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
@@ -101,6 +106,7 @@ public final class ItemTemplateSnapshotRepository {
                 rs.getInt("version"),
                 rs.getString("display_name"),
                 Material.valueOf(rs.getString("base_material")),
+                rs.getBytes("base_item_snapshot"),
                 customModelDataBoxed,
                 decodeContributions(rs.getString("damage_contributions")),
                 decodeModifiers(rs.getString("type_modifiers")),

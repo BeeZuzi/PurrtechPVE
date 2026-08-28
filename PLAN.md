@@ -1263,6 +1263,73 @@
     `assets/purrtechpve/equipment/<key>.json` do packu, dej si ji a
     nasaď.
 
+- **Revert `equippable.model` + skutečná oprava: base_item_snapshot NBT
+  passthrough (2026-08-28), bug report + poskytnutá NBT data.** Předchozí
+  oprava byla špatně - uživatel nahlásil, že po nasazení nešel vidět
+  ŽÁDNÝ model (horší než předtím), a to i po `/pve item replace` s
+  originálem v ruce. Poskytnutá NBT data (originál z ItemsAdder+
+  ValhallaMMO vs. výstup z našeho pluginu) ukázala proč:
+  - Originál (`custom_data: {itemsadder: {namespace: "rajce", id:
+    "cosmo_helmet"}}`) **vůbec nemá** `minecraft:equippable` komponentu -
+    ItemsAdder si vlastní custom armor rendering řeší úplně jinak (svým
+    vlastním `custom_data` markerem), ne přes vanilla `equippable.model`.
+    Tím, že jsem tam minule tenhle field NUCENĚ přidal (ukazující na
+    neexistující `purrtechpve:<key>` resource), jsem tenhle mechanismus
+    přerušil - klient se pak snažil najít neexistující asset a nezobrazil
+    nic, místo aby to spadlo na cokoliv ItemsAdder normálně dělá.
+  - **Revert**: `ItemRenderer` už `equippable.model` vůbec nenastavuje.
+  - **Skutečná oprava**: aktivován už dřív připravený, ale nikdy
+    nepoužitý `base_item_snapshot BLOB` sloupec na `item_templates`
+    (existoval od "Fáze 1", `ItemTemplate`'s vlastní javadoc ho zmiňoval
+    jako "later phase" - přesně tahle situace). Nová třída
+    `BaseItemSnapshots` zachytí PersistentDataContainer (= `minecraft:
+    custom_data` komponenta) držených/dekódovaných itemů při
+    create/import/rebase (`PersistentDataContainer.copyTo`/
+    `serializeToBytes`/`readFromBytes`, ne ručně po jednotlivých klíčích -
+    Bukkit API nedovoluje zjistit typ klíče bez `copyTo`), s
+    VÝSLOVNÝM vynecháním `valhallammo:default_stats`/`valhallammo:
+    actual_stats` (na žádost - "kopíruj i NBT nejlépe ale bez dat z
+    ValhallaMMO"). Uloženo na `ItemTemplate`/`TemplateSnapshot` (nové
+    pole `baseItemSnapshot`, mezi `baseMaterial` a `customModelData`,
+    stejné místo jako ve schématu) - mění se stejně jako
+    `customModelData` (přes `rebase`, bumpuje verzi, jde do snapshotu),
+    ne live classification.
+  - `ItemRenderer.render(...)` teď na začátku (před jménem/lore/enchanty/
+    naším vlastním PDC stampem) zavolá `BaseItemSnapshots.apply(meta,
+    baseItemSnapshot)` - takže cokoliv třetí plugin (ItemsAdder a
+    podobné) potřebuje v `custom_data`, aby poznal a vykreslil svůj
+    vlastní model, se teď přenese - bez ohledu na to, jaký přesný
+    mechanismus ten plugin používá (obecné řešení, ne natvrdo
+    ItemsAdder-specific).
+  - Zachyceno na všech místech, kde je k dispozici zdrojový/držený item:
+    `/pve item import valhalla`, `/pve item setbase`/`replace`, BASE
+    tabu rebase klik, i hromadný ValhallaMMO import (`ValhallaMmoBulkImporter`).
+    `create`/`ItemListMenu` (bez drženého itemu) zůstávají beze snapshotu
+    - není odkud ho vzít.
+  - Nová `PurrtechPVE.getItemRenderer()` getter úvaha zavržena -
+    `BaseItemSnapshots.capture(ItemStack)` nakonec nepotřebuje `ItemRenderer`
+    vůbec (nestrhává naše vlastní stamp klíče při zachycení - stejně je
+    vždycky přepíšeme čerstvými hned po `apply()`, takže by to bylo jen
+    kosmetické, ne funkčně nutné).
+  - Žádné nové JUnit testy pro `BaseItemSnapshots` - `new ItemStack(...)
+    .getItemMeta()` (potřebné i pro "scratch" kontejner) potřebuje živý
+    Bukkit server stejně jako `ItemRenderer`, ze stejného důvodu žádné
+    testy nemá. 157 testů beze změny (rozšířeny existující rebase/snapshot
+    testy o `baseItemSnapshot` byte[] round-trip), čistý
+    `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Ověřeno živě**: `runServer` boot na ručně sestavené DB se starým
+    `item_template_snapshot` schématem (bez `base_item_snapshot` sloupce)
+    proběhl čistě - migrace sloupec přidala. `create`/`list` proběhly bez
+    chyby, existující šablona z pre-migrační DB zůstala funkční.
+  - **Nedá se ověřit v sandboxu**: samotné zachycení/aplikování
+    PersistentDataContainer (potřebuje reálný ItemStack v ruce hráče -
+    `capture()` volané jen z `setbase`/`replace`/import/rebase, všechno
+    vyžaduje připojeného hráče) a hlavně vizuální výsledek (fakt se
+    ItemsAdder helma zobrazí správně po nasazení). Doporučuju vyzkoušet
+    naživo přesně to, co nahlásil bug: `/pve item import valhalla` (nebo
+    `replace`) s originálním ItemsAdder+ValhallaMMO itemem v ruce, dát si
+    výsledek na hlavu a zkontrolovat, že model/textura sedí.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,7 +39,7 @@ class ItemTemplateSnapshotRepositoryTest {
         repository = new ItemTemplateSnapshotRepository(database);
 
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "fire-sword", "Plamenný meč", Material.IRON_SWORD,
-                null, false, List.of(), null, 1, 1, 0L, 0L, "console");
+                null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
     }
@@ -50,8 +51,9 @@ class ItemTemplateSnapshotRepositoryTest {
 
     @Test
     void insertThenFindRoundTripsEverything() {
+        byte[] baseItemSnapshotBytes = {1, 2, 3};
         TemplateSnapshot snapshot = new TemplateSnapshot(templateId, "fire-sword", 2, "Plamenný meč",
-                Material.IRON_SWORD, 42,
+                Material.IRON_SWORD, baseItemSnapshotBytes, 42,
                 List.of(new DamageContribution("fire", 4.0, DamageMode.FLAT, ModifierContext.WIELDED)),
                 List.of(new TypeModifier("frozen", -25.0)),
                 List.of(new TemplateEnchantment("minecraft:sharpness", 5)),
@@ -89,12 +91,13 @@ class ItemTemplateSnapshotRepositoryTest {
         assertEquals(15.0, found.criticalEffect().chancePercent());
         assertEquals(50.0, found.criticalEffect().bonusDamagePercent());
         assertTrue(found.attributeModifiers().isEmpty());
+        assertArrayEquals(baseItemSnapshotBytes, found.baseItemSnapshot());
     }
 
     @Test
     void emptyContributionsAndModifiersRoundTripAsEmptyLists() {
         TemplateSnapshot snapshot = new TemplateSnapshot(templateId, "fire-sword", 1, "Plamenný meč",
-                Material.IRON_SWORD, null, List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 0L);
+                Material.IRON_SWORD, null, null, List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 0L);
         repository.insert(snapshot);
 
         TemplateSnapshot found = repository.find(templateId, 1).orElseThrow();
@@ -105,6 +108,7 @@ class ItemTemplateSnapshotRepositoryTest {
         assertEquals(null, found.bleedEffect());
         assertEquals(null, found.criticalEffect());
         assertTrue(found.attributeModifiers().isEmpty());
+        assertEquals(null, found.baseItemSnapshot());
     }
 
     @Test
@@ -114,9 +118,9 @@ class ItemTemplateSnapshotRepositoryTest {
 
     @Test
     void insertOnSameVersionReplaces() {
-        repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "A", Material.IRON_SWORD, null,
+        repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "A", Material.IRON_SWORD, null, null,
                 List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 0L));
-        repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "B", Material.IRON_SWORD, null,
+        repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "B", Material.IRON_SWORD, null, null,
                 List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 1L));
 
         assertEquals("B", repository.find(templateId, 1).orElseThrow().displayName());

@@ -30,7 +30,7 @@ class BleedEffectRepositoryTest {
         repository = new BleedEffectRepository(database);
 
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-dagger", "Test Dagger", Material.IRON_SWORD,
-                null, false, List.of(), null, 1, 1, 0L, 0L, "console");
+                null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
     }

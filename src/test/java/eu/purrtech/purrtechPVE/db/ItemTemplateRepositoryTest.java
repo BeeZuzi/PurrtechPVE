@@ -37,7 +37,7 @@ class ItemTemplateRepositoryTest {
 
     private ItemTemplate sample(String key) {
         long now = 1_700_000_000_000L;
-        return new ItemTemplate(UUID.randomUUID(), key, "Plamenný meč", Material.IRON_SWORD, null,
+        return new ItemTemplate(UUID.randomUUID(), key, "Plamenný meč", Material.IRON_SWORD, null, null,
                 false, List.of("HAND"), null, 1, 1, now, now, "console");
     }
 
@@ -108,7 +108,7 @@ class ItemTemplateRepositoryTest {
         assertNull(repository.findByKey("plain-item").orElseThrow().armorClass());
 
         ItemTemplate withClass = new ItemTemplate(UUID.randomUUID(), "heavy-plate", "Heavy Plate", Material.NETHERITE_CHESTPLATE,
-                null, false, List.of(), ArmorClass.HEAVY, 1, 1, 0L, 0L, "console");
+                null, null, false, List.of(), ArmorClass.HEAVY, 1, 1, 0L, 0L, "console");
         repository.insert(withClass);
         assertEquals(ArmorClass.HEAVY, repository.findByKey("heavy-plate").orElseThrow().armorClass());
 

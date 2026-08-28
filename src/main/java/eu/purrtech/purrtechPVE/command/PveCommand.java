@@ -17,6 +17,7 @@ import eu.purrtech.purrtechPVE.gui.SetEditorTab;
 import eu.purrtech.purrtechPVE.gui.ArmorClassMenu;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.AttributeSlots;
+import eu.purrtech.purrtechPVE.item.BaseItemSnapshots;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
@@ -431,8 +432,9 @@ public final class PveCommand {
                 plugin.getDamageTypeRegistry().all().keySet());
         Integer customModelData = held.hasItemMeta() && held.getItemMeta().hasCustomModelData()
                 ? held.getItemMeta().getCustomModelData() : null;
+        byte[] baseItemSnapshot = BaseItemSnapshots.capture(held);
         try {
-            plugin.getItemTemplateService().create(key, held.getType(), customModelData, displayName,
+            plugin.getItemTemplateService().create(key, held.getType(), customModelData, baseItemSnapshot, displayName,
                     player.getUniqueId().toString());
         } catch (DuplicateTemplateKeyException e) {
             player.sendMessage(plugin.getMessages().render(locale, "item.duplicate-key", Placeholder.unparsed("key", key)));
@@ -551,9 +553,10 @@ public final class PveCommand {
         }
         Integer customModelData = held.hasItemMeta() && held.getItemMeta().hasCustomModelData()
                 ? held.getItemMeta().getCustomModelData() : null;
+        byte[] baseItemSnapshot = BaseItemSnapshots.capture(held);
 
         try {
-            plugin.getItemTemplateService().rebase(key, held.getType(), customModelData);
+            plugin.getItemTemplateService().rebase(key, held.getType(), customModelData, baseItemSnapshot);
         } catch (TemplateNotFoundException e) {
             player.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
             return 0;

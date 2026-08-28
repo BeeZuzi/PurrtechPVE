@@ -18,6 +18,7 @@ public record TemplateSnapshot(
         int version,
         String displayName,
         Material baseMaterial,
+        byte[] baseItemSnapshot,
         Integer customModelData,
         List<DamageContribution> damageContributions,
         List<TypeModifier> typeModifiers,

@@ -6,6 +6,7 @@ import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
 import eu.purrtech.purrtechPVE.item.AttributeModifierEntry;
 import eu.purrtech.purrtechPVE.item.AttributeSlots;
+import eu.purrtech.purrtechPVE.item.BaseItemSnapshots;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
 import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
@@ -237,8 +238,9 @@ public final class ItemEditorMenu {
         }
         Integer customModelData = held.hasItemMeta() && held.getItemMeta().hasCustomModelData()
                 ? held.getItemMeta().getCustomModelData() : null;
+        byte[] baseItemSnapshot = BaseItemSnapshots.capture(held);
         try {
-            plugin.getItemTemplateService().rebase(holder.templateKey(), held.getType(), customModelData);
+            plugin.getItemTemplateService().rebase(holder.templateKey(), held.getType(), customModelData, baseItemSnapshot);
         } catch (TemplateNotFoundException e) {
             player.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
             return;
