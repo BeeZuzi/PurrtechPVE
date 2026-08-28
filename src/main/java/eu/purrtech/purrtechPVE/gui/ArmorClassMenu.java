@@ -62,7 +62,7 @@ public final class ArmorClassMenu {
         inventory.setItem(TAB_LIGHT, tabIcon(messages, locale, Material.LEATHER_CHESTPLATE, "gui.armor-class.tab.light", armorClass == ArmorClass.LIGHT));
         inventory.setItem(TAB_MEDIUM, tabIcon(messages, locale, Material.IRON_CHESTPLATE, "gui.armor-class.tab.medium", armorClass == ArmorClass.MEDIUM));
         inventory.setItem(TAB_HEAVY, tabIcon(messages, locale, Material.NETHERITE_CHESTPLATE, "gui.armor-class.tab.heavy", armorClass == ArmorClass.HEAVY));
-        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.armor-class.close")));
+        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
 
         Map<String, Double> profile = plugin.getArmorClassProfileRepository().findByArmorClass(armorClass.name());
         List<DamageType> types = plugin.getDamageTypeRegistry().all().values().stream().toList();
@@ -142,7 +142,7 @@ public final class ArmorClassMenu {
     }
 
     private static ItemStack tabIcon(Messages messages, Locale locale, Material material, String labelKey, boolean active) {
-        String prefixKey = active ? "gui.armor-class.tab-active" : "gui.armor-class.tab-inactive";
+        String prefixKey = active ? "gui.tab-active" : "gui.tab-inactive";
         Component name = messages.render(locale, prefixKey, Placeholder.unparsed("label", messages.plain(locale, labelKey)));
         return named(material, name);
     }

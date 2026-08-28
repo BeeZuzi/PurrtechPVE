@@ -99,6 +99,10 @@ set:
   threshold-not-found: "<red>Set <white><key></white> has no <white><count></white>-piece threshold for <white><type></white>."
 
 gui:
+  close: "<red>Close</red>"
+  back: "<yellow>← Back</yellow>"
+  tab-active: "<green>▶ <label></label></green>"
+  tab-inactive: "<white><label></white>"
   accessory:
     title: "Accessories"
   prompt:
@@ -108,13 +112,10 @@ gui:
     done: "<green>Set.</green>"
   armor-class:
     title: "Armor classes: benefits"
-    close: "<red>Close</red>"
     tab:
       light: "Light"
       medium: "Medium"
       heavy: "Heavy"
-    tab-active: "<green>▶ <label></label></green>"
-    tab-inactive: "<white><label></white>"
     type-icon: "<aqua><icon> <type></aqua>"
     lore:
       resist: "<green>Resistance: <amount>%</green>"
@@ -127,7 +128,6 @@ gui:
   item-list:
     title: "Items (templates)"
     add: "<green>+ Create item</green>"
-    close: "<red>Close</red>"
     page: "<aqua>Page <page>/<total></aqua>"
     count: "<gray><count> items total</gray>"
     prev-page: "<yellow>← Previous page</yellow>"
@@ -144,3 +144,32 @@ gui:
     create-prompt: "<yellow>Type in chat: <key> <material> <display name></yellow>"
     create-prompt-example: "<gray>For example: fire-sword IRON_SWORD Fire Sword   (or type 'cancel')</gray>"
     create-invalid: "<red>Invalid input, try again from the menu.</red>"
+  set-editor:
+    title: "Set: <key>"
+    tab:
+      members: "Items in set"
+      thresholds: "Bonus thresholds"
+    add-member: "<green>+ Add item</green>"
+    add-threshold: "<green>+ Add threshold</green>"
+    hint-remove-member: "<yellow>Click: remove from set</yellow>"
+    hint-add-member: "<yellow>Click: add to set</yellow>"
+    member-removed: "<green>Item <key> removed from set.</green>"
+    member-added: "<green>Item <key> added to set.</green>"
+    threshold-damage-line: "<white>Damage: <amount> <type></white>"
+    threshold-resist-line: "<green>Resistance: <amount>% <type></green>"
+    threshold-weakness-line: "<red>Weakness: <amount>% <type></red>"
+    threshold-hint-edit: "<yellow>Click: edit this threshold's bonuses</yellow>"
+    threshold-icon: "<aqua><count> pcs</aqua>"
+    threshold-removed: "<green>Removed.</green>"
+    prompt-new-threshold-1: "<yellow>Type in chat: <piece count> damage <type> <amount> <flat|percent></yellow>"
+    prompt-new-threshold-2: "<yellow>or: <piece count> resist <type> <percent>    (or type 'cancel')</yellow>"
+    prompt-threshold-example: "<gray>For example: 2 damage fire 4 flat   or   4 resist frozen 25</gray>"
+    prompt-edit-threshold-1: "<yellow>Threshold at <count> pieces - type in chat:</yellow>"
+    prompt-edit-threshold-2: "<yellow>damage <type> <amount> <flat|percent>   |   resist <type> <percent></yellow>"
+    prompt-edit-threshold-3: "<yellow>remove damage <type>   |   remove resist <type>   (or type 'cancel')</yellow>"
+    invalid-piece-count: "<red>Invalid piece count, try again from the menu.</red>"
+    invalid-input: "<red>Invalid input.</red>"
+    invalid-number: "<red>Invalid number.</red>"
+    unrecognized-command: "<red>Unrecognized command, try again from the menu.</red>"
+    unknown-damage-type: "<red>Unknown damage type.</red>"
+    set-gone-meanwhile: "<red>The set was deleted in the meantime.</red>"

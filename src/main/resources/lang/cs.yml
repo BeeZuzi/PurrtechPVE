@@ -99,6 +99,10 @@ set:
   threshold-not-found: "<red>Set <white><key></white> nemá práh <white><count></white> kusů pro <white><type></white>."
 
 gui:
+  close: "<red>Zavřít</red>"
+  back: "<yellow>← Zpět</yellow>"
+  tab-active: "<green>▶ <label></label></green>"
+  tab-inactive: "<white><label></white>"
   accessory:
     title: "Doplňky"
   prompt:
@@ -108,13 +112,10 @@ gui:
     done: "<green>Nastaveno.</green>"
   armor-class:
     title: "Typy armoru: benefity"
-    close: "<red>Zavřít</red>"
     tab:
       light: "Lehký"
       medium: "Střední"
       heavy: "Těžký"
-    tab-active: "<green>▶ <label></label></green>"
-    tab-inactive: "<white><label></white>"
     type-icon: "<aqua><icon> <type></aqua>"
     lore:
       resist: "<green>Odolnost: <amount>%</green>"
@@ -127,7 +128,6 @@ gui:
   item-list:
     title: "Itemy (šablony)"
     add: "<green>+ Vytvořit item</green>"
-    close: "<red>Zavřít</red>"
     page: "<aqua>Strana <page>/<total></aqua>"
     count: "<gray><count> itemů celkem</gray>"
     prev-page: "<yellow>← Předchozí strana</yellow>"
@@ -144,3 +144,32 @@ gui:
     create-prompt: "<yellow>Napiš do chatu: <klíč> <materiál> <zobrazovaný název></yellow>"
     create-prompt-example: "<gray>Například: fire-sword IRON_SWORD Plamenný meč   (nebo napiš 'zrusit')</gray>"
     create-invalid: "<red>Neplatný vstup, zkus to znovu z menu.</red>"
+  set-editor:
+    title: "Set: <key>"
+    tab:
+      members: "Itemy v setu"
+      thresholds: "Prahy bonusů"
+    add-member: "<green>+ Přidat item</green>"
+    add-threshold: "<green>+ Přidat práh</green>"
+    hint-remove-member: "<yellow>Klik: odebrat ze setu</yellow>"
+    hint-add-member: "<yellow>Klik: přidat do setu</yellow>"
+    member-removed: "<green>Item <key> odebrán ze setu.</green>"
+    member-added: "<green>Item <key> přidán do setu.</green>"
+    threshold-damage-line: "<white>Poškození: <amount> <type></white>"
+    threshold-resist-line: "<green>Odolnost: <amount>% <type></green>"
+    threshold-weakness-line: "<red>Slabina: <amount>% <type></red>"
+    threshold-hint-edit: "<yellow>Klik: upravit bonusy tohoto prahu</yellow>"
+    threshold-icon: "<aqua><count> ks</aqua>"
+    threshold-removed: "<green>Odebráno.</green>"
+    prompt-new-threshold-1: "<yellow>Napiš do chatu: <počet kusů> damage <typ> <částka> <flat|percent></yellow>"
+    prompt-new-threshold-2: "<yellow>nebo: <počet kusů> resist <typ> <procenta>    (nebo 'zrusit')</yellow>"
+    prompt-threshold-example: "<gray>Například: 2 damage fire 4 flat   nebo   4 resist frozen 25</gray>"
+    prompt-edit-threshold-1: "<yellow>Práh <count> kusů - napiš do chatu:</yellow>"
+    prompt-edit-threshold-2: "<yellow>damage <typ> <částka> <flat|percent>   |   resist <typ> <procenta></yellow>"
+    prompt-edit-threshold-3: "<yellow>remove damage <typ>   |   remove resist <typ>   (nebo 'zrusit')</yellow>"
+    invalid-piece-count: "<red>Neplatný počet kusů, zkus to znovu z menu.</red>"
+    invalid-input: "<red>Neplatný vstup.</red>"
+    invalid-number: "<red>Neplatné číslo.</red>"
+    unrecognized-command: "<red>Nerozpoznaný příkaz, zkus to znovu z menu.</red>"
+    unknown-damage-type: "<red>Neznámý typ poškození.</red>"
+    set-gone-meanwhile: "<red>Set byl mezitím smazán.</red>"

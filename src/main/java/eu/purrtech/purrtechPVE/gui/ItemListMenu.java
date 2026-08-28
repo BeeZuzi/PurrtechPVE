@@ -77,7 +77,7 @@ public final class ItemListMenu {
         int totalPages = lastPage(templates) + 1;
 
         inventory.setItem(ADD_SLOT, named(Material.LIME_DYE, messages.render(locale, "gui.item-list.add")));
-        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.item-list.close")));
+        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
 
         ItemStack info = named(Material.BOOK, messages.render(locale, "gui.item-list.page",
                 Placeholder.unparsed("page", String.valueOf(page + 1)), Placeholder.unparsed("total", String.valueOf(totalPages))));
