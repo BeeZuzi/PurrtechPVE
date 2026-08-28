@@ -60,6 +60,8 @@ item:
   bleed-removed: "<green>Bleed effect removed from template <white><key></white>."
   critical-set: "<green>Critical hit effect set on template <white><key></white>."
   critical-removed: "<green>Critical hit effect removed from template <white><key></white>."
+  lore-set: "<green>Custom lore set on template <white><key></white> (<white><lines></white> line(s))."
+  lore-cleared: "<green>Custom lore cleared from template <white><key></white>."
   unknown-attribute: "<red>Unknown attribute: <white><attribute></white>"
   unknown-slot: "<red>Unknown slot: <white><slot></white> (use mainhand/offhand/hand/feet/legs/chest/head/armor/body/any, or a configured trinket slot)"
   unknown-operation: "<red>Unknown operation: <white><operation></white> (use add_number, add_scalar, or multiply_scalar_1)"

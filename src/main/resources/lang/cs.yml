@@ -60,6 +60,8 @@ item:
   bleed-removed: "<green>Krvácení odebráno ze šablony <white><key></white>."
   critical-set: "<green>Kritický zásah nastaven na šabloně <white><key></white>."
   critical-removed: "<green>Kritický zásah odebrán ze šablony <white><key></white>."
+  lore-set: "<green>Vlastní lore nastaveno na šabloně <white><key></white> (<white><lines></white> řádek/ů)."
+  lore-cleared: "<green>Vlastní lore odebráno ze šablony <white><key></white>."
   unknown-attribute: "<red>Neznámý atribut: <white><attribute></white>"
   unknown-slot: "<red>Neznámý slot: <white><slot></white> (použij mainhand/offhand/hand/feet/legs/chest/head/armor/body/any, nebo nastavený trinket slot)"
   unknown-operation: "<red>Neznámá operace: <white><operation></white> (použij add_number, add_scalar nebo multiply_scalar_1)"

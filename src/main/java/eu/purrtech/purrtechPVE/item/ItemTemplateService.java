@@ -68,27 +68,29 @@ public final class ItemTemplateService {
     }
 
     public ItemTemplate create(String key, Material baseMaterial, String displayName, String createdBy) {
-        return create(key, baseMaterial, null, null, displayName, createdBy);
+        return create(key, baseMaterial, null, null, List.of(), displayName, createdBy);
     }
 
     /** Same as {@link #create(String, Material, String, String)}, but also seeds the base's custom model data (e.g. imported from a real item's ItemMeta). */
     public ItemTemplate create(String key, Material baseMaterial, Integer customModelData, String displayName, String createdBy) {
-        return create(key, baseMaterial, customModelData, null, displayName, createdBy);
+        return create(key, baseMaterial, customModelData, null, List.of(), displayName, createdBy);
     }
 
     /**
      * Same as {@link #create(String, Material, Integer, String, String)}, but also seeds {@code
      * baseItemSnapshot} - the imported item's own custom_data (see {@link BaseItemSnapshots}),
      * carried forward onto every future render so third-party plugins (ItemsAdder, etc.) that key
-     * their own rendering off it keep working.
+     * their own rendering off it keep working - and {@code customLore}, seeded from the imported
+     * item's own lore (see {@code ItemRenderer}/{@code PveCommand.importFromValhalla}) so its
+     * original flavor text isn't just silently dropped in favor of this plugin's own stat lore.
      */
     public ItemTemplate create(String key, Material baseMaterial, Integer customModelData, byte[] baseItemSnapshot,
-                                String displayName, String createdBy) {
+                                List<String> customLore, String displayName, String createdBy) {
         if (templateRepository.findByKey(key).isPresent()) {
             throw new DuplicateTemplateKeyException(key);
         }
         long now = System.currentTimeMillis();
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, baseMaterial, baseItemSnapshot,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, baseMaterial, baseItemSnapshot,
                 customModelData, false, List.of(), null, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
         snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, List.of()));
@@ -239,6 +241,21 @@ public final class ItemTemplateService {
         return attributeModifierRepository.findByTemplate(requireTemplate(key).id());
     }
 
+    /**
+     * Extra, admin-authored lore lines (each a raw MiniMessage string) shown above whatever stat
+     * lines get auto-generated - a stat like any other, so it bumps version. See {@link
+     * ItemTemplate}'s javadoc for why this exists (imported items would otherwise lose their
+     * original flavor text entirely) and {@code ItemRenderer} for where it's rendered.
+     */
+    public ItemTemplate setCustomLore(String key, List<String> lines) {
+        ItemTemplate template = requireTemplate(key);
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), List.copyOf(lines),
+                template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
+                template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
+                template.createdAt(), template.updatedAt(), template.createdBy());
+        return bumpVersion(updated);
+    }
+
     /** Marks the template's current version as pushed to circulation - the caller still has to actually walk online players (see ItemSyncService). */
     public ItemTemplate propagate(String key) {
         ItemTemplate template = requireTemplate(key);
@@ -255,9 +272,10 @@ public final class ItemTemplateService {
      */
     public ItemTemplate setAllowedSlots(String key, List<String> slotNames) {
         ItemTemplate template = requireTemplate(key);
-        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.baseMaterial(),
-                template.baseItemSnapshot(), template.customModelData(), !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(),
-                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
+                template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), !slotNames.isEmpty(),
+                List.copyOf(slotNames), template.armorClass(), template.version(), template.syncedVersion(), template.createdAt(),
+                System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -272,9 +290,10 @@ public final class ItemTemplateService {
      */
     public ItemTemplate setArmorClass(String key, ArmorClass armorClass) {
         ItemTemplate template = requireTemplate(key);
-        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.baseMaterial(),
-                template.baseItemSnapshot(), template.customModelData(), template.trinket(), template.allowedSlots(), armorClass,
-                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
+                template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
+                template.allowedSlots(), armorClass, template.version(), template.syncedVersion(), template.createdAt(),
+                System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -288,9 +307,10 @@ public final class ItemTemplateService {
      */
     public ItemTemplate rebase(String key, Material newBaseMaterial, Integer newCustomModelData, byte[] newBaseItemSnapshot) {
         ItemTemplate template = requireTemplate(key);
-        ItemTemplate withNewBase = new ItemTemplate(template.id(), template.key(), template.displayName(), newBaseMaterial,
-                newBaseItemSnapshot, newCustomModelData, template.trinket(), template.allowedSlots(), template.armorClass(),
-                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
+        ItemTemplate withNewBase = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
+                newBaseMaterial, newBaseItemSnapshot, newCustomModelData, template.trinket(), template.allowedSlots(),
+                template.armorClass(), template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(),
+                template.createdBy());
         return bumpVersion(withNewBase);
     }
 
@@ -333,7 +353,7 @@ public final class ItemTemplateService {
     private TemplateSnapshot snapshotOf(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                          List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                                          BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
-        return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(),
+        return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(), template.customLore(),
                 template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), contributions, modifiers,
                 enchantments, armorPenetration, bleedEffect, criticalEffect, attributeModifiers, template.updatedAt());
     }

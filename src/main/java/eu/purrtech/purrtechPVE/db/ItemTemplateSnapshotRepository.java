@@ -46,34 +46,35 @@ public final class ItemTemplateSnapshotRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT OR REPLACE INTO item_template_snapshot
-                         (template_id, version, template_key, display_name, base_material, custom_model_data,
+                         (template_id, version, template_key, display_name, custom_lore, base_material, custom_model_data,
                           damage_contributions, type_modifiers, enchantments, armor_penetration, bleed_effect,
                           critical_effect, attribute_modifiers, base_item_snapshot, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             statement.setString(1, snapshot.templateId().toString());
             statement.setInt(2, snapshot.version());
             statement.setString(3, snapshot.templateKey());
             statement.setString(4, snapshot.displayName());
-            statement.setString(5, snapshot.baseMaterial().name());
+            statement.setString(5, ItemTemplateRepository.encodeLore(snapshot.customLore()));
+            statement.setString(6, snapshot.baseMaterial().name());
             if (snapshot.customModelData() != null) {
-                statement.setInt(6, snapshot.customModelData());
+                statement.setInt(7, snapshot.customModelData());
             } else {
-                statement.setNull(6, Types.INTEGER);
+                statement.setNull(7, Types.INTEGER);
             }
-            statement.setString(7, encodeContributions(snapshot.damageContributions()));
-            statement.setString(8, encodeModifiers(snapshot.typeModifiers()));
-            statement.setString(9, encodeEnchantments(snapshot.enchantments()));
-            statement.setString(10, encodeArmorPenetration(snapshot.armorPenetration()));
-            statement.setString(11, encodeBleedEffect(snapshot.bleedEffect()));
-            statement.setString(12, encodeCriticalEffect(snapshot.criticalEffect()));
-            statement.setString(13, encodeAttributeModifiers(snapshot.attributeModifiers()));
+            statement.setString(8, encodeContributions(snapshot.damageContributions()));
+            statement.setString(9, encodeModifiers(snapshot.typeModifiers()));
+            statement.setString(10, encodeEnchantments(snapshot.enchantments()));
+            statement.setString(11, encodeArmorPenetration(snapshot.armorPenetration()));
+            statement.setString(12, encodeBleedEffect(snapshot.bleedEffect()));
+            statement.setString(13, encodeCriticalEffect(snapshot.criticalEffect()));
+            statement.setString(14, encodeAttributeModifiers(snapshot.attributeModifiers()));
             if (snapshot.baseItemSnapshot() != null) {
-                statement.setBytes(14, snapshot.baseItemSnapshot());
+                statement.setBytes(15, snapshot.baseItemSnapshot());
             } else {
-                statement.setNull(14, Types.BLOB);
+                statement.setNull(15, Types.BLOB);
             }
-            statement.setLong(15, snapshot.createdAt());
+            statement.setLong(16, snapshot.createdAt());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
@@ -105,6 +106,7 @@ public final class ItemTemplateSnapshotRepository {
                 rs.getString("template_key"),
                 rs.getInt("version"),
                 rs.getString("display_name"),
+                ItemTemplateRepository.decodeLore(rs.getString("custom_lore")),
                 Material.valueOf(rs.getString("base_material")),
                 rs.getBytes("base_item_snapshot"),
                 customModelDataBoxed,

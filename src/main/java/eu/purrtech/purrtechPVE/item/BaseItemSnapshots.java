@@ -1,10 +1,14 @@
 package eu.purrtech.purrtechPVE.item;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
+
+import java.util.List;
 
 /**
  * Captures/restores the FULL original item as raw NBT bytes ({@link ItemStack#serializeAsBytes()} -
@@ -59,6 +63,23 @@ public final class BaseItemSnapshots {
             copy.setItemMeta(meta);
         }
         return copy.serializeAsBytes();
+    }
+
+    /**
+     * The source item's own lore, each line re-serialized to a MiniMessage string - the seed for
+     * {@link ItemTemplate#customLore()} on import, so an item's original flavor text (colors, bold,
+     * whatever formatting it had) isn't just silently dropped in favor of this plugin's own
+     * stat-derived lore. Empty (not null) when the source has no lore at all.
+     */
+    public static List<String> captureLore(ItemStack source) {
+        if (source == null || !source.hasItemMeta()) {
+            return List.of();
+        }
+        List<Component> lore = source.getItemMeta().lore();
+        if (lore == null || lore.isEmpty()) {
+            return List.of();
+        }
+        return lore.stream().map(line -> MiniMessage.miniMessage().serialize(line)).toList();
     }
 
     /** A real clone of whatever was captured, or a bare new stack of {@code fallbackMaterial} if nothing ever was (or the blob is unreadable). */

@@ -51,6 +51,7 @@ final class Schema {
             // armor_class existed - see the enchantments migration below for why CREATE TABLE IF
             // NOT EXISTS alone isn't enough there.
             addColumnIfMissing(connection, "item_templates", "armor_class", "TEXT");
+            addColumnIfMissing(connection, "item_templates", "custom_lore", "TEXT");
 
             // Full computed state at every version a template has ever had - not just the
             // current one. Needed so a stack that was deliberately NOT pushed to circulation
@@ -86,6 +87,7 @@ final class Schema {
             addColumnIfMissing(connection, "item_template_snapshot", "critical_effect", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "attribute_modifiers", "TEXT NOT NULL DEFAULT ''");
             addColumnIfMissing(connection, "item_template_snapshot", "base_item_snapshot", "BLOB");
+            addColumnIfMissing(connection, "item_template_snapshot", "custom_lore", "TEXT");
 
             // damage_type_key is NOT a FK to damage_type_definitions: DamageTypeRegistry is
             // still in-memory-only (Fáze 1), that table stays unpopulated until a later

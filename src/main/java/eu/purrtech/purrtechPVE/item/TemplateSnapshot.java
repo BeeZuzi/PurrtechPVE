@@ -17,6 +17,7 @@ public record TemplateSnapshot(
         String templateKey,
         int version,
         String displayName,
+        List<String> customLore,
         Material baseMaterial,
         byte[] baseItemSnapshot,
         Integer customModelData,

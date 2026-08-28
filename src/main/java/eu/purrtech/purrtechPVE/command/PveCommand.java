@@ -359,7 +359,19 @@ public final class PveCommand {
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .suggests(templateKeys)
-                                                .executes(ctx -> removeItemCriticalEffect(plugin, ctx))))))
+                                                .executes(ctx -> removeItemCriticalEffect(plugin, ctx)))))
+                        .then(Commands.literal("lore")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
+                                                // lines: MiniMessage text, "|" separates lore lines - greedy so admins can
+                                                // type/paste the whole thing (including <tags>) in one go.
+                                                .then(Commands.argument("lines", StringArgumentType.greedyString())
+                                                        .executes(ctx -> setItemCustomLore(plugin, ctx)))))
+                                .then(Commands.literal("clear")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
+                                                .executes(ctx -> clearItemCustomLore(plugin, ctx))))))
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
@@ -554,8 +566,9 @@ public final class PveCommand {
         Integer customModelData = held.hasItemMeta() && held.getItemMeta().hasCustomModelData()
                 ? held.getItemMeta().getCustomModelData() : null;
         byte[] baseItemSnapshot = BaseItemSnapshots.capture(held);
+        List<String> customLore = BaseItemSnapshots.captureLore(held);
         try {
-            plugin.getItemTemplateService().create(key, held.getType(), customModelData, baseItemSnapshot, displayName,
+            plugin.getItemTemplateService().create(key, held.getType(), customModelData, baseItemSnapshot, customLore, displayName,
                     player.getUniqueId().toString());
         } catch (DuplicateTemplateKeyException e) {
             player.sendMessage(plugin.getMessages().render(locale, "item.duplicate-key", Placeholder.unparsed("key", key)));
@@ -681,6 +694,15 @@ public final class PveCommand {
         } catch (TemplateNotFoundException e) {
             player.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
             return 0;
+        }
+        // Same as importFromValhalla: the raw NBT snapshot above already carries whatever
+        // enchants the held item had, so they render fine either way - but track them
+        // explicitly too, same as an import would, so they show up (and stay editable) in
+        // /pve item edit instead of being an invisible passenger in the snapshot bytes.
+        if (held.hasItemMeta()) {
+            for (Map.Entry<Enchantment, Integer> enchant : held.getItemMeta().getEnchants().entrySet()) {
+                plugin.getItemTemplateService().setEnchantment(key, enchant.getKey().getKey().toString(), enchant.getValue());
+            }
         }
         player.sendMessage(plugin.getMessages().render(locale, "item.setbase-done",
                 Placeholder.unparsed("key", key), Placeholder.unparsed("material", held.getType().name())));
@@ -1102,6 +1124,40 @@ public final class PveCommand {
             return 0;
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.critical-removed", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setItemCustomLore(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        // "|" splits into separate lore lines - each is parsed as its own MiniMessage component by
+        // ItemRenderer, same as the lore ItemTemplate.customLore() seeds from on import.
+        List<String> lines = Arrays.asList(StringArgumentType.getString(ctx, "lines").split("\\|", -1));
+
+        try {
+            plugin.getItemTemplateService().setCustomLore(key, lines);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.lore-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("lines", String.valueOf(lines.size()))));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int clearItemCustomLore(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+
+        try {
+            plugin.getItemTemplateService().setCustomLore(key, List.of());
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.lore-cleared", Placeholder.unparsed("key", key)));
         return Command.SINGLE_SUCCESS;
     }
 

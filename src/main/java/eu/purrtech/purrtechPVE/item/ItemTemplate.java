@@ -33,11 +33,21 @@ import java.util.UUID;
  * resistance/weakness it grants lives separately in {@code
  * armor_class_profile} (see {@code ArmorClassProfileRepository}) and applies
  * immediately to every piece of that class, already-issued ones included.
+ *
+ * <p>{@code customLore} is extra, admin-authored lore shown above whatever
+ * stat lines get auto-generated - each line is a raw MiniMessage string (see
+ * {@code ItemRenderer}), same as {@code displayName} itself, which is also
+ * parsed as MiniMessage rather than shown as literal text. On import, it's
+ * seeded from the source item's own lore (serialized back to MiniMessage),
+ * so an imported item's original flavor text isn't just silently dropped in
+ * favor of this plugin's own stat lore - the admin can still edit/clear it
+ * afterwards like any other stat.
  */
 public record ItemTemplate(
         UUID id,
         String key,
         String displayName,
+        List<String> customLore,
         Material baseMaterial,
         byte[] baseItemSnapshot,
         Integer customModelData,
@@ -52,13 +62,13 @@ public record ItemTemplate(
 ) {
 
     public ItemTemplate withBumpedVersion(long updatedAt) {
-        return new ItemTemplate(id, key, displayName, baseMaterial, baseItemSnapshot, customModelData, trinket, allowedSlots, armorClass,
-                version + 1, syncedVersion, createdAt, updatedAt, createdBy);
+        return new ItemTemplate(id, key, displayName, customLore, baseMaterial, baseItemSnapshot, customModelData, trinket, allowedSlots,
+                armorClass, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public ItemTemplate withSyncedVersion(int syncedVersion, long updatedAt) {
-        return new ItemTemplate(id, key, displayName, baseMaterial, baseItemSnapshot, customModelData, trinket, allowedSlots, armorClass,
-                version, syncedVersion, createdAt, updatedAt, createdBy);
+        return new ItemTemplate(id, key, displayName, customLore, baseMaterial, baseItemSnapshot, customModelData, trinket, allowedSlots,
+                armorClass, version, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public boolean isFullySynced() {

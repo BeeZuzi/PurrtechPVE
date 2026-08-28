@@ -5,6 +5,7 @@ import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -34,6 +35,8 @@ import java.util.Optional;
  */
 public final class ItemRenderer {
 
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+
     private final Plugin plugin;
     private final Messages messages;
     private final Locale locale;
@@ -62,22 +65,22 @@ public final class ItemRenderer {
     public ItemStack render(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                              List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                              BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
-        return render(template.key(), template.version(), template.displayName(), template.baseMaterial(),
+        return render(template.key(), template.version(), template.displayName(), template.customLore(), template.baseMaterial(),
                 template.baseItemSnapshot(), template.customModelData(), contributions, modifiers, enchantments,
                 armorPenetration, bleedEffect, criticalEffect, attributeModifiers);
     }
 
     /** Renders exactly as a given historical version looked - used to catch up a stack pinned behind the live version. */
     public ItemStack renderSnapshot(TemplateSnapshot snapshot) {
-        return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.baseMaterial(),
+        return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.customLore(), snapshot.baseMaterial(),
                 snapshot.baseItemSnapshot(), snapshot.customModelData(), snapshot.damageContributions(), snapshot.typeModifiers(),
                 snapshot.enchantments(), snapshot.armorPenetration(), snapshot.bleedEffect(), snapshot.criticalEffect(),
                 snapshot.attributeModifiers());
     }
 
-    private ItemStack render(String key, int version, String displayName, Material baseMaterial, byte[] baseItemSnapshot,
-                              Integer customModelData, List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                              List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
+    private ItemStack render(String key, int version, String displayName, List<String> customLore, Material baseMaterial,
+                              byte[] baseItemSnapshot, Integer customModelData, List<DamageContribution> contributions,
+                              List<TypeModifier> modifiers, List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                               BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         // Starts from a full clone of whatever real item this template was created/rebased from
         // (raw NBT, not just Bukkit's PersistentDataContainer view of it - see BaseItemSnapshots for
@@ -89,11 +92,11 @@ public final class ItemRenderer {
         ItemStack stack = BaseItemSnapshots.restore(baseItemSnapshot, baseMaterial);
         ItemMeta meta = stack.getItemMeta();
 
-        meta.displayName(Component.text(displayName).decoration(TextDecoration.ITALIC, false));
+        meta.displayName(parseMiniMessage(displayName).decoration(TextDecoration.ITALIC, false));
         if (customModelData != null) {
             meta.setCustomModelData(customModelData);
         }
-        meta.lore(buildLore(contributions, modifiers, armorPenetration, bleedEffect, criticalEffect, attributeModifiers));
+        meta.lore(buildLore(customLore, contributions, modifiers, armorPenetration, bleedEffect, criticalEffect, attributeModifiers));
 
         for (TemplateEnchantment enchantment : enchantments) {
             resolveEnchantment(enchantment.enchantmentKey())
@@ -150,10 +153,16 @@ public final class ItemRenderer {
     public record StampedTemplate(String templateKey, int templateVersion) {
     }
 
-    private List<Component> buildLore(List<DamageContribution> contributions, List<TypeModifier> modifiers,
+    private List<Component> buildLore(List<String> customLore, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                        List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
                                        List<AttributeModifierEntry> attributeModifiers) {
         List<Component> lore = new ArrayList<>();
+
+        // Admin-authored (or import-seeded) lore first, above whatever stat lines get
+        // auto-generated below - see ItemTemplate's javadoc for why this exists.
+        for (String line : customLore) {
+            lore.add(parseMiniMessage(line));
+        }
 
         List<DamageContribution> wielded = contributions.stream().filter(c -> c.context() == ModifierContext.WIELDED).toList();
         List<DamageContribution> worn = contributions.stream().filter(c -> c.context() == ModifierContext.WORN).toList();
@@ -235,6 +244,21 @@ public final class ItemRenderer {
         return damageTypeRegistry.find(damageTypeKey)
                 .map(DamageType::displayName)
                 .orElse(damageTypeKey);
+    }
+
+    /**
+     * Deserializes admin-authored text (display name, custom lore lines) as MiniMessage - both
+     * imported and freshly-created items go through this, so a name/lore line can use {@code
+     * <red>}/hex colors/{@code <bold>}/etc. instead of always showing as flat, unstyled text.
+     * Falls back to showing the text literally on a parse failure (unbalanced/invalid tags) rather
+     * than breaking the whole render - this is typed by an admin, not validated up front.
+     */
+    private static Component parseMiniMessage(String raw) {
+        try {
+            return MINI_MESSAGE.deserialize(raw);
+        } catch (RuntimeException e) {
+            return Component.text(raw);
+        }
     }
 
     private static String formatAmount(double amount) {

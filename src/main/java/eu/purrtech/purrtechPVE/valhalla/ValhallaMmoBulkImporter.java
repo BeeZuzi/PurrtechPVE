@@ -121,8 +121,9 @@ public final class ValhallaMmoBulkImporter {
             Integer customModelData = decoded.hasItemMeta() && decoded.getItemMeta().hasCustomModelData()
                     ? decoded.getItemMeta().getCustomModelData() : null;
             byte[] baseItemSnapshot = BaseItemSnapshots.capture(decoded);
+            List<String> customLore = BaseItemSnapshots.captureLore(decoded);
             try {
-                itemTemplateService.create(key, decoded.getType(), customModelData, baseItemSnapshot, displayName, createdBy);
+                itemTemplateService.create(key, decoded.getType(), customModelData, baseItemSnapshot, customLore, displayName, createdBy);
             } catch (DuplicateTemplateKeyException e) {
                 outcomes.add(new ItemImportOutcome(id, false, "an item template with key '" + key + "' already exists"));
                 continue;
