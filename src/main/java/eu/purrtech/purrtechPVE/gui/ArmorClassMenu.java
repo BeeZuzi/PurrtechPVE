@@ -81,7 +81,7 @@ public final class ArmorClassMenu {
             lore.add(messages.render(locale, "gui.armor-class.lore.hint-set"));
             lore.add(messages.render(locale, "gui.armor-class.lore.hint-remove"));
 
-            ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.armor-class.type-icon",
+            ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.type-icon",
                     Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);

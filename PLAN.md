@@ -1540,6 +1540,61 @@
     rozsahem samostatná fáze, ne rozšíření týhle - navrhuju ji vzít
     zvlášť (fázově, per soubor/tab), až potvrdíš, že chceš pokračovat.
 
+- **Kompletní GUI lokalizace do lang/cs.yml+lang/en.yml (2026-08-28), na
+  žádost** ("Udělej ten config na ty zprávy jak do chatu tak i do loru
+  aby to šlo upravovat ve smyslu barev a překladu.") - přesně tahle
+  fáze byla vědomě odložená v předchozím zápisu výše; teď dotažená
+  celá. Všech **~218 natvrdo napsaných `Component.text(...)` volání**
+  (`NamedTextColor` barvy) napříč **5 GUI třídami** (`AccessoryMenu` 2,
+  `ArmorClassMenu` 14, `ItemListMenu` 22, `SetEditorMenu` 39,
+  `ItemEditorMenu` 141) přesunuto do nových `gui.*` klíčů v obou
+  `lang/cs.yml`/`lang/en.yml`, stejným MiniMessage-tag stylem jako
+  command-feedback zprávy (`Messages.render(locale, key, placeholders)`)
+  - takže barvy i text jdou teď měnit editací YAML, ne přepisem Javy a
+  rebuildem.
+  - **Dělal jsem po souborech, s compile-checkpointem po každém**
+    (přesně ten "fázový plán pro velké refaktory" postup, co jsem dřív
+    použil na tab-completion) - 3 commity: (1) `AccessoryMenu`+
+    `ArmorClassMenu`+`ItemListMenu`, (2) `SetEditorMenu`, (3)
+    `ItemEditorMenu` (ten velký).
+  - **Sdílené klíče** pro identický text napříč menu, aby existovalo
+    jedno místo na úpravu: `gui.close`, `gui.back`, `gui.tab-active`/
+    `gui.tab-inactive` (▶ prefix na aktivním tabu), `gui.type-icon`
+    (`<icon> <displayName>` u damage type ikon), `gui.prompt.cancelled`/
+    `cancel-hint`/`invalid-number`/`done` (opakující se "Zrušeno."/
+    "Neplatné číslo..."/"Nastaveno." věty z desítek chat promptů).
+  - **Menu-specifické klíče** pod `gui.accessory.*`, `gui.armor-class.*`,
+    `gui.item-list.*`, `gui.set-editor.*`, `gui.item-editor.*`
+    (posledně jmenovaný dál rozdělený po tabech: `base`/`damage`/
+    `resist`/`trinket`/`armor-class`/`penetration`/`effects`/`mobs`/
+    `publish` - viz `lang/cs.yml` pro přesnou strukturu).
+  - **Bonus oprava cestou** (`SetEditorMenu`): item-picker ikony
+    (members list, add-member picker) stavěly náhled z
+    `template.baseMaterial()` + `displayName()` jako plochý text -
+    admin s MiniMessage tagem v display name (viz předchozí zápis) by
+    tam viděl doslovné `<green>...</green>`, ne barvu. Přepnuto na
+    stejný `renderGiveable(...)`-based skutečný náhled, co už používal
+    `ItemListMenu` - vyřeší to a navíc ukazuje skutečný base
+    materiál/model data/lore místo obecné ikony.
+  - **Bonus oprava cestou** (`/pve item setbase`+`replace`): viz zápis
+    o customLore výše, doplněno ve stejné branchi práce.
+  - Žádné nové JUnit testy (GUI rendering se podle zavedené konvence
+    netestuje jednotkově - stejný důvod jako celý `ItemRenderer`/
+    `BaseItemSnapshots`). 157 testů beze změny, čistý
+    `compileJava`/`test`/`build`.
+  - **Ověřeno živě** (`runServer`): čistý boot bez výjimky (potvrzuje,
+    že obě přepsaná YAML jsou syntakticky validní - Bukkitův
+    `YamlConfiguration` loader by na chybu spadl hned při
+    `Messages.load()` v `onEnable`), `/pve item create` proběhlo a
+    vrátilo správnou českou zprávu. **Nedá se ověřit v sandboxu**:
+    samotné OTEVŘENÍ menu (`/pve item edit`, `/pve item menu`, `/pve
+    set edit`, `/pve armorclass menu`, `/pve accessory`) a vizuální
+    ověření, že všechny nové `gui.*` klíče se fakt zobrazí správně
+    obarvené na tlačítkách/lore - to je čistě klient-server GUI
+    interakce, stejné omezení jako u tab-completion dřív. Doporučuju
+    před ostrým nasazením proletět aspoň `/pve item edit <key>` po
+    všech tabech naživo.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

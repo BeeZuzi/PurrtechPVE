@@ -15,9 +15,10 @@ import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
 import eu.purrtech.purrtechPVE.item.TemplateNotFoundException;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
+import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
@@ -71,61 +72,65 @@ public final class ItemEditorMenu {
     }
 
     public static void open(PurrtechPVE plugin, Player player, String templateKey, ItemEditorTab tab) {
+        Locale locale = player.locale();
         if (plugin.getItemTemplateService().findByKey(templateKey).isEmpty()) {
-            player.sendMessage(Component.text("Šablona " + templateKey + " neexistuje.", NamedTextColor.RED));
+            player.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", templateKey)));
             return;
         }
         ItemEditorHolder holder = new ItemEditorHolder(templateKey, tab);
-        Inventory inventory = Bukkit.createInventory(holder, SIZE, Component.text("Editor: " + templateKey));
+        Inventory inventory = Bukkit.createInventory(holder, SIZE,
+                plugin.getMessages().render(locale, "gui.item-editor.title", Placeholder.unparsed("key", templateKey)));
         holder.setInventory(inventory);
-        render(plugin, inventory, holder);
+        render(plugin, inventory, holder, locale);
         player.openInventory(inventory);
     }
 
     private static void reopen(PurrtechPVE plugin, Player player, ItemEditorHolder holder) {
-        render(plugin, holder.getInventory(), holder);
+        render(plugin, holder.getInventory(), holder, player.locale());
         player.openInventory(holder.getInventory());
     }
 
     private static void switchTab(PurrtechPVE plugin, Player player, ItemEditorHolder holder, ItemEditorTab tab) {
         holder.setTab(tab);
         holder.setPickerOpen(false);
-        render(plugin, holder.getInventory(), holder);
+        render(plugin, holder.getInventory(), holder, player.locale());
     }
 
-    private static void render(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder) {
+    private static void render(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
         String templateKey = holder.templateKey();
         ItemEditorTab tab = holder.tab();
         inventory.clear();
-        drawTabBar(inventory, tab);
+        drawTabBar(plugin, inventory, tab, locale);
         switch (tab) {
-            case BASE -> renderBase(plugin, inventory, holder);
-            case DAMAGE -> renderDamage(plugin, inventory, holder);
-            case RESIST -> renderResist(plugin, inventory, holder);
-            case TRINKET -> renderTrinket(plugin, inventory, templateKey);
-            case ARMOR_CLASS -> renderArmorClass(plugin, inventory, templateKey);
-            case ARMOR_PENETRATION -> renderArmorPenetration(plugin, inventory, templateKey);
-            case SPECIAL_EFFECTS -> renderSpecialEffects(plugin, inventory, templateKey);
-            case MOBS -> renderMobs(plugin, inventory, holder);
-            case PUBLISH -> renderPublish(plugin, inventory, templateKey);
+            case BASE -> renderBase(plugin, inventory, holder, locale);
+            case DAMAGE -> renderDamage(plugin, inventory, holder, locale);
+            case RESIST -> renderResist(plugin, inventory, holder, locale);
+            case TRINKET -> renderTrinket(plugin, inventory, templateKey, locale);
+            case ARMOR_CLASS -> renderArmorClass(plugin, inventory, templateKey, locale);
+            case ARMOR_PENETRATION -> renderArmorPenetration(plugin, inventory, templateKey, locale);
+            case SPECIAL_EFFECTS -> renderSpecialEffects(plugin, inventory, templateKey, locale);
+            case MOBS -> renderMobs(plugin, inventory, holder, locale);
+            case PUBLISH -> renderPublish(plugin, inventory, templateKey, locale);
         }
     }
 
-    private static void drawTabBar(Inventory inventory, ItemEditorTab active) {
-        inventory.setItem(TAB_BASE, tabIcon(Material.COMPASS, "Základ", active == ItemEditorTab.BASE));
-        inventory.setItem(TAB_DAMAGE, tabIcon(Material.BLAZE_POWDER, "Custom Damages", active == ItemEditorTab.DAMAGE));
-        inventory.setItem(TAB_RESIST, tabIcon(Material.SHIELD, "Odolnosti / Slabiny", active == ItemEditorTab.RESIST));
-        inventory.setItem(TAB_TRINKET, tabIcon(Material.NAME_TAG, "Trinket sloty", active == ItemEditorTab.TRINKET));
-        inventory.setItem(TAB_ARMOR_CLASS, tabIcon(Material.IRON_CHESTPLATE, "Typ armoru", active == ItemEditorTab.ARMOR_CLASS));
-        inventory.setItem(TAB_ARMOR_PENETRATION, tabIcon(Material.NETHERITE_AXE, "Penetrace armoru", active == ItemEditorTab.ARMOR_PENETRATION));
-        inventory.setItem(TAB_SPECIAL_EFFECTS, tabIcon(Material.REDSTONE, "Krvácení & Krit", active == ItemEditorTab.SPECIAL_EFFECTS));
-        inventory.setItem(TAB_MOBS, tabIcon(Material.ZOMBIE_HEAD, "MythicMobs", active == ItemEditorTab.MOBS));
-        inventory.setItem(TAB_PUBLISH, tabIcon(Material.EMERALD, "Uložit & Publikovat", active == ItemEditorTab.PUBLISH));
-        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, Component.text("Zavřít", NamedTextColor.RED)));
+    private static void drawTabBar(PurrtechPVE plugin, Inventory inventory, ItemEditorTab active, Locale locale) {
+        Messages messages = plugin.getMessages();
+        inventory.setItem(TAB_BASE, tabIcon(messages, locale, Material.COMPASS, "gui.item-editor.tab.base", active == ItemEditorTab.BASE));
+        inventory.setItem(TAB_DAMAGE, tabIcon(messages, locale, Material.BLAZE_POWDER, "gui.item-editor.tab.damage", active == ItemEditorTab.DAMAGE));
+        inventory.setItem(TAB_RESIST, tabIcon(messages, locale, Material.SHIELD, "gui.item-editor.tab.resist", active == ItemEditorTab.RESIST));
+        inventory.setItem(TAB_TRINKET, tabIcon(messages, locale, Material.NAME_TAG, "gui.item-editor.tab.trinket", active == ItemEditorTab.TRINKET));
+        inventory.setItem(TAB_ARMOR_CLASS, tabIcon(messages, locale, Material.IRON_CHESTPLATE, "gui.item-editor.tab.armor-class", active == ItemEditorTab.ARMOR_CLASS));
+        inventory.setItem(TAB_ARMOR_PENETRATION, tabIcon(messages, locale, Material.NETHERITE_AXE, "gui.item-editor.tab.armor-penetration", active == ItemEditorTab.ARMOR_PENETRATION));
+        inventory.setItem(TAB_SPECIAL_EFFECTS, tabIcon(messages, locale, Material.REDSTONE, "gui.item-editor.tab.special-effects", active == ItemEditorTab.SPECIAL_EFFECTS));
+        inventory.setItem(TAB_MOBS, tabIcon(messages, locale, Material.ZOMBIE_HEAD, "gui.item-editor.tab.mobs", active == ItemEditorTab.MOBS));
+        inventory.setItem(TAB_PUBLISH, tabIcon(messages, locale, Material.EMERALD, "gui.item-editor.tab.publish", active == ItemEditorTab.PUBLISH));
+        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
     }
 
-    private static ItemStack tabIcon(Material material, String label, boolean active) {
-        Component name = Component.text((active ? "▶ " : "") + label, active ? NamedTextColor.GREEN : NamedTextColor.WHITE);
+    private static ItemStack tabIcon(Messages messages, Locale locale, Material material, String labelKey, boolean active) {
+        String prefixKey = active ? "gui.tab-active" : "gui.tab-inactive";
+        Component name = messages.render(locale, prefixKey, Placeholder.unparsed("label", messages.plain(locale, labelKey)));
         return named(material, name);
     }
 
@@ -139,10 +144,11 @@ public final class ItemEditorMenu {
     // can legitimately have more than one entry (a ring on AMULET and boots on FEET both granting
     // SAFE_FALL_DISTANCE, say), since the real identity is (attribute, slot), not attribute alone.
 
-    private static void renderBase(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder) {
+    private static void renderBase(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
+        Messages messages = plugin.getMessages();
         String templateKey = holder.templateKey();
         if (holder.isPickerOpen()) {
-            renderAttributePicker(inventory);
+            renderAttributePicker(messages, locale, inventory);
             return;
         }
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
@@ -150,9 +156,10 @@ public final class ItemEditorMenu {
         ItemMeta meta = preview.getItemMeta();
         List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
         lore.add(Component.empty());
-        lore.add(Component.text("Verze: " + template.version() + " (propsáno: " + template.syncedVersion() + ")", NamedTextColor.GRAY));
-        lore.add(Component.text("Drž item v ruce a klikni sem", NamedTextColor.YELLOW));
-        lore.add(Component.text("pro změnu základu (materiál).", NamedTextColor.YELLOW));
+        lore.add(messages.render(locale, "gui.item-editor.base.version",
+                Placeholder.unparsed("version", String.valueOf(template.version())), Placeholder.unparsed("synced", String.valueOf(template.syncedVersion()))));
+        lore.add(messages.render(locale, "gui.item-editor.base.rebase-hint-1"));
+        lore.add(messages.render(locale, "gui.item-editor.base.rebase-hint-2"));
         meta.lore(lore);
         preview.setItemMeta(meta);
         inventory.setItem(PREVIEW_SLOT, preview);
@@ -161,13 +168,15 @@ public final class ItemEditorMenu {
         for (int i = 0; i < entries.size() && CONTENT_START + i < SIZE; i++) {
             AttributeModifierEntry entry = entries.get(i);
             List<Component> entryLore = new ArrayList<>();
-            entryLore.add(Component.text(formatAttributeAmount(entry) + " " + entry.attribute().name(), NamedTextColor.WHITE));
-            entryLore.add(Component.text("Slot: " + entry.slot(), NamedTextColor.GRAY));
+            entryLore.add(messages.render(locale, "gui.item-editor.base.attribute-amount",
+                    Placeholder.unparsed("amount", formatAttributeAmount(entry)), Placeholder.unparsed("attribute", entry.attribute().name())));
+            entryLore.add(messages.render(locale, "gui.item-editor.base.attribute-slot", Placeholder.unparsed("slot", entry.slot())));
             entryLore.add(Component.empty());
-            entryLore.add(Component.text("Klik: upravit (napíšeš slot, částku", NamedTextColor.YELLOW));
-            entryLore.add(Component.text("a operaci do chatu)", NamedTextColor.YELLOW));
-            entryLore.add(Component.text("Shift+klik: smazat", NamedTextColor.RED));
-            ItemStack icon = named(Material.NETHER_STAR, Component.text(entry.attribute().name(), NamedTextColor.AQUA));
+            entryLore.add(messages.render(locale, "gui.item-editor.base.attribute-hint-edit-1"));
+            entryLore.add(messages.render(locale, "gui.item-editor.base.attribute-hint-edit-2"));
+            entryLore.add(messages.render(locale, "gui.item-editor.hint-shift-delete"));
+            ItemStack icon = named(Material.NETHER_STAR, messages.render(locale, "gui.item-editor.base.attribute-icon",
+                    Placeholder.unparsed("attribute", entry.attribute().name())));
             ItemMeta entryMeta = icon.getItemMeta();
             entryMeta.lore(entryLore);
             icon.setItemMeta(entryMeta);
@@ -175,23 +184,24 @@ public final class ItemEditorMenu {
         }
         int addSlot = CONTENT_START + entries.size();
         if (addSlot < SIZE) {
-            inventory.setItem(addSlot, addButton("+ Přidat atribut"));
+            inventory.setItem(addSlot, addButton(messages, locale, "gui.item-editor.base.add-attribute"));
         }
     }
 
-    private static void renderAttributePicker(Inventory inventory) {
+    private static void renderAttributePicker(Messages messages, Locale locale, Inventory inventory) {
         Attribute[] attributes = Attribute.values();
         for (int i = 0; i < attributes.length && CONTENT_START + i < SIZE; i++) {
             Attribute attribute = attributes[i];
-            ItemStack icon = named(Material.NETHER_STAR, Component.text(attribute.name(), NamedTextColor.AQUA));
+            ItemStack icon = named(Material.NETHER_STAR, messages.render(locale, "gui.item-editor.base.attribute-icon",
+                    Placeholder.unparsed("attribute", attribute.name())));
             ItemMeta meta = icon.getItemMeta();
-            meta.lore(List.of(Component.text("Klik: přidat tento atribut", NamedTextColor.YELLOW)));
+            meta.lore(List.of(messages.render(locale, "gui.item-editor.base.picker-hint-add")));
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
         }
-        ItemStack back = named(Material.ARROW, Component.text("Zpět", NamedTextColor.RED));
+        ItemStack back = named(Material.ARROW, messages.render(locale, "gui.item-editor.back-red"));
         ItemMeta backMeta = back.getItemMeta();
-        backMeta.lore(List.of(Component.text("Klik: zpět na seznam přidaných atributů", NamedTextColor.YELLOW)));
+        backMeta.lore(List.of(messages.render(locale, "gui.item-editor.base.picker-hint-back")));
         back.setItemMeta(backMeta);
         inventory.setItem(PREVIEW_SLOT, back);
     }
@@ -202,6 +212,7 @@ public final class ItemEditorMenu {
     }
 
     private static void handleBaseClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
+        Locale locale = player.locale();
         if (holder.isPickerOpen()) {
             handleAttributePickerClick(plugin, player, holder, slot);
             return;
@@ -214,7 +225,7 @@ public final class ItemEditorMenu {
         int index = slot - CONTENT_START;
         if (index == entries.size()) {
             holder.setPickerOpen(true);
-            render(plugin, holder.getInventory(), holder);
+            render(plugin, holder.getInventory(), holder, locale);
             return;
         }
         if (index < 0 || index >= entries.size()) {
@@ -223,17 +234,20 @@ public final class ItemEditorMenu {
         AttributeModifierEntry entry = entries.get(index);
         if (shift) {
             plugin.getItemTemplateService().removeAttributeModifier(holder.templateKey(), entry.attribute(), entry.slot());
-            player.sendMessage(Component.text("Atribut " + entry.attribute().name() + " (" + entry.slot() + ") smazán.", NamedTextColor.GREEN));
-            render(plugin, holder.getInventory(), holder);
+            player.sendMessage(plugin.getMessages().render(locale, "gui.item-editor.base.attribute-removed",
+                    Placeholder.unparsed("attribute", entry.attribute().name()), Placeholder.unparsed("slot", entry.slot())));
+            render(plugin, holder.getInventory(), holder, locale);
             return;
         }
         promptAttributeModifier(plugin, player, holder, entry.attribute());
     }
 
     private static void handleRebaseClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         ItemStack held = player.getInventory().getItemInMainHand();
         if (held.getType() == Material.AIR) {
-            player.sendMessage(Component.text("Drž v ruce item, který chceš použít jako nový základ.", NamedTextColor.RED));
+            player.sendMessage(messages.render(locale, "gui.item-editor.base.rebase-empty-hand"));
             return;
         }
         Integer customModelData = held.hasItemMeta() && held.getItemMeta().hasCustomModelData()
@@ -242,17 +256,17 @@ public final class ItemEditorMenu {
         try {
             plugin.getItemTemplateService().rebase(holder.templateKey(), held.getType(), customModelData, baseItemSnapshot);
         } catch (TemplateNotFoundException e) {
-            player.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+            player.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
             return;
         }
-        player.sendMessage(Component.text("Základ změněn na " + held.getType() + ".", NamedTextColor.GREEN));
-        render(plugin, holder.getInventory(), holder);
+        player.sendMessage(messages.render(locale, "gui.item-editor.base.rebase-done", Placeholder.unparsed("material", held.getType().name())));
+        render(plugin, holder.getInventory(), holder, locale);
     }
 
     private static void handleAttributePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
         if (slot == PREVIEW_SLOT) {
             holder.setPickerOpen(false);
-            render(plugin, holder.getInventory(), holder);
+            render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
         Attribute[] attributes = Attribute.values();
@@ -264,21 +278,24 @@ public final class ItemEditorMenu {
     }
 
     private static void promptAttributeModifier(PurrtechPVE plugin, Player player, ItemEditorHolder holder, Attribute attribute) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         player.closeInventory();
-        player.sendMessage(Component.text("Napiš do chatu: <slot> <částka> <operace>", NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("slot: mainhand/offhand/hand/feet/legs/chest/head/armor/body/any,", NamedTextColor.GRAY));
-        player.sendMessage(Component.text("nebo trinket slot (" + String.join("/", plugin.getAccessorySettings().slots()) + ")", NamedTextColor.GRAY));
-        player.sendMessage(Component.text("operace: add_number (pevné číslo) / add_scalar / multiply_scalar_1 (obě %)", NamedTextColor.GRAY));
-        player.sendMessage(Component.text("Například: mainhand 4 add_number    (nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        player.sendMessage(messages.render(locale, "gui.item-editor.base.prompt-attribute-1"));
+        player.sendMessage(messages.render(locale, "gui.item-editor.base.prompt-attribute-2"));
+        player.sendMessage(messages.render(locale, "gui.item-editor.base.prompt-attribute-3",
+                Placeholder.unparsed("slots", String.join("/", plugin.getAccessorySettings().slots()))));
+        player.sendMessage(messages.render(locale, "gui.item-editor.base.prompt-attribute-4"));
+        player.sendMessage(messages.render(locale, "gui.item-editor.base.prompt-attribute-example"));
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
-                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
                 return;
             }
             String[] parts = rawInput.trim().split("\\s+");
             if (parts.length != 3) {
-                p.sendMessage(Component.text("Neplatný vstup, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
                 return;
             }
@@ -286,15 +303,15 @@ public final class ItemEditorMenu {
             Double amount = parseDouble(parts[1]);
             AttributeModifier.Operation operation = parseOperation(parts[2]);
             if (slotName == null || amount == null || operation == null) {
-                p.sendMessage(Component.text("Neplatný vstup, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
                 return;
             }
             try {
                 plugin.getItemTemplateService().setAttributeModifier(holder.templateKey(), attribute, amount, operation, slotName);
-                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+                p.sendMessage(messages.render(locale, "gui.prompt.done"));
             } catch (TemplateNotFoundException e) {
-                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
             }
             open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
         });
@@ -308,10 +325,11 @@ public final class ItemEditorMenu {
     // where flat-vs-percent is actually chosen (see promptDamageContribution) - the picker only
     // decides *which* damage type you're about to configure, not flat/percent.
 
-    private static void renderDamage(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder) {
+    private static void renderDamage(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
+        Messages messages = plugin.getMessages();
         String templateKey = holder.templateKey();
         if (holder.isPickerOpen()) {
-            renderDamageTypePicker(plugin, inventory, templateKey);
+            renderDamageTypePicker(plugin, inventory, templateKey, locale);
             return;
         }
         List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(templateKey);
@@ -324,14 +342,15 @@ public final class ItemEditorMenu {
                     .filter(c -> c.damageTypeKey().equals(type.key()) && c.context() == ModifierContext.WORN).findFirst();
 
             List<Component> lore = new ArrayList<>();
-            wielded.ifPresent(c -> lore.add(Component.text("Při útoku: " + formatContribution(c), NamedTextColor.WHITE)));
-            worn.ifPresent(c -> lore.add(Component.text("Pasivně nasazeno: " + formatContribution(c), NamedTextColor.WHITE)));
+            wielded.ifPresent(c -> lore.add(messages.render(locale, "gui.item-editor.damage.wielded-line", Placeholder.unparsed("amount", formatContribution(c)))));
+            worn.ifPresent(c -> lore.add(messages.render(locale, "gui.item-editor.damage.worn-line", Placeholder.unparsed("amount", formatContribution(c)))));
             lore.add(Component.empty());
-            lore.add(Component.text("Klik: upravit (napíšeš částku, flat/percent", NamedTextColor.YELLOW));
-            lore.add(Component.text("a wielded/worn do chatu)", NamedTextColor.YELLOW));
-            lore.add(Component.text("Shift+klik: smazat obojí (wielded i worn)", NamedTextColor.RED));
+            lore.add(messages.render(locale, "gui.item-editor.damage.hint-edit-1"));
+            lore.add(messages.render(locale, "gui.item-editor.damage.hint-edit-2"));
+            lore.add(messages.render(locale, "gui.item-editor.damage.hint-shift-delete"));
 
-            ItemStack icon = named(iconFor(type.key()), Component.text(type.icon() + " " + type.displayName(), NamedTextColor.AQUA));
+            ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.type-icon",
+                    Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
@@ -339,13 +358,13 @@ public final class ItemEditorMenu {
         }
         int addSlot = CONTENT_START + configured.size();
         if (addSlot < SIZE) {
-            inventory.setItem(addSlot, addButton("+ Přidat poškození"));
+            inventory.setItem(addSlot, addButton(messages, locale, "gui.item-editor.damage.add"));
         }
     }
 
-    private static void renderDamageTypePicker(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderDamageTypePicker(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
         List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(templateKey);
-        renderTypePicker(inventory, unconfiguredDamageTypes(plugin, contributions));
+        renderTypePicker(plugin.getMessages(), locale, inventory, unconfiguredDamageTypes(plugin, contributions));
     }
 
     private static List<DamageType> configuredDamageTypes(PurrtechPVE plugin, List<DamageContribution> contributions) {
@@ -370,7 +389,7 @@ public final class ItemEditorMenu {
         int index = slot - CONTENT_START;
         if (index == configured.size()) {
             holder.setPickerOpen(true);
-            render(plugin, holder.getInventory(), holder);
+            render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
         if (index < 0 || index >= configured.size()) {
@@ -380,8 +399,8 @@ public final class ItemEditorMenu {
         if (shift) {
             plugin.getItemTemplateService().removeDamageContribution(holder.templateKey(), type.key(), ModifierContext.WIELDED);
             plugin.getItemTemplateService().removeDamageContribution(holder.templateKey(), type.key(), ModifierContext.WORN);
-            player.sendMessage(Component.text("Poškození " + type.displayName() + " smazáno.", NamedTextColor.GREEN));
-            render(plugin, holder.getInventory(), holder);
+            player.sendMessage(plugin.getMessages().render(player.locale(), "gui.item-editor.damage.removed", Placeholder.unparsed("type", type.displayName())));
+            render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
         promptDamageContribution(plugin, player, holder, type);
@@ -390,7 +409,7 @@ public final class ItemEditorMenu {
     private static void handleDamageTypePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
         if (slot == PREVIEW_SLOT) {
             holder.setPickerOpen(false);
-            render(plugin, holder.getInventory(), holder);
+            render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
         List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(holder.templateKey());
@@ -403,19 +422,21 @@ public final class ItemEditorMenu {
     }
 
     private static void promptDamageContribution(PurrtechPVE plugin, Player player, ItemEditorHolder holder, DamageType type) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         player.closeInventory();
-        player.sendMessage(Component.text("Napiš do chatu: <částka> <flat|percent> <wielded|worn>", NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("flat = pevné číslo, percent = % z celkového poškození útoku", NamedTextColor.GRAY));
-        player.sendMessage(Component.text("Například: 4 flat wielded    nebo:    10 percent worn    (nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        player.sendMessage(messages.render(locale, "gui.item-editor.damage.prompt-1"));
+        player.sendMessage(messages.render(locale, "gui.item-editor.damage.prompt-2"));
+        player.sendMessage(messages.render(locale, "gui.item-editor.damage.prompt-example"));
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
-                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
                 return;
             }
             String[] parts = rawInput.trim().split("\\s+");
             if (parts.length != 3) {
-                p.sendMessage(Component.text("Neplatný vstup, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
                 return;
             }
@@ -423,15 +444,15 @@ public final class ItemEditorMenu {
             DamageMode mode = parseMode(parts[1]);
             ModifierContext parsedContext = parseContext(parts[2]);
             if (amount == null || mode == null || parsedContext == null) {
-                p.sendMessage(Component.text("Neplatný vstup, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
                 return;
             }
             try {
                 plugin.getItemTemplateService().setDamageContribution(holder.templateKey(), type.key(), amount, mode, parsedContext);
-                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+                p.sendMessage(messages.render(locale, "gui.prompt.done"));
             } catch (TemplateNotFoundException e) {
-                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
             }
             open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
         });
@@ -441,10 +462,11 @@ public final class ItemEditorMenu {
     // Same "only configured + Add button" shape as DAMAGE above, just for TypeModifier instead of
     // DamageContribution - see that section's comment for the shared picker mechanics.
 
-    private static void renderResist(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder) {
+    private static void renderResist(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
+        Messages messages = plugin.getMessages();
         String templateKey = holder.templateKey();
         if (holder.isPickerOpen()) {
-            renderResistTypePicker(plugin, inventory, templateKey);
+            renderResistTypePicker(plugin, inventory, templateKey, locale);
             return;
         }
         List<TypeModifier> modifiers = plugin.getItemTemplateService().typeModifiers(templateKey);
@@ -453,16 +475,16 @@ public final class ItemEditorMenu {
             DamageType type = configured.get(i);
             TypeModifier modifier = modifiers.stream().filter(m -> m.damageTypeKey().equals(type.key())).findFirst().orElseThrow();
             double percent = modifier.percent();
-            String label = percent >= 0 ? "Odolnost" : "Slabina";
-            NamedTextColor color = percent >= 0 ? NamedTextColor.GREEN : NamedTextColor.RED;
+            String key = percent >= 0 ? "gui.item-editor.resist.resist-line" : "gui.item-editor.resist.weakness-line";
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text(label + ": " + formatAmount(Math.abs(percent)) + "%", color));
+            lore.add(messages.render(locale, key, Placeholder.unparsed("amount", formatAmount(Math.abs(percent)))));
             lore.add(Component.empty());
-            lore.add(Component.text("Klik: upravit (kladné = odolnost, záporné = slabina)", NamedTextColor.YELLOW));
-            lore.add(Component.text("Shift+klik: smazat", NamedTextColor.RED));
+            lore.add(messages.render(locale, "gui.item-editor.resist.hint-edit"));
+            lore.add(messages.render(locale, "gui.item-editor.hint-shift-delete"));
 
-            ItemStack icon = named(iconFor(type.key()), Component.text(type.icon() + " " + type.displayName(), NamedTextColor.AQUA));
+            ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.type-icon",
+                    Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
@@ -470,14 +492,14 @@ public final class ItemEditorMenu {
         }
         int addSlot = CONTENT_START + configured.size();
         if (addSlot < SIZE) {
-            inventory.setItem(addSlot, addButton("+ Přidat odolnost/slabinu"));
+            inventory.setItem(addSlot, addButton(messages, locale, "gui.item-editor.resist.add"));
         }
     }
 
-    private static void renderResistTypePicker(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderResistTypePicker(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
         List<TypeModifier> modifiers = plugin.getItemTemplateService().typeModifiers(templateKey);
         List<DamageType> available = unconfiguredResistTypes(plugin, modifiers);
-        renderTypePicker(inventory, available);
+        renderTypePicker(plugin.getMessages(), locale, inventory, available);
     }
 
     private static List<DamageType> configuredResistTypes(PurrtechPVE plugin, List<TypeModifier> modifiers) {
@@ -502,7 +524,7 @@ public final class ItemEditorMenu {
         int index = slot - CONTENT_START;
         if (index == configured.size()) {
             holder.setPickerOpen(true);
-            render(plugin, holder.getInventory(), holder);
+            render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
         if (index < 0 || index >= configured.size()) {
@@ -511,8 +533,8 @@ public final class ItemEditorMenu {
         DamageType type = configured.get(index);
         if (shift) {
             plugin.getItemTemplateService().removeTypeModifier(holder.templateKey(), type.key());
-            player.sendMessage(Component.text("Odolnost/slabina " + type.displayName() + " smazána.", NamedTextColor.GREEN));
-            render(plugin, holder.getInventory(), holder);
+            player.sendMessage(plugin.getMessages().render(player.locale(), "gui.item-editor.resist.removed", Placeholder.unparsed("type", type.displayName())));
+            render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
         promptResistValue(plugin, player, holder, type);
@@ -521,7 +543,7 @@ public final class ItemEditorMenu {
     private static void handleResistTypePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
         if (slot == PREVIEW_SLOT) {
             holder.setPickerOpen(false);
-            render(plugin, holder.getInventory(), holder);
+            render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
         List<TypeModifier> modifiers = plugin.getItemTemplateService().typeModifiers(holder.templateKey());
@@ -534,26 +556,28 @@ public final class ItemEditorMenu {
     }
 
     private static void promptResistValue(PurrtechPVE plugin, Player player, ItemEditorHolder holder, DamageType type) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         player.closeInventory();
-        player.sendMessage(Component.text("Napiš do chatu procenta (kladné = odolnost, záporné = slabina), např. 50 nebo -25", NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("(nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        player.sendMessage(messages.render(locale, "gui.armor-class.prompt-set"));
+        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
-                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.RESIST);
                 return;
             }
             Double percent = parseDouble(rawInput.trim());
             if (percent == null) {
-                p.sendMessage(Component.text("Neplatné číslo, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.RESIST);
                 return;
             }
             try {
                 plugin.getItemTemplateService().setTypeModifier(holder.templateKey(), type.key(), percent);
-                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+                p.sendMessage(messages.render(locale, "gui.prompt.done"));
             } catch (TemplateNotFoundException e) {
-                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
             }
             open(plugin, p, holder.templateKey(), ItemEditorTab.RESIST);
         });
@@ -571,21 +595,22 @@ public final class ItemEditorMenu {
         return names;
     }
 
-    private static void renderTrinket(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderTrinket(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
+        Messages messages = plugin.getMessages();
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
         List<String> slotNames = trinketSlotNames(plugin);
         for (int i = 0; i < slotNames.size() && CONTENT_START + i < SIZE; i++) {
             String slotName = slotNames.get(i);
             boolean selected = template.allowedSlots().contains(slotName);
-            NamedTextColor color = selected ? NamedTextColor.GREEN : NamedTextColor.GRAY;
-            String mark = selected ? "✔ " : "✘ ";
-            ItemStack icon = named(trinketSlotIcon(slotName), Component.text(mark + slotName, color));
+            String key = selected ? "gui.item-editor.trinket.slot-selected" : "gui.item-editor.trinket.slot-unselected";
+            ItemStack icon = named(trinketSlotIcon(slotName), messages.render(locale, key, Placeholder.unparsed("slot", slotName)));
             ItemMeta meta = icon.getItemMeta();
-            meta.lore(List.of(Component.text("Klik: " + (selected ? "odebrat" : "povolit"), NamedTextColor.YELLOW)));
+            String hintKey = selected ? "gui.item-editor.trinket.hint-remove" : "gui.item-editor.trinket.hint-allow";
+            meta.lore(List.of(messages.render(locale, hintKey)));
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
         }
-        ItemStack info = named(Material.PAPER, Component.text("Prázdný výběr = bez omezení", NamedTextColor.GRAY));
+        ItemStack info = named(Material.PAPER, messages.render(locale, "gui.item-editor.trinket.info"));
         inventory.setItem(PREVIEW_SLOT, info);
     }
 
@@ -604,7 +629,7 @@ public final class ItemEditorMenu {
             current.add(slotName);
         }
         plugin.getItemTemplateService().setAllowedSlots(holder.templateKey(), current);
-        render(plugin, holder.getInventory(), holder);
+        render(plugin, holder.getInventory(), holder, player.locale());
     }
 
     private static Material trinketSlotIcon(String slotName) {
@@ -621,35 +646,36 @@ public final class ItemEditorMenu {
 
     // ---- ARMOR_CLASS ----
 
-    private static void renderArmorClass(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderArmorClass(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
+        Messages messages = plugin.getMessages();
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
         ArmorClass current = template.armorClass();
 
-        armorClassOption(inventory, CONTENT_START, null, "Žádný", Material.BARRIER, current);
-        armorClassOption(inventory, CONTENT_START + 1, ArmorClass.LIGHT, "Lehký", Material.LEATHER_CHESTPLATE, current);
-        armorClassOption(inventory, CONTENT_START + 2, ArmorClass.MEDIUM, "Střední", Material.IRON_CHESTPLATE, current);
-        armorClassOption(inventory, CONTENT_START + 3, ArmorClass.HEAVY, "Těžký", Material.NETHERITE_CHESTPLATE, current);
+        armorClassOption(messages, locale, inventory, CONTENT_START, null, "gui.item-editor.armor-class.none", Material.BARRIER, current);
+        armorClassOption(messages, locale, inventory, CONTENT_START + 1, ArmorClass.LIGHT, "gui.armor-class.tab.light", Material.LEATHER_CHESTPLATE, current);
+        armorClassOption(messages, locale, inventory, CONTENT_START + 2, ArmorClass.MEDIUM, "gui.armor-class.tab.medium", Material.IRON_CHESTPLATE, current);
+        armorClassOption(messages, locale, inventory, CONTENT_START + 3, ArmorClass.HEAVY, "gui.armor-class.tab.heavy", Material.NETHERITE_CHESTPLATE, current);
 
         List<Component> infoLore = new ArrayList<>();
-        infoLore.add(Component.text("Medium = vypadá jako vanilla armor.", NamedTextColor.GRAY));
-        infoLore.add(Component.text("Light/Heavy = vlastní vzhled (base +", NamedTextColor.GRAY));
-        infoLore.add(Component.text("custom model data v Základ tabu).", NamedTextColor.GRAY));
+        infoLore.add(messages.render(locale, "gui.item-editor.armor-class.info-1"));
+        infoLore.add(messages.render(locale, "gui.item-editor.armor-class.info-2"));
+        infoLore.add(messages.render(locale, "gui.item-editor.armor-class.info-3"));
         infoLore.add(Component.empty());
-        infoLore.add(Component.text("Klik: upravit benefity všech typů armoru", NamedTextColor.YELLOW));
-        ItemStack info = named(Material.WRITABLE_BOOK, Component.text("Benefity typů armoru", NamedTextColor.AQUA));
+        infoLore.add(messages.render(locale, "gui.item-editor.armor-class.hint-edit"));
+        ItemStack info = named(Material.WRITABLE_BOOK, messages.render(locale, "gui.item-editor.armor-class.title"));
         ItemMeta infoMeta = info.getItemMeta();
         infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
         inventory.setItem(PREVIEW_SLOT, info);
     }
 
-    private static void armorClassOption(Inventory inventory, int slot, ArmorClass value, String label, Material material, ArmorClass current) {
+    private static void armorClassOption(Messages messages, Locale locale, Inventory inventory, int slot, ArmorClass value,
+                                          String labelKey, Material material, ArmorClass current) {
         boolean selected = value == current;
-        NamedTextColor color = selected ? NamedTextColor.GREEN : NamedTextColor.GRAY;
-        String mark = selected ? "✔ " : "";
-        ItemStack icon = named(material, Component.text(mark + label, color));
+        String key = selected ? "gui.item-editor.armor-class.option-selected" : "gui.item-editor.armor-class.option-unselected";
+        ItemStack icon = named(material, messages.render(locale, key, Placeholder.unparsed("label", messages.plain(locale, labelKey))));
         ItemMeta meta = icon.getItemMeta();
-        meta.lore(List.of(Component.text("Klik: nastavit", NamedTextColor.YELLOW)));
+        meta.lore(List.of(messages.render(locale, "gui.item-editor.armor-class.hint-set")));
         icon.setItemMeta(meta);
         inventory.setItem(slot, icon);
     }
@@ -671,12 +697,13 @@ public final class ItemEditorMenu {
             default -> null;
         };
         plugin.getItemTemplateService().setArmorClass(holder.templateKey(), newValue);
-        render(plugin, holder.getInventory(), holder);
+        render(plugin, holder.getInventory(), holder, player.locale());
     }
 
     // ---- ARMOR_PENETRATION ----
 
-    private static void renderArmorPenetration(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderArmorPenetration(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
+        Messages messages = plugin.getMessages();
         List<ArmorPenetration> penetration = plugin.getItemTemplateService().armorPenetration(templateKey);
         ArmorClass[] classes = ArmorClass.values();
         for (int i = 0; i < classes.length; i++) {
@@ -686,32 +713,35 @@ public final class ItemEditorMenu {
 
             List<Component> lore = new ArrayList<>();
             if (current.isPresent()) {
-                lore.add(Component.text("Penetrace: " + formatAmount(current.get().amount()) + "%", NamedTextColor.GREEN));
+                lore.add(messages.render(locale, "gui.item-editor.penetration.value", Placeholder.unparsed("amount", formatAmount(current.get().amount()))));
             } else {
-                lore.add(Component.text("(nenastaveno)", NamedTextColor.DARK_GRAY));
+                lore.add(messages.render(locale, "gui.armor-class.lore.not-set"));
             }
             lore.add(Component.empty());
-            lore.add(Component.text("Klik: nastavit", NamedTextColor.YELLOW));
-            lore.add(Component.text("Shift+klik: smazat", NamedTextColor.RED));
+            lore.add(messages.render(locale, "gui.item-editor.armor-class.hint-set"));
+            lore.add(messages.render(locale, "gui.item-editor.hint-shift-delete"));
 
-            ItemStack icon = named(armorClassIcon(armorClass), Component.text(armorClass.name(), NamedTextColor.AQUA));
+            ItemStack icon = named(armorClassIcon(armorClass), messages.render(locale, "gui.item-editor.penetration.class-icon",
+                    Placeholder.unparsed("class", armorClass.name())));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
         }
 
-        ItemStack info = named(Material.PAPER, Component.text("Před výpočtem poškození sníží", NamedTextColor.GRAY));
+        ItemStack info = named(Material.PAPER, messages.render(locale, "gui.item-editor.penetration.info-title"));
         ItemMeta infoMeta = info.getItemMeta();
         infoMeta.lore(List.of(
-                Component.text("cílovu odolnost z benefitu daného", NamedTextColor.GRAY),
-                Component.text("typu armoru o tolik procentních", NamedTextColor.GRAY),
-                Component.text("bodů. Nic se přitom nemaže z invu.", NamedTextColor.GRAY)));
+                messages.render(locale, "gui.item-editor.penetration.info-1"),
+                messages.render(locale, "gui.item-editor.penetration.info-2"),
+                messages.render(locale, "gui.item-editor.penetration.info-3")));
         info.setItemMeta(infoMeta);
         inventory.setItem(PREVIEW_SLOT, info);
     }
 
     private static void handleArmorPenetrationClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         ArmorClass[] classes = ArmorClass.values();
         int index = slot - CONTENT_START;
         if (index < 0 || index >= classes.length) {
@@ -721,31 +751,31 @@ public final class ItemEditorMenu {
 
         if (shift) {
             plugin.getItemTemplateService().removeArmorPenetration(holder.templateKey(), armorClass);
-            player.sendMessage(Component.text("Penetrace armoru " + armorClass.name() + " smazána.", NamedTextColor.GREEN));
-            render(plugin, holder.getInventory(), holder);
+            player.sendMessage(messages.render(locale, "gui.item-editor.penetration.removed", Placeholder.unparsed("class", armorClass.name())));
+            render(plugin, holder.getInventory(), holder, locale);
             return;
         }
 
         player.closeInventory();
-        player.sendMessage(Component.text("Napiš do chatu procenta penetrace, např. 10", NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("(nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        player.sendMessage(messages.render(locale, "gui.item-editor.penetration.prompt"));
+        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
-                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
                 return;
             }
             Double amount = parseDouble(rawInput.trim());
             if (amount == null) {
-                p.sendMessage(Component.text("Neplatné číslo, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
                 return;
             }
             try {
                 plugin.getItemTemplateService().setArmorPenetration(holder.templateKey(), armorClass, amount);
-                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+                p.sendMessage(messages.render(locale, "gui.prompt.done"));
             } catch (TemplateNotFoundException e) {
-                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
             }
             open(plugin, p, holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
         });
@@ -766,52 +796,55 @@ public final class ItemEditorMenu {
     private static final int SLOT_CRIT_CHANCE = CONTENT_START + 2;
     private static final int SLOT_CRIT_BONUS = CONTENT_START + 3;
 
-    private static void renderSpecialEffects(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderSpecialEffects(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
+        Messages messages = plugin.getMessages();
         Optional<BleedEffect> bleed = plugin.getItemTemplateService().bleedEffect(templateKey);
         Optional<CriticalEffect> critical = plugin.getItemTemplateService().criticalEffect(templateKey);
 
-        inventory.setItem(SLOT_BLEED_CHANCE, effectStatIcon(Material.REDSTONE, "Šance krvácení",
+        inventory.setItem(SLOT_BLEED_CHANCE, effectStatIcon(messages, locale, Material.REDSTONE, "gui.item-editor.effects.bleed-chance",
                 bleed.map(b -> formatAmount(b.chancePercent()) + "%").orElse(null)));
-        inventory.setItem(SLOT_BLEED_DURATION, effectStatIcon(Material.CLOCK, "Doba krvácení",
+        inventory.setItem(SLOT_BLEED_DURATION, effectStatIcon(messages, locale, Material.CLOCK, "gui.item-editor.effects.bleed-duration",
                 bleed.map(b -> formatAmount(b.durationSeconds()) + "s").orElse(null)));
-        inventory.setItem(SLOT_CRIT_CHANCE, effectStatIcon(Material.IRON_SWORD, "Šance kritického zásahu",
+        inventory.setItem(SLOT_CRIT_CHANCE, effectStatIcon(messages, locale, Material.IRON_SWORD, "gui.item-editor.effects.crit-chance",
                 critical.map(c -> formatAmount(c.chancePercent()) + "%").orElse(null)));
-        inventory.setItem(SLOT_CRIT_BONUS, effectStatIcon(Material.GOLDEN_SWORD, "Bonus poškození kritu",
+        inventory.setItem(SLOT_CRIT_BONUS, effectStatIcon(messages, locale, Material.GOLDEN_SWORD, "gui.item-editor.effects.crit-bonus",
                 critical.map(c -> "+" + formatAmount(c.bonusDamagePercent()) + "%").orElse(null)));
 
-        ItemStack info = named(Material.PAPER, Component.text("Krvácení a kritický zásah", NamedTextColor.AQUA));
+        ItemStack info = named(Material.PAPER, messages.render(locale, "gui.item-editor.effects.info-title"));
         ItemMeta infoMeta = info.getItemMeta();
         infoMeta.lore(List.of(
-                Component.text("Obojí se hodí zvlášť při zásahu.", NamedTextColor.GRAY),
-                Component.text("Krvácení pak tiká damage po dobu", NamedTextColor.GRAY),
-                Component.text("trvání, krit jen jednou navýší", NamedTextColor.GRAY),
-                Component.text("celkové poškození tohoto zásahu.", NamedTextColor.GRAY)));
+                messages.render(locale, "gui.item-editor.effects.info-1"),
+                messages.render(locale, "gui.item-editor.effects.info-2"),
+                messages.render(locale, "gui.item-editor.effects.info-3"),
+                messages.render(locale, "gui.item-editor.effects.info-4")));
         info.setItemMeta(infoMeta);
         inventory.setItem(PREVIEW_SLOT, info);
     }
 
-    private static ItemStack effectStatIcon(Material material, String label, String currentValue) {
-        ItemStack icon = named(material, Component.text(label, NamedTextColor.AQUA));
+    private static ItemStack effectStatIcon(Messages messages, Locale locale, Material material, String labelKey, String currentValue) {
+        ItemStack icon = named(material, messages.render(locale, labelKey));
         ItemMeta meta = icon.getItemMeta();
         List<Component> lore = new ArrayList<>();
         lore.add(currentValue != null
-                ? Component.text(currentValue, NamedTextColor.GREEN)
-                : Component.text("(nenastaveno)", NamedTextColor.DARK_GRAY));
+                ? messages.render(locale, "gui.item-editor.effects.value", Placeholder.unparsed("value", currentValue))
+                : messages.render(locale, "gui.armor-class.lore.not-set"));
         lore.add(Component.empty());
-        lore.add(Component.text("Klik: nastavit", NamedTextColor.YELLOW));
-        lore.add(Component.text("Shift+klik: smazat celý efekt", NamedTextColor.RED));
+        lore.add(messages.render(locale, "gui.item-editor.armor-class.hint-set"));
+        lore.add(messages.render(locale, "gui.item-editor.effects.hint-shift-delete"));
         meta.lore(lore);
         icon.setItemMeta(meta);
         return icon;
     }
 
     private static void handleSpecialEffectsClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         switch (slot) {
             case SLOT_BLEED_CHANCE, SLOT_BLEED_DURATION -> {
                 if (shift) {
                     plugin.getItemTemplateService().removeBleedEffect(holder.templateKey());
-                    player.sendMessage(Component.text("Krvácení smazáno.", NamedTextColor.GREEN));
-                    render(plugin, holder.getInventory(), holder);
+                    player.sendMessage(messages.render(locale, "gui.item-editor.effects.bleed-removed"));
+                    render(plugin, holder.getInventory(), holder, locale);
                     return;
                 }
                 boolean editingChance = slot == SLOT_BLEED_CHANCE;
@@ -820,8 +853,8 @@ public final class ItemEditorMenu {
             case SLOT_CRIT_CHANCE, SLOT_CRIT_BONUS -> {
                 if (shift) {
                     plugin.getItemTemplateService().removeCriticalEffect(holder.templateKey());
-                    player.sendMessage(Component.text("Kritický zásah smazán.", NamedTextColor.GREEN));
-                    render(plugin, holder.getInventory(), holder);
+                    player.sendMessage(messages.render(locale, "gui.item-editor.effects.crit-removed"));
+                    render(plugin, holder.getInventory(), holder, locale);
                     return;
                 }
                 boolean editingChance = slot == SLOT_CRIT_CHANCE;
@@ -833,21 +866,21 @@ public final class ItemEditorMenu {
     }
 
     private static void promptBleedValue(PurrtechPVE plugin, Player player, ItemEditorHolder holder, boolean editingChance) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         BleedEffect current = plugin.getItemTemplateService().bleedEffect(holder.templateKey()).orElse(new BleedEffect(0, 0));
         player.closeInventory();
-        player.sendMessage(Component.text(editingChance
-                ? "Napiš do chatu procenta šance na krvácení, např. 25"
-                : "Napiš do chatu dobu trvání krvácení v sekundách, např. 5", NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("(nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        player.sendMessage(messages.render(locale, editingChance ? "gui.item-editor.effects.prompt-bleed-chance" : "gui.item-editor.effects.prompt-bleed-duration"));
+        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
-                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
                 return;
             }
             Double value = parseDouble(rawInput.trim());
             if (value == null) {
-                p.sendMessage(Component.text("Neplatné číslo, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
                 return;
             }
@@ -857,30 +890,30 @@ public final class ItemEditorMenu {
                 } else {
                     plugin.getItemTemplateService().setBleedEffect(holder.templateKey(), current.chancePercent(), value);
                 }
-                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+                p.sendMessage(messages.render(locale, "gui.prompt.done"));
             } catch (TemplateNotFoundException e) {
-                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
             }
             open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
         });
     }
 
     private static void promptCriticalValue(PurrtechPVE plugin, Player player, ItemEditorHolder holder, boolean editingChance) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
         CriticalEffect current = plugin.getItemTemplateService().criticalEffect(holder.templateKey()).orElse(new CriticalEffect(0, 0));
         player.closeInventory();
-        player.sendMessage(Component.text(editingChance
-                ? "Napiš do chatu procenta šance na kritický zásah, např. 15"
-                : "Napiš do chatu o kolik % víc damage dá krit, např. 50", NamedTextColor.YELLOW));
-        player.sendMessage(Component.text("(nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        player.sendMessage(messages.render(locale, editingChance ? "gui.item-editor.effects.prompt-crit-chance" : "gui.item-editor.effects.prompt-crit-bonus"));
+        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
-                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
                 return;
             }
             Double value = parseDouble(rawInput.trim());
             if (value == null) {
-                p.sendMessage(Component.text("Neplatné číslo, zkus to znovu z menu.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
                 return;
             }
@@ -890,9 +923,9 @@ public final class ItemEditorMenu {
                 } else {
                     plugin.getItemTemplateService().setCriticalEffect(holder.templateKey(), current.chancePercent(), value);
                 }
-                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+                p.sendMessage(messages.render(locale, "gui.prompt.done"));
             } catch (TemplateNotFoundException e) {
-                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
             }
             open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
         });
@@ -903,14 +936,15 @@ public final class ItemEditorMenu {
     // name (a plain String from MythicMobs, not a DamageType) instead of a damage type - mob type
     // lists can get a lot longer than the ~19 damage types, so this is where it matters most.
 
-    private static void renderMobs(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder) {
+    private static void renderMobs(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
+        Messages messages = plugin.getMessages();
         if (plugin.getMythicMobsBridge() == null) {
-            ItemStack info = named(Material.BARRIER, Component.text("MythicMobs není dostupný", NamedTextColor.RED));
+            ItemStack info = named(Material.BARRIER, messages.render(locale, "gui.item-editor.mobs.unavailable"));
             ItemMeta infoMeta = info.getItemMeta();
             infoMeta.lore(List.of(
-                    Component.text("Buď není na serveru nainstalovaný,", NamedTextColor.GRAY),
-                    Component.text("nebo jeho verze neodpovídá tomu,", NamedTextColor.GRAY),
-                    Component.text("co tenhle plugin očekává.", NamedTextColor.GRAY)));
+                    messages.render(locale, "gui.item-editor.mobs.unavailable-1"),
+                    messages.render(locale, "gui.item-editor.mobs.unavailable-2"),
+                    messages.render(locale, "gui.item-editor.mobs.unavailable-3")));
             info.setItemMeta(infoMeta);
             inventory.setItem(PREVIEW_SLOT, info);
             return;
@@ -918,7 +952,7 @@ public final class ItemEditorMenu {
 
         String templateKey = holder.templateKey();
         if (holder.isPickerOpen()) {
-            renderMobPicker(plugin, inventory, templateKey);
+            renderMobPicker(plugin, inventory, templateKey, locale);
             return;
         }
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
@@ -928,12 +962,12 @@ public final class ItemEditorMenu {
             String assignedSlot = mobEquipmentSlot(plugin, mobType, template.id()).orElseThrow();
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("Nasazeno v: " + assignedSlot, NamedTextColor.GREEN));
+            lore.add(messages.render(locale, "gui.item-editor.mobs.equipped-in", Placeholder.unparsed("slot", assignedSlot)));
             lore.add(Component.empty());
-            lore.add(Component.text("Klik: znovu nasadit (dle materiálu)", NamedTextColor.YELLOW));
-            lore.add(Component.text("Shift+klik: odebrat", NamedTextColor.RED));
+            lore.add(messages.render(locale, "gui.item-editor.mobs.hint-reequip"));
+            lore.add(messages.render(locale, "gui.item-editor.mobs.hint-unequip"));
 
-            ItemStack icon = named(Material.ZOMBIE_HEAD, Component.text(mobType, NamedTextColor.AQUA));
+            ItemStack icon = named(Material.ZOMBIE_HEAD, messages.render(locale, "gui.item-editor.mobs.icon", Placeholder.unparsed("mob", mobType)));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
@@ -941,30 +975,30 @@ public final class ItemEditorMenu {
         }
         int addSlot = CONTENT_START + assigned.size();
         if (addSlot < SIZE) {
-            inventory.setItem(addSlot, addButton("+ Nasadit mobovi"));
+            inventory.setItem(addSlot, addButton(messages, locale, "gui.item-editor.mobs.add"));
         }
     }
 
-    private static void renderMobPicker(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderMobPicker(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
+        Messages messages = plugin.getMessages();
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
         List<String> available = unassignedMobTypes(plugin, template.id());
         for (int i = 0; i < available.size() && CONTENT_START + i < SIZE; i++) {
             String mobType = available.get(i);
-            ItemStack icon = named(Material.ZOMBIE_HEAD, Component.text(mobType, NamedTextColor.AQUA));
+            ItemStack icon = named(Material.ZOMBIE_HEAD, messages.render(locale, "gui.item-editor.mobs.icon", Placeholder.unparsed("mob", mobType)));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(List.of(
-                    Component.text("Klik: nasadit tenhle item mobovi", NamedTextColor.YELLOW),
-                    Component.text("(slot se určí podle materiálu)", NamedTextColor.YELLOW)));
+                    messages.render(locale, "gui.item-editor.mobs.hint-equip-1"),
+                    messages.render(locale, "gui.item-editor.mobs.hint-equip-2")));
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
         }
         if (available.isEmpty()) {
-            inventory.setItem(CONTENT_START, named(Material.PAPER,
-                    Component.text("Item je nasazený už u všech mobů.", NamedTextColor.GRAY)));
+            inventory.setItem(CONTENT_START, named(Material.PAPER, messages.render(locale, "gui.item-editor.mobs.all-equipped")));
         }
-        ItemStack back = named(Material.ARROW, Component.text("Zpět", NamedTextColor.RED));
+        ItemStack back = named(Material.ARROW, messages.render(locale, "gui.item-editor.back-red"));
         ItemMeta backMeta = back.getItemMeta();
-        backMeta.lore(List.of(Component.text("Klik: zpět na seznam nasazených mobů", NamedTextColor.YELLOW)));
+        backMeta.lore(List.of(messages.render(locale, "gui.item-editor.mobs.hint-back")));
         back.setItemMeta(backMeta);
         inventory.setItem(PREVIEW_SLOT, back);
     }
@@ -983,6 +1017,7 @@ public final class ItemEditorMenu {
     }
 
     private static void handleMobsClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
+        Locale locale = player.locale();
         if (plugin.getMythicMobsBridge() == null) {
             return;
         }
@@ -995,7 +1030,7 @@ public final class ItemEditorMenu {
         int index = slot - CONTENT_START;
         if (index == assigned.size()) {
             holder.setPickerOpen(true);
-            render(plugin, holder.getInventory(), holder);
+            render(plugin, holder.getInventory(), holder, locale);
             return;
         }
         if (index < 0 || index >= assigned.size()) {
@@ -1005,18 +1040,19 @@ public final class ItemEditorMenu {
         if (shift) {
             String assignedSlot = mobEquipmentSlot(plugin, mobType, template.id()).orElseThrow();
             plugin.getMobEquipmentRepository().remove(mobType, assignedSlot);
-            player.sendMessage(Component.text("Odebráno z moba " + mobType + ".", NamedTextColor.GREEN));
-            render(plugin, holder.getInventory(), holder);
+            player.sendMessage(plugin.getMessages().render(locale, "gui.item-editor.mobs.unequipped", Placeholder.unparsed("mob", mobType)));
+            render(plugin, holder.getInventory(), holder, locale);
             return;
         }
         equipToMob(plugin, player, template, mobType);
-        render(plugin, holder.getInventory(), holder);
+        render(plugin, holder.getInventory(), holder, locale);
     }
 
     private static void handleMobPickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
+        Locale locale = player.locale();
         if (slot == PREVIEW_SLOT) {
             holder.setPickerOpen(false);
-            render(plugin, holder.getInventory(), holder);
+            render(plugin, holder.getInventory(), holder, locale);
             return;
         }
         ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
@@ -1027,14 +1063,14 @@ public final class ItemEditorMenu {
         }
         equipToMob(plugin, player, template, available.get(index));
         holder.setPickerOpen(false);
-        render(plugin, holder.getInventory(), holder);
+        render(plugin, holder.getInventory(), holder, locale);
     }
 
     private static void equipToMob(PurrtechPVE plugin, Player player, ItemTemplate template, String mobType) {
         EquipmentSlot equipSlot = autoSlotFor(template.baseMaterial());
         plugin.getMobEquipmentRepository().set(mobType, equipSlot.name(), template.id());
-        player.sendMessage(Component.text("Item nasazen mobovi " + mobType + " do slotu "
-                + equipSlot.name() + ".", NamedTextColor.GREEN));
+        player.sendMessage(plugin.getMessages().render(player.locale(), "gui.item-editor.mobs.equipped",
+                Placeholder.unparsed("mob", mobType), Placeholder.unparsed("slot", equipSlot.name())));
     }
 
     /** Guesses the equipment slot from the base material's vanilla naming convention (helmet/chestplate/... suffix, shield). */
@@ -1068,28 +1104,26 @@ public final class ItemEditorMenu {
 
     // ---- PUBLISH ----
 
-    private static void renderPublish(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderPublish(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
+        Messages messages = plugin.getMessages();
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
 
         List<Component> infoLore = new ArrayList<>();
-        infoLore.add(Component.text("Aktuální verze: " + template.version(), NamedTextColor.WHITE));
-        infoLore.add(Component.text("Propsáno do oběhu: " + template.syncedVersion(), NamedTextColor.WHITE));
+        infoLore.add(messages.render(locale, "gui.item-editor.publish.current-version", Placeholder.unparsed("version", String.valueOf(template.version()))));
+        infoLore.add(messages.render(locale, "gui.item-editor.publish.synced-version", Placeholder.unparsed("version", String.valueOf(template.syncedVersion()))));
         infoLore.add(Component.empty());
-        infoLore.add(template.isFullySynced()
-                ? Component.text("Vše propsáno.", NamedTextColor.GREEN)
-                : Component.text("Máš neuložené změny čekající na propsání.", NamedTextColor.YELLOW));
-        ItemStack info = named(Material.WRITABLE_BOOK, Component.text("Stav šablony", NamedTextColor.AQUA));
+        infoLore.add(messages.render(locale, template.isFullySynced() ? "gui.item-editor.publish.all-synced" : "gui.item-editor.publish.pending-changes"));
+        ItemStack info = named(Material.WRITABLE_BOOK, messages.render(locale, "gui.item-editor.publish.status-title"));
         ItemMeta infoMeta = info.getItemMeta();
         infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
         inventory.setItem(PREVIEW_SLOT, info);
 
         List<Component> buttonLore = List.of(
-                Component.text("Přerenderuje všechny itemy této šablony", NamedTextColor.GRAY),
-                Component.text("u online hráčů. Offline hráči doženou", NamedTextColor.GRAY),
-                Component.text("verzi při příštím přihlášení.", NamedTextColor.GRAY));
-        ItemStack button = named(Material.EMERALD_BLOCK, Component.text("Propsat do oběhu teď", NamedTextColor.GREEN)
-                .decorate(TextDecoration.BOLD));
+                messages.render(locale, "gui.item-editor.publish.button-info-1"),
+                messages.render(locale, "gui.item-editor.publish.button-info-2"),
+                messages.render(locale, "gui.item-editor.publish.button-info-3"));
+        ItemStack button = named(Material.EMERALD_BLOCK, messages.render(locale, "gui.item-editor.publish.button").decorate(TextDecoration.BOLD));
         ItemMeta buttonMeta = button.getItemMeta();
         buttonMeta.lore(buttonLore);
         button.setItemMeta(buttonMeta);
@@ -1100,17 +1134,18 @@ public final class ItemEditorMenu {
         if (slot != PUBLISH_BUTTON_SLOT) {
             return;
         }
+        Locale locale = player.locale();
         plugin.getItemTemplateService().propagate(holder.templateKey());
         int touched = plugin.getItemSyncService().resyncAllOnlinePlayers();
-        player.sendMessage(Component.text("Propsáno do oběhu. Aktualizováno " + touched + " itemů u online hráčů.", NamedTextColor.GREEN));
-        render(plugin, holder.getInventory(), holder);
+        player.sendMessage(plugin.getMessages().render(locale, "gui.item-editor.publish.done", Placeholder.unparsed("count", String.valueOf(touched))));
+        render(plugin, holder.getInventory(), holder, locale);
     }
 
     // ---- shared click routing ----
 
     public static void handleClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
         if (plugin.getItemTemplateService().findByKey(holder.templateKey()).isEmpty()) {
-            player.sendMessage(Component.text("Šablona byla mezitím smazána.", NamedTextColor.RED));
+            player.sendMessage(plugin.getMessages().render(player.locale(), "gui.item-editor.template-gone-meanwhile"));
             player.closeInventory();
             return;
         }
@@ -1144,30 +1179,31 @@ public final class ItemEditorMenu {
     // ---- helpers ----
 
     /** Shared "+ Add" button icon used by every tab's configured-list + picker pattern (DAMAGE, RESIST, MOBS). */
-    private static ItemStack addButton(String label) {
-        ItemStack icon = named(Material.LIME_DYE, Component.text(label, NamedTextColor.GREEN));
+    private static ItemStack addButton(Messages messages, Locale locale, String labelKey) {
+        ItemStack icon = named(Material.LIME_DYE, messages.render(locale, labelKey));
         ItemMeta meta = icon.getItemMeta();
-        meta.lore(List.of(Component.text("Klik: vybrat, co chceš přidat", NamedTextColor.YELLOW)));
+        meta.lore(List.of(messages.render(locale, "gui.item-editor.add-hint")));
         icon.setItemMeta(meta);
         return icon;
     }
 
     /** Shared damage-type picker screen (DAMAGE/RESIST tabs) - a "Zpět" arrow in PREVIEW_SLOT, one icon per not-yet-configured type. */
-    private static void renderTypePicker(Inventory inventory, List<DamageType> available) {
+    private static void renderTypePicker(Messages messages, Locale locale, Inventory inventory, List<DamageType> available) {
         for (int i = 0; i < available.size() && CONTENT_START + i < SIZE; i++) {
             DamageType type = available.get(i);
-            ItemStack icon = named(iconFor(type.key()), Component.text(type.icon() + " " + type.displayName(), NamedTextColor.AQUA));
+            ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.type-icon",
+                    Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
             ItemMeta meta = icon.getItemMeta();
-            meta.lore(List.of(Component.text("Klik: přidat", NamedTextColor.YELLOW)));
+            meta.lore(List.of(messages.render(locale, "gui.item-editor.picker-hint-add")));
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
         }
         if (available.isEmpty()) {
-            inventory.setItem(CONTENT_START, named(Material.PAPER, Component.text("Všechno už je přidané.", NamedTextColor.GRAY)));
+            inventory.setItem(CONTENT_START, named(Material.PAPER, messages.render(locale, "gui.item-editor.picker-all-added")));
         }
-        ItemStack back = named(Material.ARROW, Component.text("Zpět", NamedTextColor.RED));
+        ItemStack back = named(Material.ARROW, messages.render(locale, "gui.item-editor.back-red"));
         ItemMeta backMeta = back.getItemMeta();
-        backMeta.lore(List.of(Component.text("Klik: zpět na seznam", NamedTextColor.YELLOW)));
+        backMeta.lore(List.of(messages.render(locale, "gui.item-editor.picker-hint-back")));
         back.setItemMeta(backMeta);
         inventory.setItem(PREVIEW_SLOT, back);
     }
