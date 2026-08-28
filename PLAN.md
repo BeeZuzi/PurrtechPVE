@@ -1595,6 +1595,37 @@
     před ostrým nasazením proletět aspoň `/pve item edit <key>` po
     všech tabech naživo.
 
+- **Oprava: `lang/*.yml` se vůbec neextrahovaly na disk (2026-08-28)** -
+  našel to uživatel hned po předchozím zápisu ("ty yml soubory nejsou
+  ve složce pluginu"). `Messages.load()` dřív četlo cs.yml/en.yml
+  VÝHRADNĚ jako bundled zdroj přímo z jaru (`plugin.getResource(...)`)
+  - takže i kdyby si admin ruční kopii dal do `plugins/PurrtechPVE/
+  lang/`, plugin by si jí vůbec nevšiml. Celý smysl týhle a předchozí
+  fáze (aby šlo měnit barvy/překlad bez rebuildu) tím pádem nefungoval.
+  - **Oprava** v `Messages.loadFlat(...)`: při chybějícím
+    `plugins/PurrtechPVE/lang/{cs,en}.yml` je `plugin.saveResource(...)`
+    vyextrahuje (stejný `config.yml`-style pattern), a načtení teď
+    vrstvý disk PŘES bundled defaults (bundled = base vrstva, co vyplní
+    díry; disk override = co tam admin/najde a přepíše) - ne buď/anebo.
+    Důvod té vrstvy místo prostého "načti z disku": disková kopie z
+    dřívější verze pluginu (před touhle GUI-lokalizační session)
+    neobsahuje žádný z nových `gui.*` klíčů - bez bundled fallbacku by
+    se v GUI po upgradu zobrazovaly holé klíče místo textu. Stejná
+    "neshoď starší nasazení" filozofie jako `Schema.addColumnIfMissing`
+    pro DB sloupce.
+  - **Ověřeno živě**: čistá `runServer` bez `plugins/PurrtechPVE/lang/`
+    → po bootu se oba soubory objevily na disku, žádná výjimka. Pak
+    ruční úprava jedné hodnoty v disk `cs.yml` (`item.created` →
+    přidán `TEST-EDIT` prefix + jiná barva) + reboot → `/pve item
+    create` opravdu vypsal upravený text, což potvrzuje, že se disková
+    verze reálně použije, ne jen bundled. Test-edit i extrahovaná
+    `run/plugins/PurrtechPVE/lang/` složka po ověření smazány (regenerují
+    se samy při příštím bootu z čerstvého bundled obsahu).
+  - Čistý `build`/`test` (157 testů), žádné nové testy (`Messages`
+    podle zavedené konvence nemá jednotkové testy - vyžaduje živý
+    `Plugin`/`getDataFolder()`/`saveResource()`, stejný důvod jako
+    `ItemRenderer`/`BaseItemSnapshots`).
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
