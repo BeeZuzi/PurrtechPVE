@@ -15,6 +15,7 @@ item:
     passive: "<gray>Pasivní bonus (nasazeno):"
     resist: "<gray>Odolnosti / slabiny:"
     penetration: "<gray>Penetrace armoru:"
+    attributes: "<gray>Atributy:"
   line:
     damage-flat: "<white> +<amount> <type>"
     damage-percent: "<white> +<amount>% <type>"
@@ -23,6 +24,7 @@ item:
     penetration: "<white> -<amount>% armoru typu <class></white>"
     bleed: "<white> <chance> % šance na krvácení po dobu <duration>s</white>"
     critical: "<white> <chance> % šance na krit, +<bonus> % poškození</white>"
+    attribute: "<white> <amount> <attribute></white> <gray>(<slot>)</gray>"
   created: "<green>Šablona <white><key></white> vytvořena."
   deleted: "<green>Šablona <white><key></white> smazána."
   not-found: "<red>Šablona <white><key></white> neexistuje."
@@ -42,7 +44,7 @@ item:
   setbase-empty-hand: "<red>Drž v ruce item, který chceš použít jako nový základ."
   setbase-done: "<green>Šablona <white><key></white>: základ změněn na <white><material></white>."
   import-no-stats: "<red>Item v ruce nemá žádná ValhallaMMO data (žádné default_stats/actual_stats)."
-  import-done: "<green>Šablona <white><key></white> naimportována z ValhallaMMO: <white><damage></white> typů poškození, <white><resist></white> odolností/slabin, <white><enchants></white> enchantů."
+  import-done: "<green>Šablona <white><key></white> naimportována z ValhallaMMO: <white><damage></white> typů poškození, <white><resist></white> odolností/slabin, <white><enchants></white> enchantů, <white><attributes></white> reálných atributů přeneseno 1:1."
   import-skipped: "<yellow>Přeskočené (nemají u nás obdobu): <white><attributes></white>"
   bulk-import-file-missing: "<red>Soubor s items od ValhallaMMO nenalezen: <white><path></white>."
   bulk-import-error: "<red>Nepodařilo se přečíst soubor s items od ValhallaMMO: <white><error></white>"
@@ -58,6 +60,11 @@ item:
   bleed-removed: "<green>Krvácení odebráno ze šablony <white><key></white>."
   critical-set: "<green>Kritický zásah nastaven na šabloně <white><key></white>."
   critical-removed: "<green>Kritický zásah odebrán ze šablony <white><key></white>."
+  unknown-attribute: "<red>Neznámý atribut: <white><attribute></white>"
+  unknown-slot: "<red>Neznámý slot: <white><slot></white> (použij mainhand/offhand/hand/feet/legs/chest/head/armor/body/any, nebo nastavený trinket slot)"
+  unknown-operation: "<red>Neznámá operace: <white><operation></white> (použij add_number, add_scalar nebo multiply_scalar_1)"
+  attribute-set: "<green>Atribut <white><attribute></white> (<white><slot></white>) nastaven na šabloně <white><key></white>."
+  attribute-removed: "<green>Atribut <white><attribute></white> (<white><slot></white>) odebrán ze šablony <white><key></white>."
 
 mobprofile:
   set: "<green>Odolnost/slabina <white><type></white> nastavena pro MythicMobs typ <white><mob></white>."

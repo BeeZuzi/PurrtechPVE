@@ -9,7 +9,9 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -32,6 +34,7 @@ import java.util.Optional;
  */
 public final class ItemRenderer {
 
+    private final Plugin plugin;
     private final Messages messages;
     private final Locale locale;
     private final DamageTypeRegistry damageTypeRegistry;
@@ -39,6 +42,7 @@ public final class ItemRenderer {
     private final NamespacedKey templateVersionPdc;
 
     public ItemRenderer(Plugin plugin, Messages messages, Locale locale, DamageTypeRegistry damageTypeRegistry) {
+        this.plugin = plugin;
         this.messages = messages;
         this.locale = locale;
         this.damageTypeRegistry = damageTypeRegistry;
@@ -57,22 +61,23 @@ public final class ItemRenderer {
     /** Renders from the template's current live data - always the newest version, used for freshly given items. */
     public ItemStack render(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                              List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
-                             BleedEffect bleedEffect, CriticalEffect criticalEffect) {
+                             BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         return render(template.key(), template.version(), template.displayName(), template.baseMaterial(),
-                template.customModelData(), contributions, modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect);
+                template.customModelData(), contributions, modifiers, enchantments, armorPenetration, bleedEffect,
+                criticalEffect, attributeModifiers);
     }
 
     /** Renders exactly as a given historical version looked - used to catch up a stack pinned behind the live version. */
     public ItemStack renderSnapshot(TemplateSnapshot snapshot) {
         return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.baseMaterial(),
                 snapshot.customModelData(), snapshot.damageContributions(), snapshot.typeModifiers(), snapshot.enchantments(),
-                snapshot.armorPenetration(), snapshot.bleedEffect(), snapshot.criticalEffect());
+                snapshot.armorPenetration(), snapshot.bleedEffect(), snapshot.criticalEffect(), snapshot.attributeModifiers());
     }
 
     private ItemStack render(String key, int version, String displayName, Material baseMaterial,
                               Integer customModelData, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                               List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
-                              BleedEffect bleedEffect, CriticalEffect criticalEffect) {
+                              BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         ItemStack stack = new ItemStack(baseMaterial);
         ItemMeta meta = stack.getItemMeta();
 
@@ -80,13 +85,30 @@ public final class ItemRenderer {
         if (customModelData != null) {
             meta.setCustomModelData(customModelData);
         }
-        meta.lore(buildLore(contributions, modifiers, armorPenetration, bleedEffect, criticalEffect));
+        meta.lore(buildLore(contributions, modifiers, armorPenetration, bleedEffect, criticalEffect, attributeModifiers));
 
         for (TemplateEnchantment enchantment : enchantments) {
             resolveEnchantment(enchantment.enchantmentKey())
                     // ignoreLevelRestriction=true: these are admin-defined custom items, levels
                     // aren't capped at whatever vanilla considers the enchantment's usual max.
                     .ifPresent(e -> meta.addEnchant(e, enchantment.level(), true));
+        }
+
+        // Only entries whose slot is a real vanilla EquipmentSlotGroup (mainhand/offhand/head/...)
+        // get baked in here - vanilla itself applies/removes these the moment the item is
+        // equipped/unequipped in that slot, exactly like any vanilla attribute-modifier item,
+        // zero custom combat code needed. A trinket-slot entry (this server's own accessory slot
+        // names, which aren't real equipment slots vanilla can watch) is deliberately NOT baked in
+        // here - see AttributeModifierEntry's javadoc - but IS still shown in the lore below so
+        // it's not invisible to whoever's looking at the item.
+        for (AttributeModifierEntry entry : attributeModifiers) {
+            EquipmentSlotGroup group = EquipmentSlotGroup.getByName(entry.slot().toLowerCase(Locale.ROOT));
+            if (group == null) {
+                continue;
+            }
+            NamespacedKey modifierKey = new NamespacedKey(plugin, "attr_" + entry.slot().toLowerCase(Locale.ROOT)
+                    + "_" + entry.attribute().name().toLowerCase(Locale.ROOT));
+            meta.addAttributeModifier(entry.attribute(), new AttributeModifier(modifierKey, entry.amount(), entry.operation(), group));
         }
 
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
@@ -121,7 +143,8 @@ public final class ItemRenderer {
     }
 
     private List<Component> buildLore(List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                                       List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect) {
+                                       List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
+                                       List<AttributeModifierEntry> attributeModifiers) {
         List<Component> lore = new ArrayList<>();
 
         List<DamageContribution> wielded = contributions.stream().filter(c -> c.context() == ModifierContext.WIELDED).toList();
@@ -161,6 +184,12 @@ public final class ItemRenderer {
                     Placeholder.unparsed("chance", formatAmount(criticalEffect.chancePercent())),
                     Placeholder.unparsed("bonus", formatAmount(criticalEffect.bonusDamagePercent()))));
         }
+        if (!attributeModifiers.isEmpty()) {
+            lore.add(messages.render(locale, "item.header.attributes"));
+            for (AttributeModifierEntry a : attributeModifiers) {
+                lore.add(attributeLine(a));
+            }
+        }
         return lore;
     }
 
@@ -182,6 +211,16 @@ public final class ItemRenderer {
         return messages.render(locale, "item.line.penetration",
                 Placeholder.unparsed("amount", formatAmount(p.amount())),
                 Placeholder.unparsed("class", p.armorClass().name()));
+    }
+
+    /** ADD_NUMBER is a flat amount; ADD_SCALAR/MULTIPLY_SCALAR_1 are both percentage-of-base operations - shown with a trailing "%" either way, same simplicity as flat-vs-percent damage contributions. */
+    private Component attributeLine(AttributeModifierEntry a) {
+        String amount = (a.amount() >= 0 ? "+" : "") + formatAmount(a.amount())
+                + (a.operation() == AttributeModifier.Operation.ADD_NUMBER ? "" : "%");
+        return messages.render(locale, "item.line.attribute",
+                Placeholder.unparsed("amount", amount),
+                Placeholder.unparsed("attribute", a.attribute().name()),
+                Placeholder.unparsed("slot", a.slot()));
     }
 
     private String displayName(String damageTypeKey) {

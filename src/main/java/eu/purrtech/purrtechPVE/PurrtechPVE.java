@@ -11,6 +11,7 @@ import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.AccessoryRepository;
 import eu.purrtech.purrtechPVE.db.ArmorClassProfileRepository;
 import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
+import eu.purrtech.purrtechPVE.db.AttributeModifierRepository;
 import eu.purrtech.purrtechPVE.db.BleedEffectRepository;
 import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
@@ -36,6 +37,7 @@ import eu.purrtech.purrtechPVE.listener.ItemSyncJoinListener;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobEquipmentListener;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobsBridge;
 import eu.purrtech.purrtechPVE.trinket.AccessoryMenuListener;
+import eu.purrtech.purrtechPVE.trinket.TrinketAttributeListener;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -81,6 +83,7 @@ public final class PurrtechPVE extends JavaPlugin {
         ArmorPenetrationRepository armorPenetrationRepository = new ArmorPenetrationRepository(database);
         BleedEffectRepository bleedEffectRepository = new BleedEffectRepository(database);
         CriticalEffectRepository criticalEffectRepository = new CriticalEffectRepository(database);
+        AttributeModifierRepository attributeModifierRepository = new AttributeModifierRepository(database);
         mobDamageProfileRepository = new MobDamageProfileRepository(database);
         armorClassProfileRepository = new ArmorClassProfileRepository(database);
         accessoryRepository = new AccessoryRepository(database);
@@ -98,6 +101,7 @@ public final class PurrtechPVE extends JavaPlugin {
                 armorPenetrationRepository,
                 bleedEffectRepository,
                 criticalEffectRepository,
+                attributeModifierRepository,
                 snapshotRepository,
                 damageTypeRegistry,
                 itemRenderer);
@@ -134,7 +138,7 @@ public final class PurrtechPVE extends JavaPlugin {
                 getServer().getPluginManager().registerEvents(new MythicMobEquipmentListener(
                         mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
                         typeModifierRepository, enchantmentRepository, armorPenetrationRepository,
-                        bleedEffectRepository, criticalEffectRepository, itemRenderer), this);
+                        bleedEffectRepository, criticalEffectRepository, attributeModifierRepository, itemRenderer), this);
             } catch (Throwable t) {
                 getLogger().warning("Failed to register the MythicMobs mob-equipment listener ("
                         + t.getClass().getSimpleName()
@@ -161,6 +165,8 @@ public final class PurrtechPVE extends JavaPlugin {
                 new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager), this);
         getServer().getPluginManager().registerEvents(new ItemSyncJoinListener(itemSyncService), this);
         getServer().getPluginManager().registerEvents(new AccessoryMenuListener(accessoryRepository), this);
+        getServer().getPluginManager().registerEvents(new TrinketAttributeListener(this, accessoryRepository,
+                accessorySettings, itemTemplateRepository, snapshotRepository, itemRenderer), this);
         itemEditorListener = new ItemEditorListener(this);
         getServer().getPluginManager().registerEvents(itemEditorListener, this);
 

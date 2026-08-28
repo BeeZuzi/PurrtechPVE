@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE.item;
 
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
+import eu.purrtech.purrtechPVE.db.AttributeModifierRepository;
 import eu.purrtech.purrtechPVE.db.BleedEffectRepository;
 import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
@@ -52,6 +53,7 @@ class ItemTemplateServiceTest {
                 new ArmorPenetrationRepository(database),
                 new BleedEffectRepository(database),
                 new CriticalEffectRepository(database),
+                new AttributeModifierRepository(database),
                 snapshotRepository,
                 new DamageTypeRegistry(),
                 null);

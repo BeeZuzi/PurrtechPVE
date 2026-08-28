@@ -1088,6 +1088,112 @@
     volby, ne rostoucí seznam "věcí, co se přidávají"; řekni, pokud má
     jít i tam.
 
+- **`/pve item replace`, reálné Minecraft atributy + trinket propojení,
+  1:1 import atributů (2026-08-28), na žádost.** Tři samostatné věci v
+  jedné zprávě:
+  1. **`/pve item replace <key> <material>`** - psaný ekvivalent už
+     existujícího `setbase`/GUI rebase (ten vyžaduje držet item v ruce);
+     `material` argument teď má i tab-completion (našeptávač) přes nový
+     `SuggestionProvider` - přidáno i k existujícímu `create`. Zachovává
+     stávající `customModelData` šablony (mění se jen materiál).
+  2. **Reálné vanilla Minecraft atributy** (`AttributeModifierEntry` -
+     `Attribute`, částka, `AttributeModifier.Operation`, `slot`) - na
+     rozdíl od `DamageContribution`/`TypeModifier` (naše vlastní virtuální
+     combat-math, počítaná znovu při každém zásahu) se tohle napojuje
+     přímo na skutečný Bukkit attribute systém, takže to funguje úplně
+     stejně jako jakýkoli vanilla item s atributy a nepotřebuje žádný
+     vlastní combat kód.
+     - `slot` je buď název vanilla `EquipmentSlotGroup`
+       (mainhand/offhand/hand/feet/legs/chest/head/armor/body/any/saddle,
+       case-insensitive vstup, kanonicky lowercase) - `ItemRenderer` ho
+       napeče přímo do `ItemMeta` při renderu (`meta.addAttributeModifier`),
+       takže se aplikuje/odebírá automaticky, jakmile item je/není v tom
+       slotu, přesně jako u jakéhokoli vanilla itemu s atributy.
+     - NEBO jeden z nastavených trinket slotů tohohle serveru (viz
+       `AccessorySettings`) - "propojit s trinketama", jak žádáno. Tyhle
+       sloty nejsou skutečné Bukkit `EquipmentSlot`, takže vanilla
+       equip/unequip detekce je nikdy neuvidí - `ItemRenderer` je
+       záměrně NEpeče do `ItemMeta` (nedávalo by to smysl), ale pořád je
+       ukazuje v lore. Nový **`TrinketAttributeListener`** (`trinket`
+       balíček) je aplikuje/odebírá na skutečnou `AttributeInstance`
+       hráče přes `addTransientModifier` (nikdy `addModifier` - schválně,
+       aby se nic neukládalo do vanilla NBT a nebylo co řešit při
+       reconcile) - vždycky kompletní remove-then-reapply přes
+       (nastavený trinket slot × každý `Attribute`) při zavření
+       accessory menu (po uložení, `EventPriority.MONITOR`) a při
+       přihlášení hráče. **Neošetřeno**: úprava atributu šablony, zatímco
+       item už sedí v trinket slotu online hráče, se neprojeví hned -
+       až při dalším otevření/zavření accessory menu nebo relogu (na
+       rozdíl od damage/resist statů, které `EquipmentResolver` počítá
+       znovu při každém zásahu).
+     - Nová **`item_attribute_modifier`** tabulka - existovala už od
+       "Fáze 1" scaffoldingu (vedle `item_damage_contribution`/
+       `item_type_modifier`), ale nic do ní nikdy nezapisovalo (feature
+       nebyla implementovaná). Bezpečně přetvořena (starý `context`
+       sloupec → `slot_name`, protože se mění klíč z "wielded/worn" na
+       "konkrétní slot") - `DROP TABLE` + znovu-`CREATE`, ne
+       `ALTER TABLE` + backfill jako u ostatních migrací v `Schema.java`,
+       protože v tabulce nikdy nebyla žádná data k zachování.
+     - **GUI**: nová sekce v tabu Základ (na žádost - "do záložky
+       základ") pod preview/rebase tlačítkem - stejný Add/picker vzor
+       jako DAMAGE/RESIST/MOBS, jen picker vždy nabízí VŠECH ~40
+       atributů (na rozdíl od DAMAGE/RESIST), protože stejný atribut
+       může mít víc záznamů (různé sloty).
+     - Nové příkazy `/pve item attribute set|remove <key> <attribute>
+       <slot> <amount> [<operation>]` s tab-completion na atribut/slot/
+       operaci.
+  3. **Import 1:1** - `/pve item import valhalla` teď kromě enchantů
+     (už dřív) kopíruje i skutečné vanilla `ItemMeta` attribute modifiery
+     drženého itemu přesně tak, jak jsou (žádný překlad přes ValhallaMMO
+     mapovací tabulky) - slot group se bere přímo z
+     `AttributeModifier.getSlotGroup()`.
+  - `TemplateSnapshot`/`ItemTemplateSnapshotRepository` rozšířeny o
+    `attributeModifiers` (nový sloupec `attribute_modifiers` přes
+    `addColumnIfMissing`, stejný encode/decode vzor jako u ostatních
+    seznamů). `MythicMobEquipmentListener` taky prochází novým
+    repository (moby dostávají atributy stejně jako všechno ostatní).
+  - **Nejde jednotkově otestovat**: `org.bukkit.attribute.Attribute`
+    konstanty (na rozdíl od `DamageMode`/`ArmorClass`, což jsou NAŠE
+    vlastní enumy) jsou při statické inicializaci vázané na živý Bukkit
+    registry (`Attribute.<clinit>` volá `RegistryAccess.registryAccess()`)
+    - i jen ODKAZ na `Attribute.ATTACK_DAMAGE` v čistém JUnitu (bez
+      serveru/MockBukkit) hodí `ExceptionInInitializerError` ještě před
+      tělem testu. Stejný důvod, proč `EquipmentResolver` nemá v projektu
+      vůbec žádné testy. `AttributeModifierRepository`/`TrinketAttributeListener`/
+      `ItemTemplateService`'s nové metody tedy nemají JUnit testy - ověřeno
+      jen živě. `EquipmentSlotGroup` naproti tomu žádný registry nepotřebuje
+      (ověřeno živě i testem) - `AttributeSlots.parse(...)` tedy MÁ 4 nové
+      unit testy (case-insensitivitu na obě strany, neznámý slot, trinket
+      slot co tenhle server nemá nastavený).
+  - 157 testů celkem (153 + 4 nové), čistý
+    `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Ověřeno živě** (`runServer`, ruční sqlite3 kontrola): boot na
+    ručně sestavené DB se starým `item_attribute_modifier` schématem
+    (sloupec `context`, žádný `slot_name`, žádná `attribute_modifiers`
+    ve snapshotu) proběhl čistě - migrace tabulku zahodila a znovu
+    vytvořila ve správném tvaru. Celá příkazová posloupnost (`create` →
+    `attribute set` mainhand ATTACK_DAMAGE → `attribute set` AMULET
+    LUCK → `replace` na DIAMOND_SWORD → `list` → `attribute remove`
+    LUCK) proběhla bez jediné chyby, verze postupně 1→5. Přímá SQL
+    kontrola potvrdila přesnou historii snapshotů na každé verzi (v1
+    prázdno, v2 jen ATTACK_DAMAGE, v3 oba atributy, v4 oba atributy +
+    nový materiál po `replace`, v5 zůstal jen ATTACK_DAMAGE po
+    odebrání LUCK) a živou `item_attribute_modifier` tabulku přesně
+    odpovídající finálnímu stavu (`ATTACK_DAMAGE|4.0|ADD_NUMBER|mainhand`).
+    Cestou jsem si taky ověřil (třikrát omylem), že `/pve item create`
+    potřebuje i `displayName` argument - "Unknown or incomplete command"
+    hlášky ve starších pokusech byly moje vlastní neúplné testovací
+    příkazy, ne bug v konzoli ani v kódu.
+  - **Nedá se ověřit v sandboxu**: samotné GUI proklikání nové sekce v
+    tabu Základ (Add/picker), skutečné baked-in chování vanilla atributu
+    na itemu z `/pve item give` (žádný připojený hráč, na kom by se dal
+    zkusit), a `TrinketAttributeListener`'s reálné grant/revoke chování
+    při zavření accessory menu / přihlášení (taky potřeba připojený
+    hráč). Doporučuju vyzkoušet naživo: dej si item s mainhand atributem
+    do ruky a zkontroluj tooltip/`/attribute get`, dej item s trinket
+    atributem do accessory slotu a zkontroluj `/attribute get` po
+    zavření menu.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

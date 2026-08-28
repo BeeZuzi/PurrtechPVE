@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.gui.ItemEditorMenu;
@@ -15,6 +16,7 @@ import eu.purrtech.purrtechPVE.gui.SetEditorMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorTab;
 import eu.purrtech.purrtechPVE.gui.ArmorClassMenu;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
+import eu.purrtech.purrtechPVE.item.AttributeSlots;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
@@ -38,6 +40,8 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -45,6 +49,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -59,7 +64,63 @@ public final class PveCommand {
 
     private static final String PERMISSION = "purrtechpve.admin";
 
+    // Vanilla EquipmentSlotGroup names (see AttributeSlots) - hardcoded rather than enumerated,
+    // since EquipmentSlotGroup isn't a real enum and exposes no values()/all-instances accessor.
+    private static final List<String> VANILLA_SLOT_GROUP_NAMES = List.of(
+            "mainhand", "offhand", "hand", "feet", "legs", "chest", "head", "armor", "body", "any", "saddle");
+
+    private static final SuggestionProvider<CommandSourceStack> MATERIAL_SUGGESTIONS = (ctx, builder) -> {
+        String remaining = builder.getRemainingLowerCase();
+        for (Material material : Material.values()) {
+            if (!material.isItem()) {
+                continue;
+            }
+            String name = material.name().toLowerCase(Locale.ROOT);
+            if (name.startsWith(remaining)) {
+                builder.suggest(name);
+            }
+        }
+        return builder.buildFuture();
+    };
+
+    private static final SuggestionProvider<CommandSourceStack> ATTRIBUTE_SUGGESTIONS = (ctx, builder) -> {
+        String remaining = builder.getRemainingLowerCase();
+        for (Attribute attribute : Attribute.values()) {
+            String name = attribute.name().toLowerCase(Locale.ROOT);
+            if (name.startsWith(remaining)) {
+                builder.suggest(name);
+            }
+        }
+        return builder.buildFuture();
+    };
+
+    private static final SuggestionProvider<CommandSourceStack> OPERATION_SUGGESTIONS = (ctx, builder) -> {
+        String remaining = builder.getRemainingLowerCase();
+        for (AttributeModifier.Operation operation : AttributeModifier.Operation.values()) {
+            String name = operation.name().toLowerCase(Locale.ROOT);
+            if (name.startsWith(remaining)) {
+                builder.suggest(name);
+            }
+        }
+        return builder.buildFuture();
+    };
+
     private PveCommand() {
+    }
+
+    /** Vanilla slot group names + this server's own configured trinket slot names - see {@link AttributeSlots}. */
+    private static SuggestionProvider<CommandSourceStack> slotSuggestions(PurrtechPVE plugin) {
+        return (ctx, builder) -> {
+            String remaining = builder.getRemainingLowerCase();
+            List<String> options = new ArrayList<>(VANILLA_SLOT_GROUP_NAMES);
+            options.addAll(plugin.getAccessorySettings().slots());
+            for (String option : options) {
+                if (option.toLowerCase(Locale.ROOT).startsWith(remaining)) {
+                    builder.suggest(option);
+                }
+            }
+            return builder.buildFuture();
+        };
     }
 
     public static LiteralCommandNode<CommandSourceStack> create(PurrtechPVE plugin) {
@@ -69,8 +130,32 @@ public final class PveCommand {
                         .then(Commands.literal("create")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .then(Commands.argument("material", StringArgumentType.word())
+                                                .suggests(MATERIAL_SUGGESTIONS)
                                                 .then(Commands.argument("displayName", StringArgumentType.greedyString())
                                                         .executes(ctx -> createTemplate(plugin, ctx))))))
+                        .then(Commands.literal("replace")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .then(Commands.argument("material", StringArgumentType.word())
+                                                .suggests(MATERIAL_SUGGESTIONS)
+                                                .executes(ctx -> replaceTemplateBase(plugin, ctx)))))
+                        .then(Commands.literal("attribute")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("attribute", StringArgumentType.word())
+                                                        .suggests(ATTRIBUTE_SUGGESTIONS)
+                                                        .then(Commands.argument("slot", StringArgumentType.word())
+                                                                .suggests(slotSuggestions(plugin))
+                                                                .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
+                                                                        .then(Commands.argument("operation", StringArgumentType.word())
+                                                                                .suggests(OPERATION_SUGGESTIONS)
+                                                                                .executes(ctx -> setItemAttributeModifier(plugin, ctx))))))))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .then(Commands.argument("attribute", StringArgumentType.word())
+                                                        .suggests(ATTRIBUTE_SUGGESTIONS)
+                                                        .then(Commands.argument("slot", StringArgumentType.word())
+                                                                .suggests(slotSuggestions(plugin))
+                                                                .executes(ctx -> removeItemAttributeModifier(plugin, ctx)))))))
                         .then(Commands.literal("delete")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .executes(ctx -> deleteTemplate(plugin, ctx))))
@@ -348,10 +433,23 @@ public final class PveCommand {
             plugin.getItemTemplateService().setTypeModifier(key, m.damageTypeKey(), m.percent());
         }
         int enchantCount = 0;
+        int attributeCount = 0;
         if (held.hasItemMeta()) {
             for (Map.Entry<Enchantment, Integer> enchant : held.getItemMeta().getEnchants().entrySet()) {
                 plugin.getItemTemplateService().setEnchantment(key, enchant.getKey().getKey().toString(), enchant.getValue());
                 enchantCount++;
+            }
+            // Copied 1:1, not translated through ValhallaMMO's attribute tables above - whatever
+            // real vanilla attribute modifiers the held item already carries (from an anvil,
+            // another plugin, /give with components, ...) come over exactly as they are, slot
+            // group and all, same as the enchantments above.
+            if (held.getItemMeta().hasAttributeModifiers()) {
+                for (Map.Entry<Attribute, AttributeModifier> entry : held.getItemMeta().getAttributeModifiers().entries()) {
+                    AttributeModifier modifier = entry.getValue();
+                    plugin.getItemTemplateService().setAttributeModifier(key, entry.getKey(), modifier.getAmount(),
+                            modifier.getOperation(), modifier.getSlotGroup().toString());
+                    attributeCount++;
+                }
             }
         }
 
@@ -359,7 +457,8 @@ public final class PveCommand {
                 Placeholder.unparsed("key", key),
                 Placeholder.unparsed("damage", String.valueOf(result.contributions().size())),
                 Placeholder.unparsed("resist", String.valueOf(result.modifiers().size())),
-                Placeholder.unparsed("enchants", String.valueOf(enchantCount))));
+                Placeholder.unparsed("enchants", String.valueOf(enchantCount)),
+                Placeholder.unparsed("attributes", String.valueOf(attributeCount))));
         if (!result.skipped().isEmpty()) {
             player.sendMessage(plugin.getMessages().render(locale, "item.import-skipped",
                     Placeholder.unparsed("attributes", String.join(", ", result.skipped()))));
@@ -449,6 +548,32 @@ public final class PveCommand {
         }
         player.sendMessage(plugin.getMessages().render(locale, "item.setbase-done",
                 Placeholder.unparsed("key", key), Placeholder.unparsed("material", held.getType().name())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Same as {@link #setBaseFromHand}, but the material is typed (with tab-completion, see {@link #MATERIAL_SUGGESTIONS}) instead of read off a held item. */
+    private static int replaceTemplateBase(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String materialArg = StringArgumentType.getString(ctx, "material");
+
+        Material material = Material.matchMaterial(materialArg);
+        if (material == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "error.invalid-material",
+                    Placeholder.unparsed("material", materialArg)));
+            return 0;
+        }
+        Optional<ItemTemplate> existing = plugin.getItemTemplateService().findByKey(key);
+        if (existing.isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        // Only the material changes here - custom model data (if any) is carried over as-is,
+        // same as any other single-field edit in this command layer.
+        plugin.getItemTemplateService().rebase(key, material, existing.get().customModelData());
+        sender.sendMessage(plugin.getMessages().render(locale, "item.setbase-done",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("material", material.name())));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -588,6 +713,79 @@ public final class PveCommand {
         sender.sendMessage(plugin.getMessages().render(locale, "item.resist-removed",
                 Placeholder.unparsed("key", key), Placeholder.unparsed("type", damageType)));
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setItemAttributeModifier(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String attributeArg = StringArgumentType.getString(ctx, "attribute");
+        String slotArg = StringArgumentType.getString(ctx, "slot");
+        double amount = DoubleArgumentType.getDouble(ctx, "amount");
+        String operationArg = StringArgumentType.getString(ctx, "operation");
+
+        Attribute attribute = parseAttribute(attributeArg);
+        if (attribute == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-attribute", Placeholder.unparsed("attribute", attributeArg)));
+            return 0;
+        }
+        String slot = AttributeSlots.parse(slotArg, plugin.getAccessorySettings().slots());
+        if (slot == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-slot", Placeholder.unparsed("slot", slotArg)));
+            return 0;
+        }
+        AttributeModifier.Operation operation = parseEnum(AttributeModifier.Operation.class, operationArg);
+        if (operation == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-operation", Placeholder.unparsed("operation", operationArg)));
+            return 0;
+        }
+
+        try {
+            plugin.getItemTemplateService().setAttributeModifier(key, attribute, amount, operation, slot);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.attribute-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("attribute", attribute.name()), Placeholder.unparsed("slot", slot)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeItemAttributeModifier(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String attributeArg = StringArgumentType.getString(ctx, "attribute");
+        String slotArg = StringArgumentType.getString(ctx, "slot");
+
+        Attribute attribute = parseAttribute(attributeArg);
+        if (attribute == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-attribute", Placeholder.unparsed("attribute", attributeArg)));
+            return 0;
+        }
+        String slot = AttributeSlots.parse(slotArg, plugin.getAccessorySettings().slots());
+        if (slot == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-slot", Placeholder.unparsed("slot", slotArg)));
+            return 0;
+        }
+
+        try {
+            plugin.getItemTemplateService().removeAttributeModifier(key, attribute, slot);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.attribute-removed",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("attribute", attribute.name()), Placeholder.unparsed("slot", slot)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static Attribute parseAttribute(String raw) {
+        try {
+            return Attribute.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private static int setEnchantment(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {

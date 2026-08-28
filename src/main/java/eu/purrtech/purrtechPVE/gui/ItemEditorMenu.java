@@ -4,6 +4,8 @@ import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.damage.DamageType;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
+import eu.purrtech.purrtechPVE.item.AttributeModifierEntry;
+import eu.purrtech.purrtechPVE.item.AttributeSlots;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
 import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
@@ -17,6 +19,8 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
@@ -94,7 +98,7 @@ public final class ItemEditorMenu {
         inventory.clear();
         drawTabBar(inventory, tab);
         switch (tab) {
-            case BASE -> renderBase(plugin, inventory, templateKey);
+            case BASE -> renderBase(plugin, inventory, holder);
             case DAMAGE -> renderDamage(plugin, inventory, holder);
             case RESIST -> renderResist(plugin, inventory, holder);
             case TRINKET -> renderTrinket(plugin, inventory, templateKey);
@@ -125,8 +129,21 @@ public final class ItemEditorMenu {
     }
 
     // ---- BASE ----
+    // Preview/rebase stays at PREVIEW_SLOT as before; the content area below it now also lists
+    // this template's real vanilla Attribute bonuses (max health, attack damage, movement speed,
+    // ...) - same "only configured + Add button" shape as DAMAGE/RESIST/MOBS, sharing the same
+    // ItemEditorHolder.pickerOpen flag (BASE's own picker temporarily takes over PREVIEW_SLOT for
+    // its "Zpět" button, same trade-off DAMAGE/RESIST already make). Unlike those, the picker here
+    // lists ALL attributes every time rather than excluding already-added ones: a single attribute
+    // can legitimately have more than one entry (a ring on AMULET and boots on FEET both granting
+    // SAFE_FALL_DISTANCE, say), since the real identity is (attribute, slot), not attribute alone.
 
-    private static void renderBase(PurrtechPVE plugin, Inventory inventory, String templateKey) {
+    private static void renderBase(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder) {
+        String templateKey = holder.templateKey();
+        if (holder.isPickerOpen()) {
+            renderAttributePicker(inventory);
+            return;
+        }
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
         ItemStack preview = plugin.getItemTemplateService().renderGiveable(templateKey);
         ItemMeta meta = preview.getItemMeta();
@@ -138,12 +155,81 @@ public final class ItemEditorMenu {
         meta.lore(lore);
         preview.setItemMeta(meta);
         inventory.setItem(PREVIEW_SLOT, preview);
+
+        List<AttributeModifierEntry> entries = plugin.getItemTemplateService().attributeModifiers(templateKey);
+        for (int i = 0; i < entries.size() && CONTENT_START + i < SIZE; i++) {
+            AttributeModifierEntry entry = entries.get(i);
+            List<Component> entryLore = new ArrayList<>();
+            entryLore.add(Component.text(formatAttributeAmount(entry) + " " + entry.attribute().name(), NamedTextColor.WHITE));
+            entryLore.add(Component.text("Slot: " + entry.slot(), NamedTextColor.GRAY));
+            entryLore.add(Component.empty());
+            entryLore.add(Component.text("Klik: upravit (napíšeš slot, částku", NamedTextColor.YELLOW));
+            entryLore.add(Component.text("a operaci do chatu)", NamedTextColor.YELLOW));
+            entryLore.add(Component.text("Shift+klik: smazat", NamedTextColor.RED));
+            ItemStack icon = named(Material.NETHER_STAR, Component.text(entry.attribute().name(), NamedTextColor.AQUA));
+            ItemMeta entryMeta = icon.getItemMeta();
+            entryMeta.lore(entryLore);
+            icon.setItemMeta(entryMeta);
+            inventory.setItem(CONTENT_START + i, icon);
+        }
+        int addSlot = CONTENT_START + entries.size();
+        if (addSlot < SIZE) {
+            inventory.setItem(addSlot, addButton("+ Přidat atribut"));
+        }
     }
 
-    private static void handleBaseClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
-        if (slot != PREVIEW_SLOT) {
+    private static void renderAttributePicker(Inventory inventory) {
+        Attribute[] attributes = Attribute.values();
+        for (int i = 0; i < attributes.length && CONTENT_START + i < SIZE; i++) {
+            Attribute attribute = attributes[i];
+            ItemStack icon = named(Material.NETHER_STAR, Component.text(attribute.name(), NamedTextColor.AQUA));
+            ItemMeta meta = icon.getItemMeta();
+            meta.lore(List.of(Component.text("Klik: přidat tento atribut", NamedTextColor.YELLOW)));
+            icon.setItemMeta(meta);
+            inventory.setItem(CONTENT_START + i, icon);
+        }
+        ItemStack back = named(Material.ARROW, Component.text("Zpět", NamedTextColor.RED));
+        ItemMeta backMeta = back.getItemMeta();
+        backMeta.lore(List.of(Component.text("Klik: zpět na seznam přidaných atributů", NamedTextColor.YELLOW)));
+        back.setItemMeta(backMeta);
+        inventory.setItem(PREVIEW_SLOT, back);
+    }
+
+    private static String formatAttributeAmount(AttributeModifierEntry entry) {
+        return (entry.amount() >= 0 ? "+" : "") + formatAmount(entry.amount())
+                + (entry.operation() == AttributeModifier.Operation.ADD_NUMBER ? "" : "%");
+    }
+
+    private static void handleBaseClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
+        if (holder.isPickerOpen()) {
+            handleAttributePickerClick(plugin, player, holder, slot);
             return;
         }
+        if (slot == PREVIEW_SLOT) {
+            handleRebaseClick(plugin, player, holder);
+            return;
+        }
+        List<AttributeModifierEntry> entries = plugin.getItemTemplateService().attributeModifiers(holder.templateKey());
+        int index = slot - CONTENT_START;
+        if (index == entries.size()) {
+            holder.setPickerOpen(true);
+            render(plugin, holder.getInventory(), holder);
+            return;
+        }
+        if (index < 0 || index >= entries.size()) {
+            return;
+        }
+        AttributeModifierEntry entry = entries.get(index);
+        if (shift) {
+            plugin.getItemTemplateService().removeAttributeModifier(holder.templateKey(), entry.attribute(), entry.slot());
+            player.sendMessage(Component.text("Atribut " + entry.attribute().name() + " (" + entry.slot() + ") smazán.", NamedTextColor.GREEN));
+            render(plugin, holder.getInventory(), holder);
+            return;
+        }
+        promptAttributeModifier(plugin, player, holder, entry.attribute());
+    }
+
+    private static void handleRebaseClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder) {
         ItemStack held = player.getInventory().getItemInMainHand();
         if (held.getType() == Material.AIR) {
             player.sendMessage(Component.text("Drž v ruce item, který chceš použít jako nový základ.", NamedTextColor.RED));
@@ -159,6 +245,57 @@ public final class ItemEditorMenu {
         }
         player.sendMessage(Component.text("Základ změněn na " + held.getType() + ".", NamedTextColor.GREEN));
         render(plugin, holder.getInventory(), holder);
+    }
+
+    private static void handleAttributePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
+        if (slot == PREVIEW_SLOT) {
+            holder.setPickerOpen(false);
+            render(plugin, holder.getInventory(), holder);
+            return;
+        }
+        Attribute[] attributes = Attribute.values();
+        int index = slot - CONTENT_START;
+        if (index < 0 || index >= attributes.length) {
+            return;
+        }
+        promptAttributeModifier(plugin, player, holder, attributes[index]);
+    }
+
+    private static void promptAttributeModifier(PurrtechPVE plugin, Player player, ItemEditorHolder holder, Attribute attribute) {
+        player.closeInventory();
+        player.sendMessage(Component.text("Napiš do chatu: <slot> <částka> <operace>", NamedTextColor.YELLOW));
+        player.sendMessage(Component.text("slot: mainhand/offhand/hand/feet/legs/chest/head/armor/body/any,", NamedTextColor.GRAY));
+        player.sendMessage(Component.text("nebo trinket slot (" + String.join("/", plugin.getAccessorySettings().slots()) + ")", NamedTextColor.GRAY));
+        player.sendMessage(Component.text("operace: add_number (pevné číslo) / add_scalar / multiply_scalar_1 (obě %)", NamedTextColor.GRAY));
+        player.sendMessage(Component.text("Například: mainhand 4 add_number    (nebo napiš 'zrusit')", NamedTextColor.GRAY));
+        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
+            if (isCancel(rawInput)) {
+                p.sendMessage(Component.text("Zrušeno.", NamedTextColor.GRAY));
+                open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
+                return;
+            }
+            String[] parts = rawInput.trim().split("\\s+");
+            if (parts.length != 3) {
+                p.sendMessage(Component.text("Neplatný vstup, zkus to znovu z menu.", NamedTextColor.RED));
+                open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
+                return;
+            }
+            String slotName = AttributeSlots.parse(parts[0], plugin.getAccessorySettings().slots());
+            Double amount = parseDouble(parts[1]);
+            AttributeModifier.Operation operation = parseOperation(parts[2]);
+            if (slotName == null || amount == null || operation == null) {
+                p.sendMessage(Component.text("Neplatný vstup, zkus to znovu z menu.", NamedTextColor.RED));
+                open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
+                return;
+            }
+            try {
+                plugin.getItemTemplateService().setAttributeModifier(holder.templateKey(), attribute, amount, operation, slotName);
+                p.sendMessage(Component.text("Nastaveno.", NamedTextColor.GREEN));
+            } catch (TemplateNotFoundException e) {
+                p.sendMessage(Component.text("Šablona už neexistuje.", NamedTextColor.RED));
+            }
+            open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
+        });
     }
 
     // ---- DAMAGE ----
@@ -988,7 +1125,7 @@ public final class ItemEditorMenu {
             case CLOSE_SLOT -> player.closeInventory();
             default -> {
                 switch (holder.tab()) {
-                    case BASE -> handleBaseClick(plugin, player, holder, slot);
+                    case BASE -> handleBaseClick(plugin, player, holder, slot, shift);
                     case DAMAGE -> handleDamageClick(plugin, player, holder, slot, shift);
                     case RESIST -> handleResistClick(plugin, player, holder, slot, shift);
                     case TRINKET -> handleTrinketClick(plugin, player, holder, slot);
@@ -1081,6 +1218,14 @@ public final class ItemEditorMenu {
             case "worn" -> ModifierContext.WORN;
             default -> null;
         };
+    }
+
+    private static AttributeModifier.Operation parseOperation(String raw) {
+        try {
+            return AttributeModifier.Operation.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private static Material iconFor(String damageTypeKey) {

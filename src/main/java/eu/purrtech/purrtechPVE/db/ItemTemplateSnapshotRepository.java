@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE.db;
 
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
+import eu.purrtech.purrtechPVE.item.AttributeModifierEntry;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
 import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
@@ -11,6 +12,8 @@ import eu.purrtech.purrtechPVE.item.TemplateEnchantment;
 import eu.purrtech.purrtechPVE.item.TemplateSnapshot;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import org.bukkit.Material;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -45,8 +48,8 @@ public final class ItemTemplateSnapshotRepository {
                      INSERT OR REPLACE INTO item_template_snapshot
                          (template_id, version, template_key, display_name, base_material, custom_model_data,
                           damage_contributions, type_modifiers, enchantments, armor_penetration, bleed_effect,
-                          critical_effect, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                          critical_effect, attribute_modifiers, created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             statement.setString(1, snapshot.templateId().toString());
             statement.setInt(2, snapshot.version());
@@ -64,7 +67,8 @@ public final class ItemTemplateSnapshotRepository {
             statement.setString(10, encodeArmorPenetration(snapshot.armorPenetration()));
             statement.setString(11, encodeBleedEffect(snapshot.bleedEffect()));
             statement.setString(12, encodeCriticalEffect(snapshot.criticalEffect()));
-            statement.setLong(13, snapshot.createdAt());
+            statement.setString(13, encodeAttributeModifiers(snapshot.attributeModifiers()));
+            statement.setLong(14, snapshot.createdAt());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
@@ -104,6 +108,7 @@ public final class ItemTemplateSnapshotRepository {
                 decodeArmorPenetration(rs.getString("armor_penetration")),
                 decodeBleedEffect(rs.getString("bleed_effect")),
                 decodeCriticalEffect(rs.getString("critical_effect")),
+                decodeAttributeModifiers(rs.getString("attribute_modifiers")),
                 rs.getLong("created_at")
         );
     }
@@ -203,5 +208,24 @@ public final class ItemTemplateSnapshotRepository {
         }
         String[] fields = raw.split("\\|");
         return new CriticalEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]));
+    }
+
+    private static String encodeAttributeModifiers(List<AttributeModifierEntry> attributeModifiers) {
+        return attributeModifiers.stream()
+                .map(a -> String.join("|", a.attribute().name(), String.valueOf(a.amount()), a.operation().name(), a.slot()))
+                .collect(Collectors.joining(";"));
+    }
+
+    private static List<AttributeModifierEntry> decodeAttributeModifiers(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        List<AttributeModifierEntry> out = new ArrayList<>();
+        for (String entry : raw.split(";")) {
+            String[] fields = entry.split("\\|");
+            out.add(new AttributeModifierEntry(Attribute.valueOf(fields[0]), Double.parseDouble(fields[1]),
+                    AttributeModifier.Operation.valueOf(fields[2]), fields[3]));
+        }
+        return out;
     }
 }

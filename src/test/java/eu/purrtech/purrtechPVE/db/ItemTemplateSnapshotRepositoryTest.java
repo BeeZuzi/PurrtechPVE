@@ -58,6 +58,14 @@ class ItemTemplateSnapshotRepositoryTest {
                 List.of(new ArmorPenetration(ArmorClass.HEAVY, 15.0)),
                 new BleedEffect(25.0, 5.0),
                 new CriticalEffect(15.0, 50.0),
+                // NOT covered here: attributeModifiers round-tripping. Unlike every other list on
+                // this record, AttributeModifierEntry holds a real org.bukkit.attribute.Attribute,
+                // whose constants are backed by a live Bukkit registry (Attribute.<clinit> calls
+                // RegistryAccess.registryAccess()) - referencing one at all in a plain JUnit run
+                // (no server, no MockBukkit, per this project's convention) throws
+                // ExceptionInInitializerError before the test body even starts. Verified live via
+                // runServer instead - see PLAN.md.
+                List.of(),
                 123L);
         repository.insert(snapshot);
 
@@ -80,12 +88,13 @@ class ItemTemplateSnapshotRepositoryTest {
         assertEquals(5.0, found.bleedEffect().durationSeconds());
         assertEquals(15.0, found.criticalEffect().chancePercent());
         assertEquals(50.0, found.criticalEffect().bonusDamagePercent());
+        assertTrue(found.attributeModifiers().isEmpty());
     }
 
     @Test
     void emptyContributionsAndModifiersRoundTripAsEmptyLists() {
         TemplateSnapshot snapshot = new TemplateSnapshot(templateId, "fire-sword", 1, "Plamenný meč",
-                Material.IRON_SWORD, null, List.of(), List.of(), List.of(), List.of(), null, null, 0L);
+                Material.IRON_SWORD, null, List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 0L);
         repository.insert(snapshot);
 
         TemplateSnapshot found = repository.find(templateId, 1).orElseThrow();
@@ -95,6 +104,7 @@ class ItemTemplateSnapshotRepositoryTest {
         assertTrue(found.armorPenetration().isEmpty());
         assertEquals(null, found.bleedEffect());
         assertEquals(null, found.criticalEffect());
+        assertTrue(found.attributeModifiers().isEmpty());
     }
 
     @Test
@@ -105,9 +115,9 @@ class ItemTemplateSnapshotRepositoryTest {
     @Test
     void insertOnSameVersionReplaces() {
         repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "A", Material.IRON_SWORD, null,
-                List.of(), List.of(), List.of(), List.of(), null, null, 0L));
+                List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 0L));
         repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "B", Material.IRON_SWORD, null,
-                List.of(), List.of(), List.of(), List.of(), null, null, 1L));
+                List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 1L));
 
         assertEquals("B", repository.find(templateId, 1).orElseThrow().displayName());
     }

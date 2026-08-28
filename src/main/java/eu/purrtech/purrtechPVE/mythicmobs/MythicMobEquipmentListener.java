@@ -1,6 +1,7 @@
 package eu.purrtech.purrtechPVE.mythicmobs;
 
 import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
+import eu.purrtech.purrtechPVE.db.AttributeModifierRepository;
 import eu.purrtech.purrtechPVE.db.BleedEffectRepository;
 import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
@@ -46,6 +47,7 @@ public final class MythicMobEquipmentListener implements Listener {
     private final ArmorPenetrationRepository armorPenetrationRepository;
     private final BleedEffectRepository bleedEffectRepository;
     private final CriticalEffectRepository criticalEffectRepository;
+    private final AttributeModifierRepository attributeModifierRepository;
     private final ItemRenderer renderer;
 
     public MythicMobEquipmentListener(MobEquipmentRepository mobEquipmentRepository,
@@ -56,6 +58,7 @@ public final class MythicMobEquipmentListener implements Listener {
                                        ArmorPenetrationRepository armorPenetrationRepository,
                                        BleedEffectRepository bleedEffectRepository,
                                        CriticalEffectRepository criticalEffectRepository,
+                                       AttributeModifierRepository attributeModifierRepository,
                                        ItemRenderer renderer) {
         this.mobEquipmentRepository = mobEquipmentRepository;
         this.templateRepository = templateRepository;
@@ -65,6 +68,7 @@ public final class MythicMobEquipmentListener implements Listener {
         this.armorPenetrationRepository = armorPenetrationRepository;
         this.bleedEffectRepository = bleedEffectRepository;
         this.criticalEffectRepository = criticalEffectRepository;
+        this.attributeModifierRepository = attributeModifierRepository;
         this.renderer = renderer;
     }
 
@@ -95,7 +99,8 @@ public final class MythicMobEquipmentListener implements Listener {
                         enchantmentRepository.findByTemplate(template.get().id()),
                         armorPenetrationRepository.findByTemplate(template.get().id()),
                         bleedEffectRepository.findByTemplate(template.get().id()).orElse(null),
-                        criticalEffectRepository.findByTemplate(template.get().id()).orElse(null));
+                        criticalEffectRepository.findByTemplate(template.get().id()).orElse(null),
+                        attributeModifierRepository.findByTemplate(template.get().id()));
                 entityEquipment.setItem(slot, rendered);
             }
         } catch (Throwable t) {

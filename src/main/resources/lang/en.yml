@@ -15,6 +15,7 @@ item:
     passive: "<gray>Passive bonus (worn):"
     resist: "<gray>Resistances / weaknesses:"
     penetration: "<gray>Armor penetration:"
+    attributes: "<gray>Attributes:"
   line:
     damage-flat: "<white> +<amount> <type>"
     damage-percent: "<white> +<amount>% <type>"
@@ -23,6 +24,7 @@ item:
     penetration: "<white> -<amount>% <class></white> armor"
     bleed: "<white> <chance>% chance to bleed for <duration>s</white>"
     critical: "<white> <chance>% crit chance, +<bonus>% damage</white>"
+    attribute: "<white> <amount> <attribute></white> <gray>(<slot>)</gray>"
   created: "<green>Template <white><key></white> created."
   deleted: "<green>Template <white><key></white> deleted."
   not-found: "<red>Template <white><key></white> does not exist."
@@ -42,7 +44,7 @@ item:
   setbase-empty-hand: "<red>Hold the item you want to use as the new base."
   setbase-done: "<green>Template <white><key></white>: base changed to <white><material></white>."
   import-no-stats: "<red>The item in hand has no ValhallaMMO data (no default_stats/actual_stats)."
-  import-done: "<green>Template <white><key></white> imported from ValhallaMMO: <white><damage></white> damage types, <white><resist></white> resistances/weaknesses, <white><enchants></white> enchantments."
+  import-done: "<green>Template <white><key></white> imported from ValhallaMMO: <white><damage></white> damage types, <white><resist></white> resistances/weaknesses, <white><enchants></white> enchantments, <white><attributes></white> real attributes carried over as-is."
   import-skipped: "<yellow>Skipped (no equivalent here): <white><attributes></white>"
   bulk-import-file-missing: "<red>ValhallaMMO items file not found at <white><path></white>."
   bulk-import-error: "<red>Failed to read the ValhallaMMO items file: <white><error></white>"
@@ -58,6 +60,11 @@ item:
   bleed-removed: "<green>Bleed effect removed from template <white><key></white>."
   critical-set: "<green>Critical hit effect set on template <white><key></white>."
   critical-removed: "<green>Critical hit effect removed from template <white><key></white>."
+  unknown-attribute: "<red>Unknown attribute: <white><attribute></white>"
+  unknown-slot: "<red>Unknown slot: <white><slot></white> (use mainhand/offhand/hand/feet/legs/chest/head/armor/body/any, or a configured trinket slot)"
+  unknown-operation: "<red>Unknown operation: <white><operation></white> (use add_number, add_scalar, or multiply_scalar_1)"
+  attribute-set: "<green>Attribute <white><attribute></white> (<white><slot></white>) set on template <white><key></white>."
+  attribute-removed: "<green>Attribute <white><attribute></white> (<white><slot></white>) removed from template <white><key></white>."
 
 mobprofile:
   set: "<green>Resistance/weakness <white><type></white> set for MythicMobs type <white><mob></white>."

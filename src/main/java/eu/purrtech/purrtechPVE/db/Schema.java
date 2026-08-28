@@ -84,6 +84,7 @@ final class Schema {
             addColumnIfMissing(connection, "item_template_snapshot", "armor_penetration", "TEXT NOT NULL DEFAULT ''");
             addColumnIfMissing(connection, "item_template_snapshot", "bleed_effect", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "critical_effect", "TEXT");
+            addColumnIfMissing(connection, "item_template_snapshot", "attribute_modifiers", "TEXT NOT NULL DEFAULT ''");
 
             // damage_type_key is NOT a FK to damage_type_definitions: DamageTypeRegistry is
             // still in-memory-only (Fáze 1), that table stays unpopulated until a later
@@ -113,14 +114,25 @@ final class Schema {
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_type_modifier_template "
                     + "ON item_type_modifier(template_id)");
 
+            // This table existed since Fáze 1 scaffolding (alongside item_damage_contribution/
+            // item_type_modifier) but nothing ever wrote to it - the vanilla-attribute feature it
+            // was meant for wasn't implemented until now, unlike its siblings. That makes it safe
+            // to just drop and recreate with the real shape (slot_name, one row per (template,
+            // attribute, slot) - a single template can grant the same attribute differently in
+            // different slots) instead of needing an ALTER TABLE + backfill like every other
+            // migration in this file: there is no existing data to lose.
+            if (columnExists(connection, "item_attribute_modifier", "context")
+                    && !columnExists(connection, "item_attribute_modifier", "slot_name")) {
+                statement.execute("DROP TABLE item_attribute_modifier");
+            }
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS item_attribute_modifier (
                         template_id TEXT NOT NULL REFERENCES item_templates(id) ON DELETE CASCADE,
                         attribute_key TEXT NOT NULL,
                         amount REAL NOT NULL,
                         operation TEXT NOT NULL,
-                        context TEXT NOT NULL,
-                        PRIMARY KEY (template_id, attribute_key, context)
+                        slot_name TEXT NOT NULL,
+                        PRIMARY KEY (template_id, attribute_key, slot_name)
                     )
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_attribute_modifier_template "
@@ -285,16 +297,24 @@ final class Schema {
 
     /** Adds {@code column} to {@code table} if it isn't already there - see the item_template_snapshot.enchantments migration above. */
     private static void addColumnIfMissing(Connection connection, String table, String column, String columnDefinition) throws SQLException {
-        try (Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery("PRAGMA table_info(" + table + ")")) {
-            while (rs.next()) {
-                if (column.equalsIgnoreCase(rs.getString("name"))) {
-                    return;
-                }
-            }
+        if (columnExists(connection, table, column)) {
+            return;
         }
         try (Statement statement = connection.createStatement()) {
             statement.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + columnDefinition);
         }
+    }
+
+    /** {@code false} on a table that doesn't exist yet either - {@code PRAGMA table_info} on a missing table just yields zero rows, not an error. */
+    private static boolean columnExists(Connection connection, String table, String column) throws SQLException {
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                if (column.equalsIgnoreCase(rs.getString("name"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

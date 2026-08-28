@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE.item;
 
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.db.ArmorPenetrationRepository;
+import eu.purrtech.purrtechPVE.db.AttributeModifierRepository;
 import eu.purrtech.purrtechPVE.db.BleedEffectRepository;
 import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
@@ -10,6 +11,8 @@ import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
 import org.bukkit.Material;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
@@ -35,6 +38,7 @@ public final class ItemTemplateService {
     private final ArmorPenetrationRepository armorPenetrationRepository;
     private final BleedEffectRepository bleedEffectRepository;
     private final CriticalEffectRepository criticalEffectRepository;
+    private final AttributeModifierRepository attributeModifierRepository;
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final DamageTypeRegistry damageTypeRegistry;
     private final ItemRenderer renderer;
@@ -46,6 +50,7 @@ public final class ItemTemplateService {
                                 ArmorPenetrationRepository armorPenetrationRepository,
                                 BleedEffectRepository bleedEffectRepository,
                                 CriticalEffectRepository criticalEffectRepository,
+                                AttributeModifierRepository attributeModifierRepository,
                                 ItemTemplateSnapshotRepository snapshotRepository,
                                 DamageTypeRegistry damageTypeRegistry,
                                 ItemRenderer renderer) {
@@ -56,6 +61,7 @@ public final class ItemTemplateService {
         this.armorPenetrationRepository = armorPenetrationRepository;
         this.bleedEffectRepository = bleedEffectRepository;
         this.criticalEffectRepository = criticalEffectRepository;
+        this.attributeModifierRepository = attributeModifierRepository;
         this.snapshotRepository = snapshotRepository;
         this.damageTypeRegistry = damageTypeRegistry;
         this.renderer = renderer;
@@ -74,7 +80,7 @@ public final class ItemTemplateService {
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, baseMaterial, customModelData,
                 false, List.of(), null, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
-        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null));
+        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, List.of()));
         return template;
     }
 
@@ -197,6 +203,31 @@ public final class ItemTemplateService {
         return criticalEffectRepository.findByTemplate(requireTemplate(key).id());
     }
 
+    /**
+     * A real vanilla {@link Attribute} bonus this template grants in one specific {@code slot} -
+     * a stat like damage contributions, so it bumps version. See {@link AttributeModifierEntry}'s
+     * javadoc for exactly how {@code slot} determines whether it's baked into the rendered item
+     * (a vanilla equipment slot group) or applied by {@code TrinketAttributeListener} instead (one
+     * of this server's configured accessory slot names) - this method doesn't validate {@code
+     * slot} against either, same as {@link #setAllowedSlots} doesn't validate its slot names
+     * either; that's left to the command/GUI layer, which has {@code AccessorySettings} to check against.
+     */
+    public ItemTemplate setAttributeModifier(String key, Attribute attribute, double amount, AttributeModifier.Operation operation, String slot) {
+        ItemTemplate template = requireTemplate(key);
+        attributeModifierRepository.upsert(template.id(), new AttributeModifierEntry(attribute, amount, operation, slot));
+        return bumpVersion(template);
+    }
+
+    public ItemTemplate removeAttributeModifier(String key, Attribute attribute, String slot) {
+        ItemTemplate template = requireTemplate(key);
+        attributeModifierRepository.remove(template.id(), attribute, slot);
+        return bumpVersion(template);
+    }
+
+    public List<AttributeModifierEntry> attributeModifiers(String key) {
+        return attributeModifierRepository.findByTemplate(requireTemplate(key).id());
+    }
+
     /** Marks the template's current version as pushed to circulation - the caller still has to actually walk online players (see ItemSyncService). */
     public ItemTemplate propagate(String key) {
         ItemTemplate template = requireTemplate(key);
@@ -257,7 +288,8 @@ public final class ItemTemplateService {
         List<ArmorPenetration> armorPenetration = armorPenetrationRepository.findByTemplate(template.id());
         BleedEffect bleed = bleedEffectRepository.findByTemplate(template.id()).orElse(null);
         CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
-        return renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical);
+        List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
+        return renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical, attributeModifiers);
     }
 
     private ItemTemplate requireTemplate(String key) {
@@ -279,15 +311,16 @@ public final class ItemTemplateService {
                 enchantmentRepository.findByTemplate(bumped.id()),
                 armorPenetrationRepository.findByTemplate(bumped.id()),
                 bleedEffectRepository.findByTemplate(bumped.id()).orElse(null),
-                criticalEffectRepository.findByTemplate(bumped.id()).orElse(null)));
+                criticalEffectRepository.findByTemplate(bumped.id()).orElse(null),
+                attributeModifierRepository.findByTemplate(bumped.id())));
         return bumped;
     }
 
     private TemplateSnapshot snapshotOf(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                          List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
-                                         BleedEffect bleedEffect, CriticalEffect criticalEffect) {
+                                         BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(),
                 template.baseMaterial(), template.customModelData(), contributions, modifiers, enchantments,
-                armorPenetration, bleedEffect, criticalEffect, template.updatedAt());
+                armorPenetration, bleedEffect, criticalEffect, attributeModifiers, template.updatedAt());
     }
 }
