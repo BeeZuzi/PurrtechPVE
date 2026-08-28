@@ -1382,6 +1382,81 @@
     ItemsAdder+ValhallaMMO itemem v ruce, porovnat NBT výsledku - `custom_data
     .itemsadder` by teď měl být přítomný a shodný s originálem.
 
+- **Tab-completion (suggestions) napříč celým `/pve` příkazovým stromem
+  (2026-08-28), na žádost.** "u cmd tam kde se má zadávat klíč... aby
+  to dávalo na výběr do tabcompleteru to samé i u dalších proměnných...
+  (třeba u create to nepůjde logicky)". Prošel jsem celý strom
+  `PveCommand.create(...)` a přidal `.suggests(...)` všude, kde má
+  argument smysluplně enumerovatelnou množinu existujících hodnot:
+  - **`key`** (šablona itemu) - `templateKeySuggestions` (existující
+    klíče šablon) - VŠUDE, kde se cílí na už existující šablonu
+    (`replace`, `attribute set/remove`, `delete`, `edit`, `setbase`,
+    `give`, `sync`, `damage/resist/enchant/slots/armor/penetration/
+    bleed/crit set/remove`). NE u `create`/`import valhalla` - tam se
+    šablona teprve VYTVÁŘÍ, klíč nemůže našeptat sám sebe (přesně jak
+    žádáno - "u create to nepůjde logicky").
+  - **`key`** (set) - nová `itemSetKeySuggestions` - u `set delete/edit/
+    addmember/removemember/threshold ...`. NE u `set create` (stejný
+    důvod).
+  - **`templateKey`** (v `set addmember/removemember`) -
+    `templateKeySuggestions` (existující šablona, co se přidává do
+    setu).
+  - **`damageType`** - nová `damageTypeSuggestions` (`DamageTypeRegistry`)
+    - u `damage/resist set/remove`, `armorclass set/remove/list`,
+    `mobprofile set/remove/list`, `set threshold damage/resist set/remove`.
+  - **`mythicMobType`** - nová `mythicMobTypeSuggestions` - živě z
+    `MythicMobsBridge` (prázdné, ne chyba, když bridge není k dispozici -
+    stejná obranná konvence jako všude jinde v projektu, kde se
+    MythicMobs volitelně napojuje).
+  - **`armorClass`** - dva pevné seznamy: `ARMOR_CLASS_SUGGESTIONS`
+    (light/medium/heavy - pro `armorclass`/`penetration`, kde "none"
+    není platná hodnota) a `ARMOR_CLASS_OR_NONE_SUGGESTIONS` (+ none -
+    jen pro `item armor <key> <class>`, kde `none` čistí typ armoru).
+  - **`mode`** (flat/percent_of_total) a **`context`** (wielded/worn) -
+    nové pevné seznamy `DAMAGE_MODE_SUGGESTIONS`/`MODIFIER_CONTEXT_SUGGESTIONS`
+    - u `damage set/remove`, `set threshold damage set`.
+  - **`enchantment`** - nová `ENCHANTMENT_SUGGESTIONS`, živě z
+    `Registry.ENCHANTMENT.keyStream()` (všechny registrované enchanty
+    na tomhle serveru).
+  - **`slots`** (`/pve item slots <key> <slots>`, čárkami oddělený
+    seznam) - nejsložitější případ: je to `greedyString()`, takže
+    obyčejné "nahraď celý zbytek" srovnávání by fungovalo jen pro úplně
+    PRVNÍ slot v seznamu. Nová `commaListSuggestions` řeší tohle
+    přes `SuggestionsBuilder.createOffset(...)` (ověřeno v reálném
+    zdroj. kódu brigadieru - `-sources.jar` - že `suggest(text)` nahradí
+    přesně rozsah `[start, konec]`, takže offsetnutí `start` na pozici
+    za poslední čárkou nechá zbytek řádku před ní netknutý) - nabízí
+    zbývající vanilla `EquipmentSlot` jména (HAND/OFF_HAND/HEAD/CHEST/
+    LEGS/FEET - POZOR, jiná sada než `EquipmentSlotGroup` jména co
+    používá `attribute` feature) + nastavené trinket sloty, ať už píšeš
+    první nebo pátý slot v seznamu.
+  - **`attribute`/`slot`/`operation`/`material`** - beze změny (už měly
+    suggestions od dřívějška).
+  - Refaktoring: `MATERIAL_SUGGESTIONS`/`ATTRIBUTE_SUGGESTIONS`/
+    `OPERATION_SUGGESTIONS` teď staví na nové sdílené `stringSuggestions
+    (Supplier<Iterable<String>>)` - stejná "match prefix case-insensitive"
+    logika, co dřív byla čtyřikrát nezávisle na sobě zkopírovaná.
+  - Žádné nové JUnit testy (Brigadier suggestion providery se testují
+    jen skutečným tab stiskem od hráče, ne z jednotkového testu). 157
+    testů beze změny, čistý `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Ověřeno živě**: `runServer` boot + široká příkazová sekvence
+    (create → damage set → resist set → enchant set → armor none → set
+    create → addmember → list) proběhla bez jediné chyby - potvrzuje, že
+    přidání `.suggests(...)` k desítkám argumentů nerozbilo EXECUCI
+    žádného z nich. Cestou jsem si omylem ověřil (dvakrát), že
+    `enchantment` argument (nezměněno mnou, existovalo už dřív) vyžaduje
+    UVOZOVKY kolem hodnoty s dvojtečkou (`"minecraft:sharpness"`) -
+    Brigadierův `StringArgumentType.string()` bez uvozovek nepovoluje
+    `:` v "unquoted" módu (ověřeno v reálném zdroj. kódu brigadieru) -
+    to je nesouvisející, už dřív existující vlastnost příkazu, ne bug
+    z týhle úpravy.
+  - **Nedá se ověřit v sandboxu**: samotné STISKNUTÍ tabulátoru a jestli
+    se fakt zobrazí správná nabídka - to je čistě klient-server
+    interakce, co potřebuje připojeného hráče, žádný způsob, jak to
+    simulovat přes piped konzoli. Doporučuju zkusit naživo: `/pve item
+    damage set <tab>` by mělo nabídnout existující klíče šablon,
+    `<tab>` po klíči zase existující damage types, atd.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

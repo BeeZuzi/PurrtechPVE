@@ -7,6 +7,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.gui.ItemEditorMenu;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * {@code /pve item ...} - template CRUD + give, command-line only (Fáze 2,
@@ -70,53 +72,38 @@ public final class PveCommand {
     private static final List<String> VANILLA_SLOT_GROUP_NAMES = List.of(
             "mainhand", "offhand", "hand", "feet", "legs", "chest", "head", "armor", "body", "any", "saddle");
 
-    private static final SuggestionProvider<CommandSourceStack> MATERIAL_SUGGESTIONS = (ctx, builder) -> {
-        String remaining = builder.getRemainingLowerCase();
-        for (Material material : Material.values()) {
-            if (!material.isItem()) {
-                continue;
-            }
-            String name = material.name().toLowerCase(Locale.ROOT);
-            if (name.startsWith(remaining)) {
-                builder.suggest(name);
-            }
-        }
-        return builder.buildFuture();
-    };
+    // Vanilla EquipmentSlot names - the OTHER, separate slot vocabulary this plugin uses for
+    // allowedSlots/trinket restriction (ItemTemplateService.setAllowedSlots, MobEquipmentRepository)
+    // - not to be confused with the EquipmentSlotGroup names above, which are only for the newer
+    // attribute-modifier feature.
+    private static final List<String> VANILLA_EQUIPMENT_SLOT_NAMES = List.of("HAND", "OFF_HAND", "HEAD", "CHEST", "LEGS", "FEET");
 
-    private static final SuggestionProvider<CommandSourceStack> ATTRIBUTE_SUGGESTIONS = (ctx, builder) -> {
-        String remaining = builder.getRemainingLowerCase();
-        for (Attribute attribute : Attribute.values()) {
-            String name = attribute.name().toLowerCase(Locale.ROOT);
-            if (name.startsWith(remaining)) {
-                builder.suggest(name);
-            }
-        }
-        return builder.buildFuture();
-    };
+    private static final SuggestionProvider<CommandSourceStack> MATERIAL_SUGGESTIONS = stringSuggestions(() ->
+            Arrays.stream(Material.values()).filter(Material::isItem).map(m -> m.name().toLowerCase(Locale.ROOT)).toList());
 
-    private static final SuggestionProvider<CommandSourceStack> OPERATION_SUGGESTIONS = (ctx, builder) -> {
-        String remaining = builder.getRemainingLowerCase();
-        for (AttributeModifier.Operation operation : AttributeModifier.Operation.values()) {
-            String name = operation.name().toLowerCase(Locale.ROOT);
-            if (name.startsWith(remaining)) {
-                builder.suggest(name);
-            }
-        }
-        return builder.buildFuture();
-    };
+    private static final SuggestionProvider<CommandSourceStack> ATTRIBUTE_SUGGESTIONS = stringSuggestions(() ->
+            Arrays.stream(Attribute.values()).map(a -> a.name().toLowerCase(Locale.ROOT)).toList());
+
+    private static final SuggestionProvider<CommandSourceStack> OPERATION_SUGGESTIONS = stringSuggestions(() ->
+            Arrays.stream(AttributeModifier.Operation.values()).map(o -> o.name().toLowerCase(Locale.ROOT)).toList());
+
+    private static final SuggestionProvider<CommandSourceStack> ENCHANTMENT_SUGGESTIONS = stringSuggestions(() ->
+            Registry.ENCHANTMENT.keyStream().map(NamespacedKey::toString).toList());
+
+    private static final SuggestionProvider<CommandSourceStack> ARMOR_CLASS_SUGGESTIONS = fixedSuggestions("light", "medium", "heavy");
+    private static final SuggestionProvider<CommandSourceStack> ARMOR_CLASS_OR_NONE_SUGGESTIONS = fixedSuggestions("light", "medium", "heavy", "none");
+    private static final SuggestionProvider<CommandSourceStack> DAMAGE_MODE_SUGGESTIONS = fixedSuggestions("flat", "percent_of_total");
+    private static final SuggestionProvider<CommandSourceStack> MODIFIER_CONTEXT_SUGGESTIONS = fixedSuggestions("wielded", "worn");
 
     private PveCommand() {
     }
 
-    /** Vanilla slot group names + this server's own configured trinket slot names - see {@link AttributeSlots}. */
-    private static SuggestionProvider<CommandSourceStack> slotSuggestions(PurrtechPVE plugin) {
+    /** Filters a live-fetched option list by whatever's typed so far, case-insensitively - the shared shape behind every suggestion provider below. */
+    private static SuggestionProvider<CommandSourceStack> stringSuggestions(Supplier<? extends Iterable<String>> options) {
         return (ctx, builder) -> {
             String remaining = builder.getRemainingLowerCase();
-            List<String> options = new ArrayList<>(VANILLA_SLOT_GROUP_NAMES);
-            options.addAll(plugin.getAccessorySettings().slots());
-            for (String option : options) {
-                if (option.toLowerCase(Locale.ROOT).startsWith(remaining)) {
+            for (String option : options.get()) {
+                if (option != null && option.toLowerCase(Locale.ROOT).startsWith(remaining)) {
                     builder.suggest(option);
                 }
             }
@@ -124,24 +111,97 @@ public final class PveCommand {
         };
     }
 
-    /** Existing template keys - "give me a list of those items" for commands that target an already-created template. */
-    private static SuggestionProvider<CommandSourceStack> templateKeySuggestions(PurrtechPVE plugin) {
+    private static SuggestionProvider<CommandSourceStack> fixedSuggestions(String... options) {
+        List<String> list = List.of(options);
+        return stringSuggestions(() -> list);
+    }
+
+    /**
+     * Like {@link #stringSuggestions}, but only replaces whatever's typed since the LAST comma -
+     * for {@code /pve item slots}, whose argument is a comma-separated list of slot names
+     * (StringArgumentType.greedyString(), so the plain remaining-text match every other provider
+     * here uses would try to match the whole "HAND,HEAD,..." string against single slot names and
+     * never suggest anything past the first one).
+     */
+    private static SuggestionProvider<CommandSourceStack> commaListSuggestions(Supplier<? extends Iterable<String>> options) {
         return (ctx, builder) -> {
-            String remaining = builder.getRemainingLowerCase();
-            for (ItemTemplate template : plugin.getItemTemplateService().listAll()) {
-                if (template.key().toLowerCase(Locale.ROOT).startsWith(remaining)) {
-                    builder.suggest(template.key());
+            String remaining = builder.getRemaining();
+            int lastComma = remaining.lastIndexOf(',');
+            String partial = (lastComma >= 0 ? remaining.substring(lastComma + 1) : remaining).toLowerCase(Locale.ROOT);
+            SuggestionsBuilder offset = builder.createOffset(builder.getStart() + lastComma + 1);
+            for (String option : options.get()) {
+                if (option.toLowerCase(Locale.ROOT).startsWith(partial)) {
+                    offset.suggest(option);
                 }
             }
-            return builder.buildFuture();
+            return offset.buildFuture();
         };
     }
 
+    /** Vanilla slot group names + this server's own configured trinket slot names - see {@link AttributeSlots}. */
+    private static SuggestionProvider<CommandSourceStack> slotSuggestions(PurrtechPVE plugin) {
+        return stringSuggestions(() -> {
+            List<String> options = new ArrayList<>(VANILLA_SLOT_GROUP_NAMES);
+            options.addAll(plugin.getAccessorySettings().slots());
+            return options;
+        });
+    }
+
+    /** Vanilla EquipmentSlot names + this server's own configured trinket slot names, comma-list aware - for {@code /pve item slots}. */
+    private static SuggestionProvider<CommandSourceStack> allowedSlotsSuggestions(PurrtechPVE plugin) {
+        return commaListSuggestions(() -> {
+            List<String> options = new ArrayList<>(VANILLA_EQUIPMENT_SLOT_NAMES);
+            options.addAll(plugin.getAccessorySettings().slots());
+            return options;
+        });
+    }
+
+    /** Existing template keys - "give me a list of those items" for commands that target an already-created template. */
+    private static SuggestionProvider<CommandSourceStack> templateKeySuggestions(PurrtechPVE plugin) {
+        return stringSuggestions(() -> plugin.getItemTemplateService().listAll().stream().map(ItemTemplate::key).toList());
+    }
+
+    /** Existing item set keys, same idea as {@link #templateKeySuggestions}. */
+    private static SuggestionProvider<CommandSourceStack> itemSetKeySuggestions(PurrtechPVE plugin) {
+        return stringSuggestions(() -> plugin.getItemSetService().listAll().stream().map(ItemSet::key).toList());
+    }
+
+    /** Every damage type this plugin currently knows about. */
+    private static SuggestionProvider<CommandSourceStack> damageTypeSuggestions(PurrtechPVE plugin) {
+        return stringSuggestions(() -> plugin.getDamageTypeRegistry().all().keySet());
+    }
+
+    /** MythicMobs mob type internal names, if the bridge is available - empty (no suggestions, not an error) otherwise. */
+    private static SuggestionProvider<CommandSourceStack> mythicMobTypeSuggestions(PurrtechPVE plugin) {
+        return stringSuggestions(() -> {
+            if (plugin.getMythicMobsBridge() == null) {
+                return List.of();
+            }
+            try {
+                return plugin.getMythicMobsBridge().listMobTypeInternalNames();
+            } catch (Throwable t) {
+                // an incompatible MythicMobs build shouldn't break tab-completion any more than it breaks combat resolution elsewhere
+                return List.of();
+            }
+        });
+    }
+
     public static LiteralCommandNode<CommandSourceStack> create(PurrtechPVE plugin) {
+        // Built once here and reused across every argument below that targets "an existing X" -
+        // each provider itself queries live data on every tab-press, so this reuse is just about
+        // not rebuilding the same lambda dozens of times, not about caching stale results.
+        SuggestionProvider<CommandSourceStack> templateKeys = templateKeySuggestions(plugin);
+        SuggestionProvider<CommandSourceStack> setKeys = itemSetKeySuggestions(plugin);
+        SuggestionProvider<CommandSourceStack> damageTypes = damageTypeSuggestions(plugin);
+        SuggestionProvider<CommandSourceStack> mythicMobTypes = mythicMobTypeSuggestions(plugin);
+        SuggestionProvider<CommandSourceStack> slots = slotSuggestions(plugin);
+        SuggestionProvider<CommandSourceStack> allowedSlots = allowedSlotsSuggestions(plugin);
+
         return Commands.literal("pve")
                 .then(Commands.literal("item")
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .then(Commands.literal("create")
+                                // key: no suggestions - this one HAS to be freshly typed, the whole point is it doesn't exist yet.
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .then(Commands.argument("material", StringArgumentType.word())
                                                 .suggests(MATERIAL_SUGGESTIONS)
@@ -149,28 +209,31 @@ public final class PveCommand {
                                                         .executes(ctx -> createTemplate(plugin, ctx))))))
                         .then(Commands.literal("replace")
                                 .then(Commands.argument("key", StringArgumentType.word())
-                                        .suggests(templateKeySuggestions(plugin))
+                                        .suggests(templateKeys)
                                         .executes(ctx -> replaceTemplateBase(plugin, ctx))))
                         .then(Commands.literal("attribute")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("attribute", StringArgumentType.word())
                                                         .suggests(ATTRIBUTE_SUGGESTIONS)
                                                         .then(Commands.argument("slot", StringArgumentType.word())
-                                                                .suggests(slotSuggestions(plugin))
+                                                                .suggests(slots)
                                                                 .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
                                                                         .then(Commands.argument("operation", StringArgumentType.word())
                                                                                 .suggests(OPERATION_SUGGESTIONS)
                                                                                 .executes(ctx -> setItemAttributeModifier(plugin, ctx))))))))
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("attribute", StringArgumentType.word())
                                                         .suggests(ATTRIBUTE_SUGGESTIONS)
                                                         .then(Commands.argument("slot", StringArgumentType.word())
-                                                                .suggests(slotSuggestions(plugin))
+                                                                .suggests(slots)
                                                                 .executes(ctx -> removeItemAttributeModifier(plugin, ctx)))))))
                         .then(Commands.literal("delete")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
                                         .executes(ctx -> deleteTemplate(plugin, ctx))))
                         .then(Commands.literal("list")
                                 .executes(ctx -> listTemplates(plugin, ctx)))
@@ -178,6 +241,7 @@ public final class PveCommand {
                                 .executes(ctx -> openItemListMenu(plugin, ctx)))
                         .then(Commands.literal("import")
                                 .then(Commands.literal("valhalla")
+                                        // key: no suggestions - creates a new template, same reasoning as "create".
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .then(Commands.argument("displayName", StringArgumentType.greedyString())
                                                         .executes(ctx -> importFromValhalla(plugin, ctx)))))
@@ -185,85 +249,116 @@ public final class PveCommand {
                                         .executes(ctx -> bulkImportFromValhalla(plugin, ctx))))
                         .then(Commands.literal("edit")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
                                         .executes(ctx -> editTemplate(plugin, ctx))))
                         .then(Commands.literal("setbase")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
                                         .executes(ctx -> setBaseFromHand(plugin, ctx))))
                         .then(Commands.literal("give")
                                 .then(Commands.argument("player", ArgumentTypes.player())
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .executes(ctx -> giveTemplate(plugin, ctx)))))
                         .then(Commands.literal("sync")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
                                         .executes(ctx -> syncTemplate(plugin, ctx))))
                         .then(Commands.literal("damage")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("damageType", StringArgumentType.word())
+                                                        .suggests(damageTypes)
                                                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
                                                                 .then(Commands.argument("mode", StringArgumentType.word())
+                                                                        .suggests(DAMAGE_MODE_SUGGESTIONS)
                                                                         .then(Commands.argument("context", StringArgumentType.word())
+                                                                                .suggests(MODIFIER_CONTEXT_SUGGESTIONS)
                                                                                 .executes(ctx -> setDamageContribution(plugin, ctx))))))))
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("damageType", StringArgumentType.word())
+                                                        .suggests(damageTypes)
                                                         .then(Commands.argument("context", StringArgumentType.word())
+                                                                .suggests(MODIFIER_CONTEXT_SUGGESTIONS)
                                                                 .executes(ctx -> removeDamageContribution(plugin, ctx)))))))
                         .then(Commands.literal("resist")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("damageType", StringArgumentType.word())
+                                                        .suggests(damageTypes)
                                                         .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
                                                                 .executes(ctx -> setTypeModifier(plugin, ctx))))))
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("damageType", StringArgumentType.word())
+                                                        .suggests(damageTypes)
                                                         .executes(ctx -> removeTypeModifier(plugin, ctx))))))
                         .then(Commands.literal("enchant")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("enchantment", StringArgumentType.string())
+                                                        .suggests(ENCHANTMENT_SUGGESTIONS)
                                                         .then(Commands.argument("level", IntegerArgumentType.integer(1))
                                                                 .executes(ctx -> setEnchantment(plugin, ctx))))))
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("enchantment", StringArgumentType.string())
+                                                        .suggests(ENCHANTMENT_SUGGESTIONS)
                                                         .executes(ctx -> removeEnchantment(plugin, ctx))))))
                         .then(Commands.literal("slots")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
                                         .then(Commands.argument("slots", StringArgumentType.greedyString())
+                                                .suggests(allowedSlots)
                                                 .executes(ctx -> setAllowedSlots(plugin, ctx)))))
                         .then(Commands.literal("armor")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
                                         .then(Commands.argument("armorClass", StringArgumentType.word())
+                                                .suggests(ARMOR_CLASS_OR_NONE_SUGGESTIONS)
                                                 .executes(ctx -> setItemArmorClass(plugin, ctx)))))
                         .then(Commands.literal("penetration")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("armorClass", StringArgumentType.word())
+                                                        .suggests(ARMOR_CLASS_SUGGESTIONS)
                                                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
                                                                 .executes(ctx -> setItemArmorPenetration(plugin, ctx))))))
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("armorClass", StringArgumentType.word())
+                                                        .suggests(ARMOR_CLASS_SUGGESTIONS)
                                                         .executes(ctx -> removeItemArmorPenetration(plugin, ctx))))))
                         .then(Commands.literal("bleed")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("chancePercent", DoubleArgumentType.doubleArg())
                                                         .then(Commands.argument("durationSeconds", DoubleArgumentType.doubleArg())
                                                                 .executes(ctx -> setItemBleedEffect(plugin, ctx))))))
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .executes(ctx -> removeItemBleedEffect(plugin, ctx)))))
                         .then(Commands.literal("crit")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .then(Commands.argument("chancePercent", DoubleArgumentType.doubleArg())
                                                         .then(Commands.argument("bonusDamagePercent", DoubleArgumentType.doubleArg())
                                                                 .executes(ctx -> setItemCriticalEffect(plugin, ctx))))))
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .executes(ctx -> removeItemCriticalEffect(plugin, ctx))))))
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
@@ -272,15 +367,20 @@ public final class PveCommand {
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .then(Commands.literal("set")
                                 .then(Commands.argument("armorClass", StringArgumentType.word())
+                                        .suggests(ARMOR_CLASS_SUGGESTIONS)
                                         .then(Commands.argument("damageType", StringArgumentType.word())
+                                                .suggests(damageTypes)
                                                 .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
                                                         .executes(ctx -> setArmorClassProfile(plugin, ctx))))))
                         .then(Commands.literal("remove")
                                 .then(Commands.argument("armorClass", StringArgumentType.word())
+                                        .suggests(ARMOR_CLASS_SUGGESTIONS)
                                         .then(Commands.argument("damageType", StringArgumentType.word())
+                                                .suggests(damageTypes)
                                                 .executes(ctx -> removeArmorClassProfile(plugin, ctx)))))
                         .then(Commands.literal("list")
                                 .then(Commands.argument("armorClass", StringArgumentType.word())
+                                        .suggests(ARMOR_CLASS_SUGGESTIONS)
                                         .executes(ctx -> listArmorClassProfile(plugin, ctx))))
                         .then(Commands.literal("menu")
                                 .executes(ctx -> openArmorClassMenu(plugin, ctx))))
@@ -288,63 +388,84 @@ public final class PveCommand {
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .then(Commands.literal("set")
                                 .then(Commands.argument("mythicMobType", StringArgumentType.word())
+                                        .suggests(mythicMobTypes)
                                         .then(Commands.argument("damageType", StringArgumentType.word())
+                                                .suggests(damageTypes)
                                                 .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
                                                         .executes(ctx -> setMobProfile(plugin, ctx))))))
                         .then(Commands.literal("remove")
                                 .then(Commands.argument("mythicMobType", StringArgumentType.word())
+                                        .suggests(mythicMobTypes)
                                         .then(Commands.argument("damageType", StringArgumentType.word())
+                                                .suggests(damageTypes)
                                                 .executes(ctx -> removeMobProfile(plugin, ctx)))))
                         .then(Commands.literal("list")
                                 .then(Commands.argument("mythicMobType", StringArgumentType.word())
+                                        .suggests(mythicMobTypes)
                                         .executes(ctx -> listMobProfile(plugin, ctx)))))
                 .then(Commands.literal("set")
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .then(Commands.literal("create")
+                                // key: no suggestions - creates a new set, same reasoning as item "create".
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .then(Commands.argument("displayName", StringArgumentType.greedyString())
                                                 .executes(ctx -> createSet(plugin, ctx)))))
                         .then(Commands.literal("delete")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(setKeys)
                                         .executes(ctx -> deleteSet(plugin, ctx))))
                         .then(Commands.literal("list")
                                 .executes(ctx -> listSets(plugin, ctx)))
                         .then(Commands.literal("edit")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(setKeys)
                                         .executes(ctx -> editSet(plugin, ctx))))
                         .then(Commands.literal("addmember")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(setKeys)
                                         .then(Commands.argument("templateKey", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .executes(ctx -> addSetMember(plugin, ctx)))))
                         .then(Commands.literal("removemember")
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(setKeys)
                                         .then(Commands.argument("templateKey", StringArgumentType.word())
+                                                .suggests(templateKeys)
                                                 .executes(ctx -> removeSetMember(plugin, ctx)))))
                         .then(Commands.literal("threshold")
                                 .then(Commands.literal("damage")
                                         .then(Commands.literal("set")
                                                 .then(Commands.argument("key", StringArgumentType.word())
+                                                        .suggests(setKeys)
                                                         .then(Commands.argument("pieceCount", IntegerArgumentType.integer(1))
                                                                 .then(Commands.argument("damageType", StringArgumentType.word())
+                                                                        .suggests(damageTypes)
                                                                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
                                                                                 .then(Commands.argument("mode", StringArgumentType.word())
+                                                                                        .suggests(DAMAGE_MODE_SUGGESTIONS)
                                                                                         .executes(ctx -> setSetDamageThreshold(plugin, ctx))))))))
                                         .then(Commands.literal("remove")
                                                 .then(Commands.argument("key", StringArgumentType.word())
+                                                        .suggests(setKeys)
                                                         .then(Commands.argument("pieceCount", IntegerArgumentType.integer(1))
                                                                 .then(Commands.argument("damageType", StringArgumentType.word())
+                                                                        .suggests(damageTypes)
                                                                         .executes(ctx -> removeSetDamageThreshold(plugin, ctx)))))))
                                 .then(Commands.literal("resist")
                                         .then(Commands.literal("set")
                                                 .then(Commands.argument("key", StringArgumentType.word())
+                                                        .suggests(setKeys)
                                                         .then(Commands.argument("pieceCount", IntegerArgumentType.integer(1))
                                                                 .then(Commands.argument("damageType", StringArgumentType.word())
+                                                                        .suggests(damageTypes)
                                                                         .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
                                                                                 .executes(ctx -> setSetModifierThreshold(plugin, ctx)))))))
                                         .then(Commands.literal("remove")
                                                 .then(Commands.argument("key", StringArgumentType.word())
+                                                        .suggests(setKeys)
                                                         .then(Commands.argument("pieceCount", IntegerArgumentType.integer(1))
                                                                 .then(Commands.argument("damageType", StringArgumentType.word())
+                                                                        .suggests(damageTypes)
                                                                         .executes(ctx -> removeSetModifierThreshold(plugin, ctx)))))))))
                 .build();
     }
