@@ -15,6 +15,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -90,7 +91,7 @@ public final class ItemTemplateService {
             throw new DuplicateTemplateKeyException(key);
         }
         long now = System.currentTimeMillis();
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, baseMaterial, baseItemSnapshot,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, List.of(), baseMaterial, baseItemSnapshot,
                 customModelData, false, List.of(), null, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
         snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, List.of()));
@@ -111,9 +112,26 @@ public final class ItemTemplateService {
 
     public ItemTemplate setDamageContribution(String key, String damageTypeKey, double amount, DamageMode mode,
                                                ModifierContext context) {
+        return setDamageContribution(key, damageTypeKey, amount, mode, context, true);
+    }
+
+    /** Same as the 5-arg overload, but also sets whether this contribution shows its own lore line - see {@link DamageContribution#visible()}. */
+    public ItemTemplate setDamageContribution(String key, String damageTypeKey, double amount, DamageMode mode,
+                                               ModifierContext context, boolean visible) {
         ItemTemplate template = requireTemplate(key);
         requireDamageType(damageTypeKey);
-        damageContributionRepository.upsert(template.id(), new DamageContribution(damageTypeKey, amount, mode, context));
+        damageContributionRepository.upsert(template.id(), new DamageContribution(damageTypeKey, amount, mode, context, visible));
+        return bumpVersion(template);
+    }
+
+    /** Flips an existing contribution's lore visibility without touching its amount/mode - the value itself is untouched. */
+    public ItemTemplate toggleDamageContributionVisibility(String key, String damageTypeKey, ModifierContext context) {
+        ItemTemplate template = requireTemplate(key);
+        DamageContribution current = damageContributionRepository.findByTemplate(template.id()).stream()
+                .filter(c -> c.damageTypeKey().equals(damageTypeKey) && c.context() == context)
+                .findFirst().orElseThrow(() -> new IllegalStateException("No damage contribution " + damageTypeKey + "/" + context + " on " + key));
+        damageContributionRepository.upsert(template.id(),
+                new DamageContribution(damageTypeKey, current.amount(), current.mode(), context, !current.visible()));
         return bumpVersion(template);
     }
 
@@ -124,9 +142,24 @@ public final class ItemTemplateService {
     }
 
     public ItemTemplate setTypeModifier(String key, String damageTypeKey, double percent) {
+        return setTypeModifier(key, damageTypeKey, percent, true);
+    }
+
+    /** Same as the 3-arg overload, but also sets whether this modifier shows its own lore line - see {@link TypeModifier#visible()}. */
+    public ItemTemplate setTypeModifier(String key, String damageTypeKey, double percent, boolean visible) {
         ItemTemplate template = requireTemplate(key);
         requireDamageType(damageTypeKey);
-        typeModifierRepository.upsert(template.id(), new TypeModifier(damageTypeKey, percent));
+        typeModifierRepository.upsert(template.id(), new TypeModifier(damageTypeKey, percent, visible));
+        return bumpVersion(template);
+    }
+
+    /** Flips an existing modifier's lore visibility without touching its percent. */
+    public ItemTemplate toggleTypeModifierVisibility(String key, String damageTypeKey) {
+        ItemTemplate template = requireTemplate(key);
+        TypeModifier current = typeModifierRepository.findByTemplate(template.id()).stream()
+                .filter(m -> m.damageTypeKey().equals(damageTypeKey))
+                .findFirst().orElseThrow(() -> new IllegalStateException("No type modifier " + damageTypeKey + " on " + key));
+        typeModifierRepository.upsert(template.id(), new TypeModifier(damageTypeKey, current.percent(), !current.visible()));
         return bumpVersion(template);
     }
 
@@ -167,8 +200,23 @@ public final class ItemTemplateService {
      * armor_class_profile}-sourced resistance for that one hit, nothing persisted).
      */
     public ItemTemplate setArmorPenetration(String key, ArmorClass armorClass, double amount) {
+        return setArmorPenetration(key, armorClass, amount, true);
+    }
+
+    /** Same as the 3-arg overload, but also sets whether this entry shows its own lore line - see {@link ArmorPenetration#visible()}. */
+    public ItemTemplate setArmorPenetration(String key, ArmorClass armorClass, double amount, boolean visible) {
         ItemTemplate template = requireTemplate(key);
-        armorPenetrationRepository.upsert(template.id(), new ArmorPenetration(armorClass, amount));
+        armorPenetrationRepository.upsert(template.id(), new ArmorPenetration(armorClass, amount, visible));
+        return bumpVersion(template);
+    }
+
+    /** Flips an existing entry's lore visibility without touching its amount. */
+    public ItemTemplate toggleArmorPenetrationVisibility(String key, ArmorClass armorClass) {
+        ItemTemplate template = requireTemplate(key);
+        ArmorPenetration current = armorPenetrationRepository.findByTemplate(template.id()).stream()
+                .filter(p -> p.armorClass() == armorClass)
+                .findFirst().orElseThrow(() -> new IllegalStateException("No armor penetration " + armorClass + " on " + key));
+        armorPenetrationRepository.upsert(template.id(), new ArmorPenetration(armorClass, current.amount(), !current.visible()));
         return bumpVersion(template);
     }
 
@@ -184,9 +232,24 @@ public final class ItemTemplateService {
 
     /** This weapon's chance to inflict bleeding on a hit + how long it lasts - a stat, so it bumps version. See {@link BleedEffect}'s javadoc. */
     public ItemTemplate setBleedEffect(String key, double chancePercent, double durationSeconds) {
+        return setBleedEffect(key, chancePercent, durationSeconds, currentBleedVisible(key));
+    }
+
+    /** Same as the 3-arg overload, but also sets whether the combined bleed line shows in lore - see {@link BleedEffect#visible()}. */
+    public ItemTemplate setBleedEffect(String key, double chancePercent, double durationSeconds, boolean visible) {
         ItemTemplate template = requireTemplate(key);
-        bleedEffectRepository.upsert(template.id(), new BleedEffect(chancePercent, durationSeconds));
+        bleedEffectRepository.upsert(template.id(), new BleedEffect(chancePercent, durationSeconds, visible));
         return bumpVersion(template);
+    }
+
+    /** Flips the bleed effect's lore visibility without touching its chance/duration. */
+    public ItemTemplate toggleBleedEffectVisibility(String key) {
+        BleedEffect current = bleedEffect(key).orElse(new BleedEffect(0, 0, true));
+        return setBleedEffect(key, current.chancePercent(), current.durationSeconds(), !current.visible());
+    }
+
+    private boolean currentBleedVisible(String key) {
+        return bleedEffect(key).map(BleedEffect::visible).orElse(true);
     }
 
     public ItemTemplate removeBleedEffect(String key) {
@@ -201,9 +264,24 @@ public final class ItemTemplateService {
 
     /** This weapon's chance to land a critical hit + how much extra damage it deals - a stat, so it bumps version. See {@link CriticalEffect}'s javadoc. */
     public ItemTemplate setCriticalEffect(String key, double chancePercent, double bonusDamagePercent) {
+        return setCriticalEffect(key, chancePercent, bonusDamagePercent, currentCriticalVisible(key));
+    }
+
+    /** Same as the 3-arg overload, but also sets whether the combined crit line shows in lore - see {@link CriticalEffect#visible()}. */
+    public ItemTemplate setCriticalEffect(String key, double chancePercent, double bonusDamagePercent, boolean visible) {
         ItemTemplate template = requireTemplate(key);
-        criticalEffectRepository.upsert(template.id(), new CriticalEffect(chancePercent, bonusDamagePercent));
+        criticalEffectRepository.upsert(template.id(), new CriticalEffect(chancePercent, bonusDamagePercent, visible));
         return bumpVersion(template);
+    }
+
+    /** Flips the critical effect's lore visibility without touching its chance/bonus. */
+    public ItemTemplate toggleCriticalEffectVisibility(String key) {
+        CriticalEffect current = criticalEffect(key).orElse(new CriticalEffect(0, 0, true));
+        return setCriticalEffect(key, current.chancePercent(), current.bonusDamagePercent(), !current.visible());
+    }
+
+    private boolean currentCriticalVisible(String key) {
+        return criticalEffect(key).map(CriticalEffect::visible).orElse(true);
     }
 
     public ItemTemplate removeCriticalEffect(String key) {
@@ -226,8 +304,25 @@ public final class ItemTemplateService {
      * either; that's left to the command/GUI layer, which has {@code AccessorySettings} to check against.
      */
     public ItemTemplate setAttributeModifier(String key, Attribute attribute, double amount, AttributeModifier.Operation operation, String slot) {
+        return setAttributeModifier(key, attribute, amount, operation, slot, true);
+    }
+
+    /** Same as the 5-arg overload, but also sets whether this entry shows its own lore line - see {@link AttributeModifierEntry#visible()}. */
+    public ItemTemplate setAttributeModifier(String key, Attribute attribute, double amount, AttributeModifier.Operation operation,
+                                              String slot, boolean visible) {
         ItemTemplate template = requireTemplate(key);
-        attributeModifierRepository.upsert(template.id(), new AttributeModifierEntry(attribute, amount, operation, slot));
+        attributeModifierRepository.upsert(template.id(), new AttributeModifierEntry(attribute, amount, operation, slot, visible));
+        return bumpVersion(template);
+    }
+
+    /** Flips an existing entry's lore visibility without touching its amount/operation. */
+    public ItemTemplate toggleAttributeModifierVisibility(String key, Attribute attribute, String slot) {
+        ItemTemplate template = requireTemplate(key);
+        AttributeModifierEntry current = attributeModifierRepository.findByTemplate(template.id()).stream()
+                .filter(a -> a.attribute() == attribute && a.slot().equals(slot))
+                .findFirst().orElseThrow(() -> new IllegalStateException("No attribute modifier " + attribute + "/" + slot + " on " + key));
+        attributeModifierRepository.upsert(template.id(),
+                new AttributeModifierEntry(attribute, current.amount(), current.operation(), slot, !current.visible()));
         return bumpVersion(template);
     }
 
@@ -250,7 +345,25 @@ public final class ItemTemplateService {
     public ItemTemplate setCustomLore(String key, List<String> lines) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), List.copyOf(lines),
-                template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
+                template.hiddenHeaders(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
+                template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
+                template.createdAt(), template.updatedAt(), template.createdBy());
+        return bumpVersion(updated);
+    }
+
+    /**
+     * Flips whether one of the 5 auto-generated lore section headers (see {@link LoreHeader}) is
+     * suppressed for this template - a stat like {@link #setCustomLore}, so it bumps version.
+     * Independent of any individual entry's own {@code visible} flag underneath it.
+     */
+    public ItemTemplate toggleHeader(String key, LoreHeader header) {
+        ItemTemplate template = requireTemplate(key);
+        List<String> hidden = new ArrayList<>(template.hiddenHeaders());
+        if (!hidden.remove(header.key())) {
+            hidden.add(header.key());
+        }
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
+                List.copyOf(hidden), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
                 template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
                 template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
@@ -273,7 +386,7 @@ public final class ItemTemplateService {
     public ItemTemplate setAllowedSlots(String key, List<String> slotNames) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
-                template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), !slotNames.isEmpty(),
+                template.hiddenHeaders(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), !slotNames.isEmpty(),
                 List.copyOf(slotNames), template.armorClass(), template.version(), template.syncedVersion(), template.createdAt(),
                 System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
@@ -291,7 +404,7 @@ public final class ItemTemplateService {
     public ItemTemplate setArmorClass(String key, ArmorClass armorClass) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
-                template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
+                template.hiddenHeaders(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
                 template.allowedSlots(), armorClass, template.version(), template.syncedVersion(), template.createdAt(),
                 System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
@@ -308,7 +421,7 @@ public final class ItemTemplateService {
     public ItemTemplate rebase(String key, Material newBaseMaterial, Integer newCustomModelData, byte[] newBaseItemSnapshot) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate withNewBase = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
-                newBaseMaterial, newBaseItemSnapshot, newCustomModelData, template.trinket(), template.allowedSlots(),
+                template.hiddenHeaders(), newBaseMaterial, newBaseItemSnapshot, newCustomModelData, template.trinket(), template.allowedSlots(),
                 template.armorClass(), template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(),
                 template.createdBy());
         return bumpVersion(withNewBase);
@@ -354,7 +467,7 @@ public final class ItemTemplateService {
                                          List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                                          BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(), template.customLore(),
-                template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), contributions, modifiers,
-                enchantments, armorPenetration, bleedEffect, criticalEffect, attributeModifiers, template.updatedAt());
+                template.hiddenHeaders(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), contributions,
+                modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, attributeModifiers, template.updatedAt());
     }
 }

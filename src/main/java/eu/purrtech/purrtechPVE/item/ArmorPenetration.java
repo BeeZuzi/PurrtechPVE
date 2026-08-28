@@ -13,6 +13,9 @@ package eu.purrtech.purrtechPVE.item;
  * unlike {@link DamageContribution}/{@link TypeModifier} there's no {@code
  * ModifierContext} here. A stat like any other on the item, so it's
  * versioned/snapshotted the same way (see {@code TemplateSnapshot}).
+ *
+ * @param visible whether this entry gets its own line in the rendered lore - purely cosmetic,
+ *                the penetration always applies at combat time regardless.
  */
-public record ArmorPenetration(ArmorClass armorClass, double amount) {
+public record ArmorPenetration(ArmorClass armorClass, double amount, boolean visible) {
 }

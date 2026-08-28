@@ -29,7 +29,7 @@ class CriticalEffectRepositoryTest {
         database.connect();
         repository = new CriticalEffectRepository(database);
 
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-rapier", "Test Rapier", List.of(), Material.IRON_SWORD,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-rapier", "Test Rapier", List.of(), List.of(), Material.IRON_SWORD,
                 null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
@@ -47,7 +47,7 @@ class CriticalEffectRepositoryTest {
 
     @Test
     void upsertThenFindRoundTrips() {
-        repository.upsert(templateId, new CriticalEffect(15.0, 50.0));
+        repository.upsert(templateId, new CriticalEffect(15.0, 50.0, true));
 
         Optional<CriticalEffect> found = repository.findByTemplate(templateId);
         assertTrue(found.isPresent());
@@ -57,8 +57,8 @@ class CriticalEffectRepositoryTest {
 
     @Test
     void upsertReplacesTheExistingRow() {
-        repository.upsert(templateId, new CriticalEffect(10.0, 20.0));
-        repository.upsert(templateId, new CriticalEffect(30.0, 100.0));
+        repository.upsert(templateId, new CriticalEffect(10.0, 20.0, true));
+        repository.upsert(templateId, new CriticalEffect(30.0, 100.0, true));
 
         Optional<CriticalEffect> found = repository.findByTemplate(templateId);
         assertEquals(30.0, found.get().chancePercent());
@@ -67,7 +67,7 @@ class CriticalEffectRepositoryTest {
 
     @Test
     void removeDeletesTheRow() {
-        repository.upsert(templateId, new CriticalEffect(15.0, 50.0));
+        repository.upsert(templateId, new CriticalEffect(15.0, 50.0, true));
         assertTrue(repository.remove(templateId));
         assertFalse(repository.remove(templateId));
         assertTrue(repository.findByTemplate(templateId).isEmpty());

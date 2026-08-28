@@ -24,14 +24,15 @@ public final class DamageContributionRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT OR REPLACE INTO item_damage_contribution
-                         (template_id, damage_type_key, amount, mode, context)
-                     VALUES (?,?,?,?,?)
+                         (template_id, damage_type_key, amount, mode, context, visible)
+                     VALUES (?,?,?,?,?,?)
                      """)) {
             statement.setString(1, templateId.toString());
             statement.setString(2, contribution.damageTypeKey());
             statement.setDouble(3, contribution.amount());
             statement.setString(4, contribution.mode().name());
             statement.setString(5, contribution.context().name());
+            statement.setBoolean(6, contribution.visible());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save damage contribution for template " + templateId, e);
@@ -57,7 +58,7 @@ public final class DamageContributionRepository {
         List<DamageContribution> out = new ArrayList<>();
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                     SELECT damage_type_key, amount, mode, context FROM item_damage_contribution WHERE template_id = ?
+                     SELECT damage_type_key, amount, mode, context, visible FROM item_damage_contribution WHERE template_id = ?
                      """)) {
             statement.setString(1, templateId.toString());
             try (ResultSet rs = statement.executeQuery()) {
@@ -66,7 +67,8 @@ public final class DamageContributionRepository {
                             rs.getString("damage_type_key"),
                             rs.getDouble("amount"),
                             DamageMode.valueOf(rs.getString("mode")),
-                            ModifierContext.valueOf(rs.getString("context"))
+                            ModifierContext.valueOf(rs.getString("context")),
+                            rs.getBoolean("visible")
                     ));
                 }
             }

@@ -24,14 +24,15 @@ public final class AttributeModifierRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT OR REPLACE INTO item_attribute_modifier
-                         (template_id, attribute_key, amount, operation, slot_name)
-                     VALUES (?,?,?,?,?)
+                         (template_id, attribute_key, amount, operation, slot_name, visible)
+                     VALUES (?,?,?,?,?,?)
                      """)) {
             statement.setString(1, templateId.toString());
             statement.setString(2, entry.attribute().name());
             statement.setDouble(3, entry.amount());
             statement.setString(4, entry.operation().name());
             statement.setString(5, entry.slot());
+            statement.setBoolean(6, entry.visible());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save attribute modifier for template " + templateId, e);
@@ -57,7 +58,7 @@ public final class AttributeModifierRepository {
         List<AttributeModifierEntry> out = new ArrayList<>();
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                     SELECT attribute_key, amount, operation, slot_name FROM item_attribute_modifier WHERE template_id = ?
+                     SELECT attribute_key, amount, operation, slot_name, visible FROM item_attribute_modifier WHERE template_id = ?
                      """)) {
             statement.setString(1, templateId.toString());
             try (ResultSet rs = statement.executeQuery()) {
@@ -66,7 +67,8 @@ public final class AttributeModifierRepository {
                             Attribute.valueOf(rs.getString("attribute_key")),
                             rs.getDouble("amount"),
                             AttributeModifier.Operation.valueOf(rs.getString("operation")),
-                            rs.getString("slot_name")
+                            rs.getString("slot_name"),
+                            rs.getBoolean("visible")
                     ));
                 }
             }

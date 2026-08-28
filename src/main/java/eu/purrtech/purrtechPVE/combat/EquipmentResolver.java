@@ -328,7 +328,7 @@ public final class EquipmentResolver {
                     }
                     List<TypeModifier> combined = new ArrayList<>(item.snapshot().typeModifiers());
                     armorClassProfileRepository.findByArmorClass(armorClass.name())
-                            .forEach((type, percent) -> combined.add(new TypeModifier(type, percent)));
+                            .forEach((type, percent) -> combined.add(new TypeModifier(type, percent, true)));
                     return combined;
                 })
                 .orElse(List.of());

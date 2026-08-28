@@ -28,7 +28,7 @@ class TypeModifierRepositoryTest {
         database.connect();
         repository = new TypeModifierRepository(database);
 
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-armor", "Test Armor", List.of(), Material.IRON_CHESTPLATE,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-armor", "Test Armor", List.of(), List.of(), Material.IRON_CHESTPLATE,
                 null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
@@ -41,7 +41,7 @@ class TypeModifierRepositoryTest {
 
     @Test
     void upsertThenFindRoundTrips() {
-        repository.upsert(templateId, new TypeModifier("fire", 40.0));
+        repository.upsert(templateId, new TypeModifier("fire", 40.0, true));
 
         List<TypeModifier> found = repository.findByTemplate(templateId);
         assertEquals(1, found.size());
@@ -51,14 +51,14 @@ class TypeModifierRepositoryTest {
 
     @Test
     void negativePercentIsStoredAsWeakness() {
-        repository.upsert(templateId, new TypeModifier("frozen", -25.0));
+        repository.upsert(templateId, new TypeModifier("frozen", -25.0, true));
         assertEquals(-25.0, repository.findByTemplate(templateId).get(0).percent());
     }
 
     @Test
     void upsertOnSameTypeReplaces() {
-        repository.upsert(templateId, new TypeModifier("fire", 10.0));
-        repository.upsert(templateId, new TypeModifier("fire", 60.0));
+        repository.upsert(templateId, new TypeModifier("fire", 10.0, true));
+        repository.upsert(templateId, new TypeModifier("fire", 60.0, true));
 
         List<TypeModifier> found = repository.findByTemplate(templateId);
         assertEquals(1, found.size());
@@ -67,7 +67,7 @@ class TypeModifierRepositoryTest {
 
     @Test
     void removeDeletesTheRow() {
-        repository.upsert(templateId, new TypeModifier("acid", 15.0));
+        repository.upsert(templateId, new TypeModifier("acid", 15.0, true));
         assertTrue(repository.remove(templateId, "acid"));
         assertFalse(repository.remove(templateId, "acid"));
         assertEquals(0, repository.findByTemplate(templateId).size());

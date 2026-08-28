@@ -1626,6 +1626,91 @@
     `Plugin`/`getDataFolder()`/`saveResource()`, stejný důvod jako
     `ItemRenderer`/`BaseItemSnapshots`).
 
+- **Skrývání lore hlaviček/jednotlivých statů + tlačítkový editor hodnot
+  (2026-08-29), na žádost**: "dej možnost že ty headry půjdou vypnout a
+  jednotlivé ukazatelé těch damagů... také půjdou vypnout... tlačítko v
+  menu které se otevře když klikneš v přidávání... nastavíš hodnotu přes
+  tlačítka... jen na číselné hodnoty, + a -, různých hodnot... tlačítko
+  na to jestli se to bude ukazovat v loru." Uživatel předem potvrdil
+  (AskUserQuestion) dva rozsahové body: (1) editor rovnou pro všechny
+  číselné staty (Damage/Resist/Penetrace/Atributy/Bleed/Krit), ne jen
+  atributy; (2) přepínače hlaviček jako ikonka přímo v každém tabu, ne
+  jedno centrální menu.
+  - **Nové `visible` pole** (`boolean`, default `true`) na všech 6
+    stat-recordech: `DamageContribution`, `TypeModifier`,
+    `ArmorPenetration`, `AttributeModifierEntry`, `BleedEffect`,
+    `CriticalEffect` - čistě kosmetické, bojová matematika
+    (`EquipmentResolver`/`CombatDamageListener`) ho vůbec nečte, vždy
+    aplikuje plnou hodnotu bez ohledu na viditelnost v loru.
+  - **Nové `hiddenHeaders` pole** (`List<String>`) na `ItemTemplate`/
+    `TemplateSnapshot` - které z 5 auto-generovaných nadpisů
+    (`LoreHeader`: DAMAGE/PASSIVE/RESIST/PENETRATION/ATTRIBUTES) jsou
+    pro danou šablonu potlačené. Nezávislé na `visible` u jednotlivých
+    entries pod ním - `ItemRenderer.buildLore` teď nejdřív odfiltruje
+    entries podle `visible`, a nadpis ukáže jen když (a) není v
+    `hiddenHeaders` A (b) po filtru zbyl aspoň jeden viditelný řádek
+    (žádný osiřelý nadpis bez obsahu pod ním).
+  - **DB migrace**: `visible INTEGER NOT NULL DEFAULT 1` přidáno na
+    všech 6 stat tabulek + `hidden_headers TEXT` na `item_templates`/
+    `item_template_snapshot`, přes `addColumnIfMissing` - staré řádky
+    beze změny dostanou `visible=1`/prázdné `hiddenHeaders` (nic
+    neschovaného), takže existující nasazení vypadají po upgradu úplně
+    stejně jako předtím.
+  - **Snapshot zpětná kompatibilita**: `ItemTemplateSnapshotRepository`
+    kóduje `visible` jako poslední `|`-oddělené pole u každého statu ve
+    snapshot řetězcích - `parseVisible(fields, index)` vrátí `true`
+    (= "vždy vidět", stejné chování jako před touhle fází), pokud pole
+    chybí (starý snapshot zapsaný před touhle session).
+  - **Nová `ItemTemplateService` API**: `setXxx(..., visible)` přetížení
+    vedle stávajících kratších (ty defaultují na `true`), plus
+    `toggleXxxVisibility(...)` pro každý typ statu (přepne, beze změny
+    hodnoty) a `toggleHeader(key, LoreHeader)`.
+  - **Nová GUI obrazovka `ValueEditorMenu`** (+ `ValueEditorHolder`,
+    `ValueEditorKind`) - sdílený "27 slotů, 4 kroky +/- (0.1/1/5/10) v
+    obou směrech + přepínač viditelnosti + Zpět/Zavřít" layout, jedna
+    třída pro všech 7 číselných polí (`RESIST`, `ARMOR_PENETRATION`,
+    `ATTRIBUTE`, `BLEED_CHANCE`, `BLEED_DURATION`, `CRIT_CHANCE`,
+    `CRIT_BONUS`). Klik na existující (nebo nový, z pickeru) RESIST/
+    PENETRATION/ATTRIBUTE/BLEED/CRIT řádek teď otevře tohle misto
+    chatového promptu; hodnota se ukládá okamžitě při každém kliku na
+    +/-, žádné samostatné "Uložit".
+  - **Vědomé rozsahové rozhodnutí - DAMAGE vynechán z tlačítkového
+    editoru**: DAMAGE prompt kombinuje 3 vzájemně závislá pole (částka +
+    flat/percent mode + wielded/worn context), z nichž dvě nejsou
+    číselná - nedalo se to čistě namapovat na "jedna ikona = jedna
+    číselná hodnota" vzor, který RESIST/PENETRATION/ATTRIBUTE/BLEED/
+    CRIT už měly (buď jeden konfigurovaný řádek, nebo párové
+    chance/duration ikony ve SPECIAL_EFFECTS). Místo toho DAMAGE prompt
+    dostal **nepovinné 4. slovo `show`/`hide`** (výchozí `show`) -
+    `/pve item damage set` přes GUI chat teď umí `4 flat wielded hide`.
+    Řekl jsem to uživateli explicitně v odpovědi, neschoval jsem to.
+  - **Přepínače hlaviček**: nová ikonka v `HEADER_TOGGLE_SLOT` (slot 9,
+    volný v row 1 na každém tabu) pro DAMAGE (má dvě - `HEADER_TOGGLE_
+    SLOT_2`/slot 10, jelikož řeší wielded i worn nadpis zvlášť), RESIST,
+    ARMOR_PENETRATION a BASE (za atributy nadpis). Zelený/šedý dye podle
+    stavu, klik přepne přes `toggleHeader` a hned překreslí.
+  - **Žádná `/pve` command parita** - tahle fáze je čistě GUI
+    ("tlačítko v menu"), viditelnost/hlavičky se nedají zatím přepnout
+    přímo příkazem (na rozdíl od DAMAGE show/hide, což je vedlejší
+    produkt existujícího chat promptu). Zmíněno uživateli jako vědomě
+    vynechané, ne zapomenuté.
+  - Mechanická oprava ~11 test souborů (stejný vzor jako u předchozích
+    polí) - vložení `true`/`List.of()` na nové pozice v pozičních
+    konstruktorech `ItemTemplate`/`TemplateSnapshot`/`DamageContribution`/
+    `TypeModifier`/`ArmorPenetration`/`BleedEffect`/`CriticalEffect`.
+    Čistý `compileJava`/`compileTestJava`/`test` (157 testů)/`build`.
+  - **Ověřeno živě** (`runServer`, čerstvá DB): boot bez výjimky (potvrzuje
+    validitu nových `ALTER TABLE` migrací), `item create` → `item damage
+    set` → `item resist set` → `item bleed set` proběhly a vrátily
+    správné české zprávy (výchozí `visible=true` cestou přes novou
+    přetíženou `ItemTemplateService` metodu). **Nedá se ověřit v
+    sandboxu**: samotné otevření `ValueEditorMenu`/kliknutí na +/-/
+    přepínač viditelnosti/přepínač hlavičky - čistě GUI interakce bez
+    připojeného hráče, stejné omezení jako u předchozích GUI fází.
+    Doporučuju před ostrým nasazením naživo projet aspoň jeden RESIST a
+    jeden ATTRIBUTE záznam přes nový editor a potvrdit, že se viditelnost
+    fakt promítne do vygenerovaného lore.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

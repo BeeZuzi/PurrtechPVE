@@ -21,11 +21,14 @@ import org.bukkit.attribute.AttributeModifier;
  *             aren't real equipment slots vanilla can watch: those are applied/removed by {@code
  *             TrinketAttributeListener} instead, driven by the accessory GUI closing and by
  *             player join.
+ * @param visible whether this entry gets its own line in the rendered lore - purely cosmetic,
+ *                the attribute modifier is baked into the item regardless.
  */
 public record AttributeModifierEntry(
         Attribute attribute,
         double amount,
         AttributeModifier.Operation operation,
-        String slot
+        String slot,
+        boolean visible
 ) {
 }

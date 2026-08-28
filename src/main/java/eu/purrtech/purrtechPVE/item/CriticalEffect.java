@@ -12,6 +12,9 @@ package eu.purrtech.purrtechPVE.item;
  * <p>A stat like a damage contribution, so it's versioned/snapshotted (see
  * {@code TemplateSnapshot}), unlike {@code ArmorClass} which is a live
  * classification.
+ *
+ * @param visible whether the combined "X% crit chance, +Y% damage" line shows in the rendered
+ *                lore - purely cosmetic, the crit always rolls at combat time regardless.
  */
-public record CriticalEffect(double chancePercent, double bonusDamagePercent) {
+public record CriticalEffect(double chancePercent, double bonusDamagePercent, boolean visible) {
 }

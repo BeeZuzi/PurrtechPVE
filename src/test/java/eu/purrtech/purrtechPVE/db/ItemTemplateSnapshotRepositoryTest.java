@@ -38,7 +38,7 @@ class ItemTemplateSnapshotRepositoryTest {
         database.connect();
         repository = new ItemTemplateSnapshotRepository(database);
 
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "fire-sword", "Plamenný meč", List.of(), Material.IRON_SWORD,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "fire-sword", "Plamenný meč", List.of(), List.of(), Material.IRON_SWORD,
                 null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
@@ -52,14 +52,14 @@ class ItemTemplateSnapshotRepositoryTest {
     @Test
     void insertThenFindRoundTripsEverything() {
         byte[] baseItemSnapshotBytes = {1, 2, 3};
-        TemplateSnapshot snapshot = new TemplateSnapshot(templateId, "fire-sword", 2, "Plamenný meč", List.of(),
+        TemplateSnapshot snapshot = new TemplateSnapshot(templateId, "fire-sword", 2, "Plamenný meč", List.of(), List.of(),
                 Material.IRON_SWORD, baseItemSnapshotBytes, 42,
-                List.of(new DamageContribution("fire", 4.0, DamageMode.FLAT, ModifierContext.WIELDED)),
-                List.of(new TypeModifier("frozen", -25.0)),
+                List.of(new DamageContribution("fire", 4.0, DamageMode.FLAT, ModifierContext.WIELDED, true)),
+                List.of(new TypeModifier("frozen", -25.0, true)),
                 List.of(new TemplateEnchantment("minecraft:sharpness", 5)),
-                List.of(new ArmorPenetration(ArmorClass.HEAVY, 15.0)),
-                new BleedEffect(25.0, 5.0),
-                new CriticalEffect(15.0, 50.0),
+                List.of(new ArmorPenetration(ArmorClass.HEAVY, 15.0, true)),
+                new BleedEffect(25.0, 5.0, true),
+                new CriticalEffect(15.0, 50.0, true),
                 // NOT covered here: attributeModifiers round-tripping. Unlike every other list on
                 // this record, AttributeModifierEntry holds a real org.bukkit.attribute.Attribute,
                 // whose constants are backed by a live Bukkit registry (Attribute.<clinit> calls
@@ -96,7 +96,7 @@ class ItemTemplateSnapshotRepositoryTest {
 
     @Test
     void emptyContributionsAndModifiersRoundTripAsEmptyLists() {
-        TemplateSnapshot snapshot = new TemplateSnapshot(templateId, "fire-sword", 1, "Plamenný meč", List.of(),
+        TemplateSnapshot snapshot = new TemplateSnapshot(templateId, "fire-sword", 1, "Plamenný meč", List.of(), List.of(),
                 Material.IRON_SWORD, null, null, List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 0L);
         repository.insert(snapshot);
 
@@ -118,9 +118,9 @@ class ItemTemplateSnapshotRepositoryTest {
 
     @Test
     void insertOnSameVersionReplaces() {
-        repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "A", List.of(), Material.IRON_SWORD, null, null,
+        repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "A", List.of(), List.of(), Material.IRON_SWORD, null, null,
                 List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 0L));
-        repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "B", List.of(), Material.IRON_SWORD, null, null,
+        repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "B", List.of(), List.of(), Material.IRON_SWORD, null, null,
                 List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 1L));
 
         assertEquals("B", repository.find(templateId, 1).orElseThrow().displayName());

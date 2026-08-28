@@ -52,6 +52,7 @@ final class Schema {
             // NOT EXISTS alone isn't enough there.
             addColumnIfMissing(connection, "item_templates", "armor_class", "TEXT");
             addColumnIfMissing(connection, "item_templates", "custom_lore", "TEXT");
+            addColumnIfMissing(connection, "item_templates", "hidden_headers", "TEXT");
 
             // Full computed state at every version a template has ever had - not just the
             // current one. Needed so a stack that was deliberately NOT pushed to circulation
@@ -88,6 +89,7 @@ final class Schema {
             addColumnIfMissing(connection, "item_template_snapshot", "attribute_modifiers", "TEXT NOT NULL DEFAULT ''");
             addColumnIfMissing(connection, "item_template_snapshot", "base_item_snapshot", "BLOB");
             addColumnIfMissing(connection, "item_template_snapshot", "custom_lore", "TEXT");
+            addColumnIfMissing(connection, "item_template_snapshot", "hidden_headers", "TEXT");
 
             // damage_type_key is NOT a FK to damage_type_definitions: DamageTypeRegistry is
             // still in-memory-only (Fáze 1), that table stays unpopulated until a later
@@ -105,6 +107,7 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_damage_contribution_template "
                     + "ON item_damage_contribution(template_id)");
+            addColumnIfMissing(connection, "item_damage_contribution", "visible", "INTEGER NOT NULL DEFAULT 1");
 
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS item_type_modifier (
@@ -116,6 +119,7 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_type_modifier_template "
                     + "ON item_type_modifier(template_id)");
+            addColumnIfMissing(connection, "item_type_modifier", "visible", "INTEGER NOT NULL DEFAULT 1");
 
             // This table existed since Fáze 1 scaffolding (alongside item_damage_contribution/
             // item_type_modifier) but nothing ever wrote to it - the vanilla-attribute feature it
@@ -140,6 +144,7 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_attribute_modifier_template "
                     + "ON item_attribute_modifier(template_id)");
+            addColumnIfMissing(connection, "item_attribute_modifier", "visible", "INTEGER NOT NULL DEFAULT 1");
 
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS mob_damage_profile (
@@ -273,6 +278,7 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_armor_penetration_template "
                     + "ON item_armor_penetration(template_id)");
+            addColumnIfMissing(connection, "item_armor_penetration", "visible", "INTEGER NOT NULL DEFAULT 1");
 
             // A weapon's chance to inflict bleeding on a hit + how long it lasts - see the
             // BleedEffect record's javadoc. At most one row per template.
@@ -283,6 +289,7 @@ final class Schema {
                         duration_seconds REAL NOT NULL
                     )
                     """);
+            addColumnIfMissing(connection, "item_bleed_effect", "visible", "INTEGER NOT NULL DEFAULT 1");
 
             // A weapon's chance to land a critical hit + how much extra damage it deals - see
             // the CriticalEffect record's javadoc. At most one row per template.
@@ -293,6 +300,7 @@ final class Schema {
                         bonus_damage_percent REAL NOT NULL
                     )
                     """);
+            addColumnIfMissing(connection, "item_critical_effect", "visible", "INTEGER NOT NULL DEFAULT 1");
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize database schema", e);
         }

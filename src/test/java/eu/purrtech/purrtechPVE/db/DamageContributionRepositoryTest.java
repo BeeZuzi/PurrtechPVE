@@ -30,7 +30,7 @@ class DamageContributionRepositoryTest {
         database.connect();
         repository = new DamageContributionRepository(database);
 
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-item", "Test Item", List.of(), Material.STICK,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-item", "Test Item", List.of(), List.of(), Material.STICK,
                 null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
@@ -43,7 +43,7 @@ class DamageContributionRepositoryTest {
 
     @Test
     void upsertThenFindRoundTrips() {
-        repository.upsert(templateId, new DamageContribution("slashing", 6.0, DamageMode.FLAT, ModifierContext.WIELDED));
+        repository.upsert(templateId, new DamageContribution("slashing", 6.0, DamageMode.FLAT, ModifierContext.WIELDED, true));
 
         List<DamageContribution> found = repository.findByTemplate(templateId);
         assertEquals(1, found.size());
@@ -55,8 +55,8 @@ class DamageContributionRepositoryTest {
 
     @Test
     void upsertOnSameTypeAndContextReplacesInsteadOfDuplicating() {
-        repository.upsert(templateId, new DamageContribution("fire", 4.0, DamageMode.FLAT, ModifierContext.WIELDED));
-        repository.upsert(templateId, new DamageContribution("fire", 9.0, DamageMode.FLAT, ModifierContext.WIELDED));
+        repository.upsert(templateId, new DamageContribution("fire", 4.0, DamageMode.FLAT, ModifierContext.WIELDED, true));
+        repository.upsert(templateId, new DamageContribution("fire", 9.0, DamageMode.FLAT, ModifierContext.WIELDED, true));
 
         List<DamageContribution> found = repository.findByTemplate(templateId);
         assertEquals(1, found.size());
@@ -65,15 +65,15 @@ class DamageContributionRepositoryTest {
 
     @Test
     void sameTypeDifferentContextIsIndependent() {
-        repository.upsert(templateId, new DamageContribution("fire", 4.0, DamageMode.FLAT, ModifierContext.WIELDED));
-        repository.upsert(templateId, new DamageContribution("fire", 2.0, DamageMode.PERCENT_OF_TOTAL, ModifierContext.WORN));
+        repository.upsert(templateId, new DamageContribution("fire", 4.0, DamageMode.FLAT, ModifierContext.WIELDED, true));
+        repository.upsert(templateId, new DamageContribution("fire", 2.0, DamageMode.PERCENT_OF_TOTAL, ModifierContext.WORN, true));
 
         assertEquals(2, repository.findByTemplate(templateId).size());
     }
 
     @Test
     void removeDeletesJustThatRow() {
-        repository.upsert(templateId, new DamageContribution("frozen", 3.0, DamageMode.FLAT, ModifierContext.WIELDED));
+        repository.upsert(templateId, new DamageContribution("frozen", 3.0, DamageMode.FLAT, ModifierContext.WIELDED, true));
         assertTrue(repository.remove(templateId, "frozen", ModifierContext.WIELDED));
         assertFalse(repository.remove(templateId, "frozen", ModifierContext.WIELDED));
         assertEquals(0, repository.findByTemplate(templateId).size());

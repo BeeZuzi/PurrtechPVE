@@ -21,6 +21,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,35 +47,36 @@ public final class ItemTemplateSnapshotRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT OR REPLACE INTO item_template_snapshot
-                         (template_id, version, template_key, display_name, custom_lore, base_material, custom_model_data,
+                         (template_id, version, template_key, display_name, custom_lore, hidden_headers, base_material, custom_model_data,
                           damage_contributions, type_modifiers, enchantments, armor_penetration, bleed_effect,
                           critical_effect, attribute_modifiers, base_item_snapshot, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             statement.setString(1, snapshot.templateId().toString());
             statement.setInt(2, snapshot.version());
             statement.setString(3, snapshot.templateKey());
             statement.setString(4, snapshot.displayName());
             statement.setString(5, ItemTemplateRepository.encodeLore(snapshot.customLore()));
-            statement.setString(6, snapshot.baseMaterial().name());
+            statement.setString(6, String.join(",", snapshot.hiddenHeaders()));
+            statement.setString(7, snapshot.baseMaterial().name());
             if (snapshot.customModelData() != null) {
-                statement.setInt(7, snapshot.customModelData());
+                statement.setInt(8, snapshot.customModelData());
             } else {
-                statement.setNull(7, Types.INTEGER);
+                statement.setNull(8, Types.INTEGER);
             }
-            statement.setString(8, encodeContributions(snapshot.damageContributions()));
-            statement.setString(9, encodeModifiers(snapshot.typeModifiers()));
-            statement.setString(10, encodeEnchantments(snapshot.enchantments()));
-            statement.setString(11, encodeArmorPenetration(snapshot.armorPenetration()));
-            statement.setString(12, encodeBleedEffect(snapshot.bleedEffect()));
-            statement.setString(13, encodeCriticalEffect(snapshot.criticalEffect()));
-            statement.setString(14, encodeAttributeModifiers(snapshot.attributeModifiers()));
+            statement.setString(9, encodeContributions(snapshot.damageContributions()));
+            statement.setString(10, encodeModifiers(snapshot.typeModifiers()));
+            statement.setString(11, encodeEnchantments(snapshot.enchantments()));
+            statement.setString(12, encodeArmorPenetration(snapshot.armorPenetration()));
+            statement.setString(13, encodeBleedEffect(snapshot.bleedEffect()));
+            statement.setString(14, encodeCriticalEffect(snapshot.criticalEffect()));
+            statement.setString(15, encodeAttributeModifiers(snapshot.attributeModifiers()));
             if (snapshot.baseItemSnapshot() != null) {
-                statement.setBytes(15, snapshot.baseItemSnapshot());
+                statement.setBytes(16, snapshot.baseItemSnapshot());
             } else {
-                statement.setNull(15, Types.BLOB);
+                statement.setNull(16, Types.BLOB);
             }
-            statement.setLong(16, snapshot.createdAt());
+            statement.setLong(17, snapshot.createdAt());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
@@ -101,12 +103,18 @@ public final class ItemTemplateSnapshotRepository {
         int customModelData = rs.getInt("custom_model_data");
         Integer customModelDataBoxed = rs.wasNull() ? null : customModelData;
 
+        String hiddenHeadersRaw = rs.getString("hidden_headers");
+        List<String> hiddenHeaders = hiddenHeadersRaw == null || hiddenHeadersRaw.isBlank()
+                ? List.of()
+                : Arrays.asList(hiddenHeadersRaw.split(","));
+
         return new TemplateSnapshot(
                 UUID.fromString(rs.getString("template_id")),
                 rs.getString("template_key"),
                 rs.getInt("version"),
                 rs.getString("display_name"),
                 ItemTemplateRepository.decodeLore(rs.getString("custom_lore")),
+                hiddenHeaders,
                 Material.valueOf(rs.getString("base_material")),
                 rs.getBytes("base_item_snapshot"),
                 customModelDataBoxed,
@@ -123,7 +131,8 @@ public final class ItemTemplateSnapshotRepository {
 
     private static String encodeContributions(List<DamageContribution> contributions) {
         return contributions.stream()
-                .map(c -> String.join("|", c.damageTypeKey(), String.valueOf(c.amount()), c.mode().name(), c.context().name()))
+                .map(c -> String.join("|", c.damageTypeKey(), String.valueOf(c.amount()), c.mode().name(), c.context().name(),
+                        String.valueOf(c.visible())))
                 .collect(Collectors.joining(";"));
     }
 
@@ -135,14 +144,14 @@ public final class ItemTemplateSnapshotRepository {
         for (String entry : raw.split(";")) {
             String[] fields = entry.split("\\|");
             out.add(new DamageContribution(fields[0], Double.parseDouble(fields[1]),
-                    DamageMode.valueOf(fields[2]), ModifierContext.valueOf(fields[3])));
+                    DamageMode.valueOf(fields[2]), ModifierContext.valueOf(fields[3]), parseVisible(fields, 4)));
         }
         return out;
     }
 
     private static String encodeModifiers(List<TypeModifier> modifiers) {
         return modifiers.stream()
-                .map(m -> m.damageTypeKey() + "|" + m.percent())
+                .map(m -> m.damageTypeKey() + "|" + m.percent() + "|" + m.visible())
                 .collect(Collectors.joining(";"));
     }
 
@@ -153,7 +162,7 @@ public final class ItemTemplateSnapshotRepository {
         List<TypeModifier> out = new ArrayList<>();
         for (String entry : raw.split(";")) {
             String[] fields = entry.split("\\|");
-            out.add(new TypeModifier(fields[0], Double.parseDouble(fields[1])));
+            out.add(new TypeModifier(fields[0], Double.parseDouble(fields[1]), parseVisible(fields, 2)));
         }
         return out;
     }
@@ -178,7 +187,7 @@ public final class ItemTemplateSnapshotRepository {
 
     private static String encodeArmorPenetration(List<ArmorPenetration> armorPenetration) {
         return armorPenetration.stream()
-                .map(p -> p.armorClass().name() + "|" + p.amount())
+                .map(p -> p.armorClass().name() + "|" + p.amount() + "|" + p.visible())
                 .collect(Collectors.joining(";"));
     }
 
@@ -189,13 +198,13 @@ public final class ItemTemplateSnapshotRepository {
         List<ArmorPenetration> out = new ArrayList<>();
         for (String entry : raw.split(";")) {
             String[] fields = entry.split("\\|");
-            out.add(new ArmorPenetration(ArmorClass.valueOf(fields[0]), Double.parseDouble(fields[1])));
+            out.add(new ArmorPenetration(ArmorClass.valueOf(fields[0]), Double.parseDouble(fields[1]), parseVisible(fields, 2)));
         }
         return out;
     }
 
     private static String encodeBleedEffect(BleedEffect effect) {
-        return effect == null ? null : effect.chancePercent() + "|" + effect.durationSeconds();
+        return effect == null ? null : effect.chancePercent() + "|" + effect.durationSeconds() + "|" + effect.visible();
     }
 
     private static BleedEffect decodeBleedEffect(String raw) {
@@ -203,11 +212,11 @@ public final class ItemTemplateSnapshotRepository {
             return null;
         }
         String[] fields = raw.split("\\|");
-        return new BleedEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]));
+        return new BleedEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]), parseVisible(fields, 2));
     }
 
     private static String encodeCriticalEffect(CriticalEffect effect) {
-        return effect == null ? null : effect.chancePercent() + "|" + effect.bonusDamagePercent();
+        return effect == null ? null : effect.chancePercent() + "|" + effect.bonusDamagePercent() + "|" + effect.visible();
     }
 
     private static CriticalEffect decodeCriticalEffect(String raw) {
@@ -215,12 +224,13 @@ public final class ItemTemplateSnapshotRepository {
             return null;
         }
         String[] fields = raw.split("\\|");
-        return new CriticalEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]));
+        return new CriticalEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]), parseVisible(fields, 2));
     }
 
     private static String encodeAttributeModifiers(List<AttributeModifierEntry> attributeModifiers) {
         return attributeModifiers.stream()
-                .map(a -> String.join("|", a.attribute().name(), String.valueOf(a.amount()), a.operation().name(), a.slot()))
+                .map(a -> String.join("|", a.attribute().name(), String.valueOf(a.amount()), a.operation().name(), a.slot(),
+                        String.valueOf(a.visible())))
                 .collect(Collectors.joining(";"));
     }
 
@@ -232,8 +242,13 @@ public final class ItemTemplateSnapshotRepository {
         for (String entry : raw.split(";")) {
             String[] fields = entry.split("\\|");
             out.add(new AttributeModifierEntry(Attribute.valueOf(fields[0]), Double.parseDouble(fields[1]),
-                    AttributeModifier.Operation.valueOf(fields[2]), fields[3]));
+                    AttributeModifier.Operation.valueOf(fields[2]), fields[3], parseVisible(fields, 4)));
         }
         return out;
+    }
+
+    /** {@code true} (the pre-visible-flag default) on a snapshot encoded before this field existed - see the visible-in-lore feature. */
+    private static boolean parseVisible(String[] fields, int index) {
+        return fields.length <= index || Boolean.parseBoolean(fields[index]);
     }
 }

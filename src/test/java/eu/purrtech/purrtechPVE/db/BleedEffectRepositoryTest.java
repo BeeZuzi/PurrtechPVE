@@ -29,7 +29,7 @@ class BleedEffectRepositoryTest {
         database.connect();
         repository = new BleedEffectRepository(database);
 
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-dagger", "Test Dagger", List.of(), Material.IRON_SWORD,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-dagger", "Test Dagger", List.of(), List.of(), Material.IRON_SWORD,
                 null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
@@ -47,7 +47,7 @@ class BleedEffectRepositoryTest {
 
     @Test
     void upsertThenFindRoundTrips() {
-        repository.upsert(templateId, new BleedEffect(25.0, 5.0));
+        repository.upsert(templateId, new BleedEffect(25.0, 5.0, true));
 
         Optional<BleedEffect> found = repository.findByTemplate(templateId);
         assertTrue(found.isPresent());
@@ -57,8 +57,8 @@ class BleedEffectRepositoryTest {
 
     @Test
     void upsertReplacesTheExistingRow() {
-        repository.upsert(templateId, new BleedEffect(10.0, 2.0));
-        repository.upsert(templateId, new BleedEffect(50.0, 8.0));
+        repository.upsert(templateId, new BleedEffect(10.0, 2.0, true));
+        repository.upsert(templateId, new BleedEffect(50.0, 8.0, true));
 
         Optional<BleedEffect> found = repository.findByTemplate(templateId);
         assertEquals(50.0, found.get().chancePercent());
@@ -67,7 +67,7 @@ class BleedEffectRepositoryTest {
 
     @Test
     void removeDeletesTheRow() {
-        repository.upsert(templateId, new BleedEffect(25.0, 5.0));
+        repository.upsert(templateId, new BleedEffect(25.0, 5.0, true));
         assertTrue(repository.remove(templateId));
         assertFalse(repository.remove(templateId));
         assertTrue(repository.findByTemplate(templateId).isEmpty());

@@ -21,12 +21,13 @@ public final class TypeModifierRepository {
     public void upsert(UUID templateId, TypeModifier modifier) {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                     INSERT OR REPLACE INTO item_type_modifier (template_id, damage_type_key, percent)
-                     VALUES (?,?,?)
+                     INSERT OR REPLACE INTO item_type_modifier (template_id, damage_type_key, percent, visible)
+                     VALUES (?,?,?,?)
                      """)) {
             statement.setString(1, templateId.toString());
             statement.setString(2, modifier.damageTypeKey());
             statement.setDouble(3, modifier.percent());
+            statement.setBoolean(4, modifier.visible());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save type modifier for template " + templateId, e);
@@ -50,12 +51,12 @@ public final class TypeModifierRepository {
         List<TypeModifier> out = new ArrayList<>();
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                     SELECT damage_type_key, percent FROM item_type_modifier WHERE template_id = ?
+                     SELECT damage_type_key, percent, visible FROM item_type_modifier WHERE template_id = ?
                      """)) {
             statement.setString(1, templateId.toString());
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
-                    out.add(new TypeModifier(rs.getString("damage_type_key"), rs.getDouble("percent")));
+                    out.add(new TypeModifier(rs.getString("damage_type_key"), rs.getDouble("percent"), rs.getBoolean("visible")));
                 }
             }
         } catch (SQLException e) {

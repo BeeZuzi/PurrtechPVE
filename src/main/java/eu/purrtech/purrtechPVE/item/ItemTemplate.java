@@ -42,12 +42,20 @@ import java.util.UUID;
  * so an imported item's original flavor text isn't just silently dropped in
  * favor of this plugin's own stat lore - the admin can still edit/clear it
  * afterwards like any other stat.
+ *
+ * <p>{@code hiddenHeaders} lists which of the 5 auto-generated section
+ * headers (see {@link LoreHeader}) are suppressed for this template - a
+ * header stays hidden even if its category still has visible stat lines
+ * under it (see {@code ItemRenderer.buildLore}). Independent of each
+ * individual stat entry's own {@code visible} flag (e.g. {@code
+ * DamageContribution.visible()}), which hides just that one line.
  */
 public record ItemTemplate(
         UUID id,
         String key,
         String displayName,
         List<String> customLore,
+        List<String> hiddenHeaders,
         Material baseMaterial,
         byte[] baseItemSnapshot,
         Integer customModelData,
@@ -62,13 +70,13 @@ public record ItemTemplate(
 ) {
 
     public ItemTemplate withBumpedVersion(long updatedAt) {
-        return new ItemTemplate(id, key, displayName, customLore, baseMaterial, baseItemSnapshot, customModelData, trinket, allowedSlots,
-                armorClass, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
+        return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, baseMaterial, baseItemSnapshot, customModelData, trinket,
+                allowedSlots, armorClass, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public ItemTemplate withSyncedVersion(int syncedVersion, long updatedAt) {
-        return new ItemTemplate(id, key, displayName, customLore, baseMaterial, baseItemSnapshot, customModelData, trinket, allowedSlots,
-                armorClass, version, syncedVersion, createdAt, updatedAt, createdBy);
+        return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, baseMaterial, baseItemSnapshot, customModelData, trinket,
+                allowedSlots, armorClass, version, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public boolean isFullySynced() {

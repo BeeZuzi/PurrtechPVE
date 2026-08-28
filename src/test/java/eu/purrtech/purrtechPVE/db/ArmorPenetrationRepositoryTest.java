@@ -29,7 +29,7 @@ class ArmorPenetrationRepositoryTest {
         database.connect();
         repository = new ArmorPenetrationRepository(database);
 
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-axe", "Test Axe", List.of(), Material.IRON_AXE,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-axe", "Test Axe", List.of(), List.of(), Material.IRON_AXE,
                 null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
@@ -47,7 +47,7 @@ class ArmorPenetrationRepositoryTest {
 
     @Test
     void upsertThenFindRoundTrips() {
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0, true));
 
         List<ArmorPenetration> found = repository.findByTemplate(templateId);
         assertEquals(1, found.size());
@@ -57,8 +57,8 @@ class ArmorPenetrationRepositoryTest {
 
     @Test
     void differentArmorClassesCoexist() {
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0));
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.HEAVY, 25.0));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.HEAVY, 25.0, true));
 
         List<ArmorPenetration> found = repository.findByTemplate(templateId);
         assertEquals(2, found.size());
@@ -66,8 +66,8 @@ class ArmorPenetrationRepositoryTest {
 
     @Test
     void upsertOnSameClassReplaces() {
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.MEDIUM, 5.0));
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.MEDIUM, 20.0));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.MEDIUM, 5.0, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.MEDIUM, 20.0, true));
 
         List<ArmorPenetration> found = repository.findByTemplate(templateId);
         assertEquals(1, found.size());
@@ -76,8 +76,8 @@ class ArmorPenetrationRepositoryTest {
 
     @Test
     void removeDeletesJustThatClass() {
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0));
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.HEAVY, 25.0));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.HEAVY, 25.0, true));
 
         assertTrue(repository.remove(templateId, ArmorClass.LIGHT));
         assertFalse(repository.remove(templateId, ArmorClass.LIGHT));

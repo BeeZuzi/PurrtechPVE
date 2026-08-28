@@ -194,12 +194,12 @@ public final class ValhallaMmoImporter {
             }
             String resistType = RESISTANCE_TO_TYPE.get(attribute);
             if (resistType != null) {
-                modifiers.add(new TypeModifier(resistType, value * 100.0));
+                modifiers.add(new TypeModifier(resistType, value * 100.0, true));
                 continue;
             }
             if (DAMAGE_RESISTANCE_ATTRIBUTE.equals(attribute)) {
                 for (String typeKey : allDamageTypeKeys) {
-                    modifiers.add(new TypeModifier(typeKey, value * 100.0));
+                    modifiers.add(new TypeModifier(typeKey, value * 100.0, true));
                 }
                 continue;
             }
@@ -227,10 +227,10 @@ public final class ValhallaMmoImporter {
 
         List<DamageContribution> contributions = new ArrayList<>();
         for (Map.Entry<String, Double> entry : flatByType.entrySet()) {
-            contributions.add(new DamageContribution(entry.getKey(), entry.getValue(), DamageMode.FLAT, ModifierContext.WIELDED));
+            contributions.add(new DamageContribution(entry.getKey(), entry.getValue(), DamageMode.FLAT, ModifierContext.WIELDED, true));
         }
         for (Map.Entry<String, Double> entry : percentByType.entrySet()) {
-            contributions.add(new DamageContribution(entry.getKey(), entry.getValue(), DamageMode.PERCENT_OF_TOTAL, ModifierContext.WIELDED));
+            contributions.add(new DamageContribution(entry.getKey(), entry.getValue(), DamageMode.PERCENT_OF_TOTAL, ModifierContext.WIELDED, true));
         }
         return new ImportResult(contributions, modifiers, skipped);
     }

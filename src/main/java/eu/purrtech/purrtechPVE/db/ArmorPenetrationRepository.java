@@ -22,12 +22,13 @@ public final class ArmorPenetrationRepository {
     public void upsert(UUID templateId, ArmorPenetration penetration) {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                     INSERT OR REPLACE INTO item_armor_penetration (template_id, armor_class, amount)
-                     VALUES (?,?,?)
+                     INSERT OR REPLACE INTO item_armor_penetration (template_id, armor_class, amount, visible)
+                     VALUES (?,?,?,?)
                      """)) {
             statement.setString(1, templateId.toString());
             statement.setString(2, penetration.armorClass().name());
             statement.setDouble(3, penetration.amount());
+            statement.setBoolean(4, penetration.visible());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save armor penetration for template " + templateId, e);
@@ -51,12 +52,12 @@ public final class ArmorPenetrationRepository {
         List<ArmorPenetration> out = new ArrayList<>();
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                     SELECT armor_class, amount FROM item_armor_penetration WHERE template_id = ?
+                     SELECT armor_class, amount, visible FROM item_armor_penetration WHERE template_id = ?
                      """)) {
             statement.setString(1, templateId.toString());
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
-                    out.add(new ArmorPenetration(ArmorClass.valueOf(rs.getString("armor_class")), rs.getDouble("amount")));
+                    out.add(new ArmorPenetration(ArmorClass.valueOf(rs.getString("armor_class")), rs.getDouble("amount"), rs.getBoolean("visible")));
                 }
             }
         } catch (SQLException e) {

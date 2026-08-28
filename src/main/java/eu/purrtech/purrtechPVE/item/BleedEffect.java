@@ -13,6 +13,9 @@ package eu.purrtech.purrtechPVE.item;
  * <p>A stat like a damage contribution, so it's versioned/snapshotted (see
  * {@code TemplateSnapshot}), unlike {@code ArmorClass} which is a live
  * classification.
+ *
+ * @param visible whether the combined "X% chance to bleed for Ys" line shows in the rendered
+ *                lore - purely cosmetic, the bleed always rolls at combat time regardless.
  */
-public record BleedEffect(double chancePercent, double durationSeconds) {
+public record BleedEffect(double chancePercent, double durationSeconds, boolean visible) {
 }

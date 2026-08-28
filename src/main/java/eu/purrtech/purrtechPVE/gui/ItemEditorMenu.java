@@ -12,6 +12,7 @@ import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
+import eu.purrtech.purrtechPVE.item.LoreHeader;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
 import eu.purrtech.purrtechPVE.item.TemplateNotFoundException;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
@@ -65,6 +66,12 @@ public final class ItemEditorMenu {
     // distinct from this one).
     private static final int CLOSE_SLOT = 17;
     private static final int PREVIEW_SLOT = 13;
+    // The section-header show/hide toggle (DAMAGE/RESIST/ARMOR_PENETRATION, and BASE for its
+    // attributes header) - slot 9 is free in row 1 on every tab that uses it, distinct from
+    // PREVIEW_SLOT/CLOSE_SLOT above. DAMAGE alone needs a second one (slot 10): it has two
+    // separate headers, "Damage on hit" (wielded) and "Passive bonus" (worn).
+    private static final int HEADER_TOGGLE_SLOT = 9;
+    private static final int HEADER_TOGGLE_SLOT_2 = 10;
     private static final int PUBLISH_BUTTON_SLOT = 22;
     private static final int CONTENT_START = 18;
 
@@ -163,6 +170,7 @@ public final class ItemEditorMenu {
         meta.lore(lore);
         preview.setItemMeta(meta);
         inventory.setItem(PREVIEW_SLOT, preview);
+        inventory.setItem(HEADER_TOGGLE_SLOT, headerToggleIcon(plugin, locale, templateKey, LoreHeader.ATTRIBUTES));
 
         List<AttributeModifierEntry> entries = plugin.getItemTemplateService().attributeModifiers(templateKey);
         for (int i = 0; i < entries.size() && CONTENT_START + i < SIZE; i++) {
@@ -221,6 +229,10 @@ public final class ItemEditorMenu {
             handleRebaseClick(plugin, player, holder);
             return;
         }
+        if (slot == HEADER_TOGGLE_SLOT) {
+            handleHeaderToggleClick(plugin, player, holder, LoreHeader.ATTRIBUTES);
+            return;
+        }
         List<AttributeModifierEntry> entries = plugin.getItemTemplateService().attributeModifiers(holder.templateKey());
         int index = slot - CONTENT_START;
         if (index == entries.size()) {
@@ -239,7 +251,9 @@ public final class ItemEditorMenu {
             render(plugin, holder.getInventory(), holder, locale);
             return;
         }
-        promptAttributeModifier(plugin, player, holder, entry.attribute());
+        // Already has a slot/operation from when it was created - nothing non-numeric left to
+        // pick, so straight into the +/- editor instead of re-running the whole chat prompt.
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.ATTRIBUTE, entry.attribute().name() + "|" + entry.slot());
     }
 
     private static void handleRebaseClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder) {
@@ -332,6 +346,8 @@ public final class ItemEditorMenu {
             renderDamageTypePicker(plugin, inventory, templateKey, locale);
             return;
         }
+        inventory.setItem(HEADER_TOGGLE_SLOT, headerToggleIcon(plugin, locale, templateKey, LoreHeader.DAMAGE));
+        inventory.setItem(HEADER_TOGGLE_SLOT_2, headerToggleIcon(plugin, locale, templateKey, LoreHeader.PASSIVE));
         List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(templateKey);
         List<DamageType> configured = configuredDamageTypes(plugin, contributions);
         for (int i = 0; i < configured.size() && CONTENT_START + i < SIZE; i++) {
@@ -382,6 +398,14 @@ public final class ItemEditorMenu {
     private static void handleDamageClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
         if (holder.isPickerOpen()) {
             handleDamageTypePickerClick(plugin, player, holder, slot);
+            return;
+        }
+        if (slot == HEADER_TOGGLE_SLOT) {
+            handleHeaderToggleClick(plugin, player, holder, LoreHeader.DAMAGE);
+            return;
+        }
+        if (slot == HEADER_TOGGLE_SLOT_2) {
+            handleHeaderToggleClick(plugin, player, holder, LoreHeader.PASSIVE);
             return;
         }
         List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(holder.templateKey());
@@ -435,7 +459,10 @@ public final class ItemEditorMenu {
                 return;
             }
             String[] parts = rawInput.trim().split("\\s+");
-            if (parts.length != 3) {
+            // 4th word is optional - "show"/"hide" whether this line appears in the rendered
+            // lore (see DamageContribution.visible()); defaults to shown, same as every other
+            // stat that predates this toggle.
+            if (parts.length != 3 && parts.length != 4) {
                 p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
                 return;
@@ -443,19 +470,29 @@ public final class ItemEditorMenu {
             Double amount = parseDouble(parts[0]);
             DamageMode mode = parseMode(parts[1]);
             ModifierContext parsedContext = parseContext(parts[2]);
-            if (amount == null || mode == null || parsedContext == null) {
+            Boolean visible = parts.length == 4 ? parseVisible(parts[3]) : Boolean.TRUE;
+            if (amount == null || mode == null || parsedContext == null || visible == null) {
                 p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
                 open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
                 return;
             }
             try {
-                plugin.getItemTemplateService().setDamageContribution(holder.templateKey(), type.key(), amount, mode, parsedContext);
+                plugin.getItemTemplateService().setDamageContribution(holder.templateKey(), type.key(), amount, mode, parsedContext, visible);
                 p.sendMessage(messages.render(locale, "gui.prompt.done"));
             } catch (TemplateNotFoundException e) {
                 p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
             }
             open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
         });
+    }
+
+    /** {@code null} on anything but "show"/"hide" - same lenient/explicit shape as {@link #parseMode}/{@link #parseContext}. */
+    private static Boolean parseVisible(String raw) {
+        return switch (raw.trim().toLowerCase(Locale.ROOT)) {
+            case "show" -> Boolean.TRUE;
+            case "hide" -> Boolean.FALSE;
+            default -> null;
+        };
     }
 
     // ---- RESIST ----
@@ -469,6 +506,7 @@ public final class ItemEditorMenu {
             renderResistTypePicker(plugin, inventory, templateKey, locale);
             return;
         }
+        inventory.setItem(HEADER_TOGGLE_SLOT, headerToggleIcon(plugin, locale, templateKey, LoreHeader.RESIST));
         List<TypeModifier> modifiers = plugin.getItemTemplateService().typeModifiers(templateKey);
         List<DamageType> configured = configuredResistTypes(plugin, modifiers);
         for (int i = 0; i < configured.size() && CONTENT_START + i < SIZE; i++) {
@@ -519,6 +557,10 @@ public final class ItemEditorMenu {
             handleResistTypePickerClick(plugin, player, holder, slot);
             return;
         }
+        if (slot == HEADER_TOGGLE_SLOT) {
+            handleHeaderToggleClick(plugin, player, holder, LoreHeader.RESIST);
+            return;
+        }
         List<TypeModifier> modifiers = plugin.getItemTemplateService().typeModifiers(holder.templateKey());
         List<DamageType> configured = configuredResistTypes(plugin, modifiers);
         int index = slot - CONTENT_START;
@@ -537,7 +579,7 @@ public final class ItemEditorMenu {
             render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
-        promptResistValue(plugin, player, holder, type);
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.RESIST, type.key());
     }
 
     private static void handleResistTypePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
@@ -552,35 +594,10 @@ public final class ItemEditorMenu {
         if (index < 0 || index >= available.size()) {
             return;
         }
-        promptResistValue(plugin, player, holder, available.get(index));
-    }
-
-    private static void promptResistValue(PurrtechPVE plugin, Player player, ItemEditorHolder holder, DamageType type) {
-        Locale locale = player.locale();
-        Messages messages = plugin.getMessages();
-        player.closeInventory();
-        player.sendMessage(messages.render(locale, "gui.armor-class.prompt-set"));
-        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
-        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
-            if (isCancel(rawInput)) {
-                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.RESIST);
-                return;
-            }
-            Double percent = parseDouble(rawInput.trim());
-            if (percent == null) {
-                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.RESIST);
-                return;
-            }
-            try {
-                plugin.getItemTemplateService().setTypeModifier(holder.templateKey(), type.key(), percent);
-                p.sendMessage(messages.render(locale, "gui.prompt.done"));
-            } catch (TemplateNotFoundException e) {
-                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
-            }
-            open(plugin, p, holder.templateKey(), ItemEditorTab.RESIST);
-        });
+        // A brand-new resist entry starts at 0% - RESIST is purely numeric (no mode/context to
+        // pick like DAMAGE has), so there's nothing left needing chat, straight into the same
+        // +/- editor an existing entry's icon opens.
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.RESIST, available.get(index).key());
     }
 
     // ---- TRINKET ----
@@ -704,6 +721,7 @@ public final class ItemEditorMenu {
 
     private static void renderArmorPenetration(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
         Messages messages = plugin.getMessages();
+        inventory.setItem(HEADER_TOGGLE_SLOT, headerToggleIcon(plugin, locale, templateKey, LoreHeader.PENETRATION));
         List<ArmorPenetration> penetration = plugin.getItemTemplateService().armorPenetration(templateKey);
         ArmorClass[] classes = ArmorClass.values();
         for (int i = 0; i < classes.length; i++) {
@@ -742,6 +760,10 @@ public final class ItemEditorMenu {
     private static void handleArmorPenetrationClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
         Locale locale = player.locale();
         Messages messages = plugin.getMessages();
+        if (slot == HEADER_TOGGLE_SLOT) {
+            handleHeaderToggleClick(plugin, player, holder, LoreHeader.PENETRATION);
+            return;
+        }
         ArmorClass[] classes = ArmorClass.values();
         int index = slot - CONTENT_START;
         if (index < 0 || index >= classes.length) {
@@ -756,29 +778,7 @@ public final class ItemEditorMenu {
             return;
         }
 
-        player.closeInventory();
-        player.sendMessage(messages.render(locale, "gui.item-editor.penetration.prompt"));
-        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
-        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
-            if (isCancel(rawInput)) {
-                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
-                return;
-            }
-            Double amount = parseDouble(rawInput.trim());
-            if (amount == null) {
-                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
-                return;
-            }
-            try {
-                plugin.getItemTemplateService().setArmorPenetration(holder.templateKey(), armorClass, amount);
-                p.sendMessage(messages.render(locale, "gui.prompt.done"));
-            } catch (TemplateNotFoundException e) {
-                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
-            }
-            open(plugin, p, holder.templateKey(), ItemEditorTab.ARMOR_PENETRATION);
-        });
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.ARMOR_PENETRATION, armorClass.name());
     }
 
     private static Material armorClassIcon(ArmorClass armorClass) {
@@ -847,8 +847,8 @@ public final class ItemEditorMenu {
                     render(plugin, holder.getInventory(), holder, locale);
                     return;
                 }
-                boolean editingChance = slot == SLOT_BLEED_CHANCE;
-                promptBleedValue(plugin, player, holder, editingChance);
+                ValueEditorKind kind = slot == SLOT_BLEED_CHANCE ? ValueEditorKind.BLEED_CHANCE : ValueEditorKind.BLEED_DURATION;
+                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
             }
             case SLOT_CRIT_CHANCE, SLOT_CRIT_BONUS -> {
                 if (shift) {
@@ -857,78 +857,12 @@ public final class ItemEditorMenu {
                     render(plugin, holder.getInventory(), holder, locale);
                     return;
                 }
-                boolean editingChance = slot == SLOT_CRIT_CHANCE;
-                promptCriticalValue(plugin, player, holder, editingChance);
+                ValueEditorKind kind = slot == SLOT_CRIT_CHANCE ? ValueEditorKind.CRIT_CHANCE : ValueEditorKind.CRIT_BONUS;
+                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
             }
             default -> {
             }
         }
-    }
-
-    private static void promptBleedValue(PurrtechPVE plugin, Player player, ItemEditorHolder holder, boolean editingChance) {
-        Locale locale = player.locale();
-        Messages messages = plugin.getMessages();
-        BleedEffect current = plugin.getItemTemplateService().bleedEffect(holder.templateKey()).orElse(new BleedEffect(0, 0));
-        player.closeInventory();
-        player.sendMessage(messages.render(locale, editingChance ? "gui.item-editor.effects.prompt-bleed-chance" : "gui.item-editor.effects.prompt-bleed-duration"));
-        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
-        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
-            if (isCancel(rawInput)) {
-                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
-                return;
-            }
-            Double value = parseDouble(rawInput.trim());
-            if (value == null) {
-                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
-                return;
-            }
-            try {
-                if (editingChance) {
-                    plugin.getItemTemplateService().setBleedEffect(holder.templateKey(), value, current.durationSeconds());
-                } else {
-                    plugin.getItemTemplateService().setBleedEffect(holder.templateKey(), current.chancePercent(), value);
-                }
-                p.sendMessage(messages.render(locale, "gui.prompt.done"));
-            } catch (TemplateNotFoundException e) {
-                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
-            }
-            open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
-        });
-    }
-
-    private static void promptCriticalValue(PurrtechPVE plugin, Player player, ItemEditorHolder holder, boolean editingChance) {
-        Locale locale = player.locale();
-        Messages messages = plugin.getMessages();
-        CriticalEffect current = plugin.getItemTemplateService().criticalEffect(holder.templateKey()).orElse(new CriticalEffect(0, 0));
-        player.closeInventory();
-        player.sendMessage(messages.render(locale, editingChance ? "gui.item-editor.effects.prompt-crit-chance" : "gui.item-editor.effects.prompt-crit-bonus"));
-        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
-        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
-            if (isCancel(rawInput)) {
-                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
-                return;
-            }
-            Double value = parseDouble(rawInput.trim());
-            if (value == null) {
-                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
-                return;
-            }
-            try {
-                if (editingChance) {
-                    plugin.getItemTemplateService().setCriticalEffect(holder.templateKey(), value, current.bonusDamagePercent());
-                } else {
-                    plugin.getItemTemplateService().setCriticalEffect(holder.templateKey(), current.chancePercent(), value);
-                }
-                p.sendMessage(messages.render(locale, "gui.prompt.done"));
-            } catch (TemplateNotFoundException e) {
-                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
-            }
-            open(plugin, p, holder.templateKey(), ItemEditorTab.SPECIAL_EFFECTS);
-        });
     }
 
     // ---- MOBS ----
@@ -1177,6 +1111,25 @@ public final class ItemEditorMenu {
     }
 
     // ---- helpers ----
+
+    /** Shared section-header show/hide toggle icon (DAMAGE x2, RESIST, ARMOR_PENETRATION, BASE for its attributes header). */
+    private static ItemStack headerToggleIcon(PurrtechPVE plugin, Locale locale, String templateKey, LoreHeader header) {
+        Messages messages = plugin.getMessages();
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
+        boolean hidden = template.hiddenHeaders().contains(header.key());
+        Material material = hidden ? Material.GRAY_DYE : Material.LIME_DYE;
+        String key = hidden ? "gui.item-editor.header-toggle.hidden" : "gui.item-editor.header-toggle.shown";
+        ItemStack icon = named(material, messages.render(locale, key));
+        ItemMeta meta = icon.getItemMeta();
+        meta.lore(List.of(messages.render(locale, "gui.item-editor.header-toggle.hint")));
+        icon.setItemMeta(meta);
+        return icon;
+    }
+
+    private static void handleHeaderToggleClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, LoreHeader header) {
+        plugin.getItemTemplateService().toggleHeader(holder.templateKey(), header);
+        render(plugin, holder.getInventory(), holder, player.locale());
+    }
 
     /** Shared "+ Add" button icon used by every tab's configured-list + picker pattern (DAMAGE, RESIST, MOBS). */
     private static ItemStack addButton(Messages messages, Locale locale, String labelKey) {
