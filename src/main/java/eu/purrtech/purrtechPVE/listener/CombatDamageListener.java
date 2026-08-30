@@ -3,9 +3,12 @@ package eu.purrtech.purrtechPVE.listener;
 import eu.purrtech.purrtechPVE.combat.BleedManager;
 import eu.purrtech.purrtechPVE.combat.CombatKind;
 import eu.purrtech.purrtechPVE.combat.DamageFeedback;
+import eu.purrtech.purrtechPVE.combat.DpsTracker;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
 import eu.purrtech.purrtechPVE.combat.WorldToggleEvaluator;
+import eu.purrtech.purrtechPVE.config.CombatFeedbackSettings;
 import eu.purrtech.purrtechPVE.config.WorldToggleSettings;
+import net.kyori.adventure.text.Component;
 import eu.purrtech.purrtechPVE.damage.DamagePipeline;
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
@@ -47,6 +50,14 @@ import java.util.concurrent.ThreadLocalRandom;
  * class only computes the per-tick damage (a fraction of the raw hit,
  * per the "bleed" {@code DamageType}'s own {@code dotTickPercent}) and how
  * many ticks fit the weapon's configured duration.
+ *
+ * <p>{@code combatFeedbackSettings.effectivenessColors()} (see {@code config.yml}) switches the
+ * per-type numbers from a flat attacker/defender color to yellow/white/gray by how effective the
+ * hit was against the target - same {@code resistance} map already computed above, just also
+ * handed to {@link DamageFeedback} instead of only feeding {@link DamagePipeline}. {@link
+ * DpsTracker} rides the attacker's own action-bar message: every hit records its final dealt
+ * damage regardless, and a player who's toggled {@code /pve dps} on gets their rolling DPS
+ * appended to that same message.
  */
 public final class CombatDamageListener implements Listener {
 
@@ -54,13 +65,18 @@ public final class CombatDamageListener implements Listener {
     private final EquipmentResolver equipmentResolver;
     private final DamageTypeRegistry damageTypeRegistry;
     private final BleedManager bleedManager;
+    private final CombatFeedbackSettings combatFeedbackSettings;
+    private final DpsTracker dpsTracker;
 
     public CombatDamageListener(WorldToggleSettings worldToggles, EquipmentResolver equipmentResolver,
-                                 DamageTypeRegistry damageTypeRegistry, BleedManager bleedManager) {
+                                 DamageTypeRegistry damageTypeRegistry, BleedManager bleedManager,
+                                 CombatFeedbackSettings combatFeedbackSettings, DpsTracker dpsTracker) {
         this.worldToggles = worldToggles;
         this.equipmentResolver = equipmentResolver;
         this.damageTypeRegistry = damageTypeRegistry;
         this.bleedManager = bleedManager;
+        this.combatFeedbackSettings = combatFeedbackSettings;
+        this.dpsTracker = dpsTracker;
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -118,11 +134,20 @@ public final class CombatDamageListener implements Listener {
             });
         }
 
+        boolean effectivenessColors = combatFeedbackSettings.effectivenessColors();
         if (defender instanceof Player defenderPlayer) {
-            defenderPlayer.sendActionBar(DamageFeedback.render(perTypeForDisplay, damageTypeRegistry, NamedTextColor.RED, isCritical));
+            defenderPlayer.sendActionBar(DamageFeedback.render(perTypeForDisplay, damageTypeRegistry, NamedTextColor.RED,
+                    isCritical, resistance, effectivenessColors));
         }
         if (attacker instanceof Player attackerPlayer) {
-            attackerPlayer.sendActionBar(DamageFeedback.render(perTypeForDisplay, damageTypeRegistry, NamedTextColor.YELLOW, isCritical));
+            Component feedback = DamageFeedback.render(perTypeForDisplay, damageTypeRegistry, NamedTextColor.YELLOW,
+                    isCritical, resistance, effectivenessColors);
+            dpsTracker.record(attackerPlayer.getUniqueId(), total);
+            if (dpsTracker.isEnabled(attackerPlayer.getUniqueId())) {
+                double dps = dpsTracker.currentDps(attackerPlayer.getUniqueId());
+                feedback = feedback.append(Component.text("  DPS: " + DamageFeedback.formatAmount(dps), NamedTextColor.AQUA));
+            }
+            attackerPlayer.sendActionBar(feedback);
         }
     }
 

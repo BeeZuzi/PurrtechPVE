@@ -39,6 +39,15 @@ public final class ConfigLoader {
         return slots.isEmpty() ? AccessorySettings.defaults() : new AccessorySettings(List.copyOf(slots));
     }
 
+    public static CombatFeedbackSettings loadCombatFeedbackSettings(FileConfiguration config) {
+        CombatFeedbackSettings defaults = CombatFeedbackSettings.defaults();
+        ConfigurationSection combat = config.getConfigurationSection("combat");
+        boolean effectivenessColors = combat != null
+                ? combat.getBoolean("show-effectiveness-colors", defaults.effectivenessColors())
+                : defaults.effectivenessColors();
+        return new CombatFeedbackSettings(effectivenessColors);
+    }
+
     public static String loadLocale(FileConfiguration config) {
         return config.getString("locale", "cs");
     }

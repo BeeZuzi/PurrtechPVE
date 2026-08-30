@@ -90,4 +90,55 @@ class DamageFeedbackTest {
         String withoutFlag = plain(DamageFeedback.render(perType, REGISTRY, NamedTextColor.RED));
         assertEquals(withoutFlag, withFlag);
     }
+
+    @Test
+    void effectivenessColorsOffKeepsTheFlatColor() {
+        Map<String, Double> perType = Map.of("fire", 4.0);
+        Map<String, Double> resistance = Map.of("fire", -50.0);
+
+        Component result = DamageFeedback.render(perType, REGISTRY, NamedTextColor.RED, false, resistance, false);
+
+        assertEquals(NamedTextColor.RED, soleChildColor(result));
+    }
+
+    @Test
+    void effectivenessColorsOnColorsAWeaknessYellow() {
+        Map<String, Double> perType = Map.of("fire", 4.0);
+        Map<String, Double> resistance = Map.of("fire", -50.0);
+
+        Component result = DamageFeedback.render(perType, REGISTRY, NamedTextColor.RED, false, resistance, true);
+
+        assertEquals(NamedTextColor.YELLOW, soleChildColor(result));
+    }
+
+    @Test
+    void effectivenessColorsOnColorsAResistanceGray() {
+        Map<String, Double> perType = Map.of("fire", 4.0);
+        Map<String, Double> resistance = Map.of("fire", 25.0);
+
+        Component result = DamageFeedback.render(perType, REGISTRY, NamedTextColor.RED, false, resistance, true);
+
+        assertEquals(NamedTextColor.GRAY, soleChildColor(result));
+    }
+
+    @Test
+    void effectivenessColorsOnColorsNormalWhite() {
+        Map<String, Double> perType = Map.of("fire", 4.0);
+
+        Component result = DamageFeedback.render(perType, REGISTRY, NamedTextColor.RED, false, Map.of(), true);
+
+        assertEquals(NamedTextColor.WHITE, soleChildColor(result));
+    }
+
+    @Test
+    void formatAmountRoundsToOneDecimalPlace() {
+        assertEquals("5", DamageFeedback.formatAmount(5.0));
+        assertEquals("2.5", DamageFeedback.formatAmount(2.5));
+        assertEquals("2.5", DamageFeedback.formatAmount(2.5049));
+    }
+
+    private static NamedTextColor soleChildColor(Component result) {
+        assertEquals(1, result.children().size());
+        return (NamedTextColor) result.children().get(0).color();
+    }
 }

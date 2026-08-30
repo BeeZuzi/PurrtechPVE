@@ -15,3 +15,6 @@ permissions:
   purrtechpve.accessory.use:
     description: Open your own accessory (trinket) inventory
     default: true
+  purrtechpve.dps.use:
+    description: Toggle your own damage-per-second action-bar readout
+    default: true

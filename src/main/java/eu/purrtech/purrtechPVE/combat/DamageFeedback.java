@@ -21,6 +21,20 @@ public final class DamageFeedback {
     }
 
     public static Component render(Map<String, Double> perType, DamageTypeRegistry registry, NamedTextColor color, boolean critical) {
+        return render(perType, registry, color, critical, Map.of(), false);
+    }
+
+    /**
+     * Same as {@link #render(Map, DamageTypeRegistry, NamedTextColor, boolean)}, but when {@code
+     * effectivenessColors} is on, each number is colored by {@code resistance}'s percent for that
+     * type instead of the flat {@code color} - yellow (target is weak to it, negative percent),
+     * white (normal, zero/missing), or gray (target resists it, positive percent), matching
+     * {@code CombatFeedbackSettings}/{@code EquipmentResolver.resolveResistance}'s sign
+     * convention. {@code color} is still used as-is when the flag is off, so an admin who hasn't
+     * opted in sees exactly the same feedback as before this existed.
+     */
+    public static Component render(Map<String, Double> perType, DamageTypeRegistry registry, NamedTextColor color,
+                                    boolean critical, Map<String, Double> resistance, boolean effectivenessColors) {
         // Deliberately built via Component.append(), not a TextComponent.Builder - a production
         // server crashed with NoSuchMethodError on TextComponent$Builder.build() because its
         // bundled Adventure jar (Leaf 1.21.11) resolves that covariant-return bridge method
@@ -40,12 +54,24 @@ public final class DamageFeedback {
             }
             first = false;
             String icon = registry.find(entry.getKey()).map(DamageType::icon).orElse("?");
-            result = result.append(Component.text(icon + " " + formatAmount(entry.getValue()), color));
+            NamedTextColor lineColor = effectivenessColors ? effectivenessColor(resistance.getOrDefault(entry.getKey(), 0.0)) : color;
+            result = result.append(Component.text(icon + " " + formatAmount(entry.getValue()), lineColor));
         }
         return result;
     }
 
-    private static String formatAmount(double amount) {
+    /** Positive percent = target resists this type (gray), negative = target is weak to it (yellow), zero = normal (white). */
+    private static NamedTextColor effectivenessColor(double resistPercent) {
+        if (resistPercent > 0) {
+            return NamedTextColor.GRAY;
+        }
+        if (resistPercent < 0) {
+            return NamedTextColor.YELLOW;
+        }
+        return NamedTextColor.WHITE;
+    }
+
+    public static String formatAmount(double amount) {
         double rounded = Math.round(amount * 10.0) / 10.0;
         if (rounded == Math.rint(rounded)) {
             return String.valueOf((long) rounded);

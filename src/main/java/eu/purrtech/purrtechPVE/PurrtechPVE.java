@@ -1,9 +1,11 @@
 package eu.purrtech.purrtechPVE;
 
 import eu.purrtech.purrtechPVE.combat.BleedManager;
+import eu.purrtech.purrtechPVE.combat.DpsTracker;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
 import eu.purrtech.purrtechPVE.command.PveCommand;
 import eu.purrtech.purrtechPVE.config.AccessorySettings;
+import eu.purrtech.purrtechPVE.config.CombatFeedbackSettings;
 import eu.purrtech.purrtechPVE.config.ConfigLoader;
 import eu.purrtech.purrtechPVE.config.WorldToggleSettings;
 import eu.purrtech.purrtechPVE.damage.DamageType;
@@ -60,6 +62,8 @@ public final class PurrtechPVE extends JavaPlugin {
     private MythicMobsBridge mythicMobsBridge;
     private MobEquipmentRepository mobEquipmentRepository;
     private ArmorClassProfileRepository armorClassProfileRepository;
+    private CombatFeedbackSettings combatFeedbackSettings;
+    private DpsTracker dpsTracker;
 
     @Override
     public void onEnable() {
@@ -72,6 +76,8 @@ public final class PurrtechPVE extends JavaPlugin {
         defaultLocale = Locale.forLanguageTag(ConfigLoader.loadLocale(getConfig()));
         worldToggles = ConfigLoader.loadWorldToggles(getConfig());
         accessorySettings = ConfigLoader.loadAccessorySettings(getConfig());
+        combatFeedbackSettings = ConfigLoader.loadCombatFeedbackSettings(getConfig());
+        dpsTracker = new DpsTracker();
 
         damageTypeRegistry = new DamageTypeRegistry();
 
@@ -162,7 +168,8 @@ public final class PurrtechPVE extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, () -> bleedManager.tick(equipmentResolver), bleedPeriodTicks, bleedPeriodTicks);
 
         getServer().getPluginManager().registerEvents(
-                new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager), this);
+                new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager,
+                        combatFeedbackSettings, dpsTracker), this);
         getServer().getPluginManager().registerEvents(new ItemSyncJoinListener(itemSyncService), this);
         getServer().getPluginManager().registerEvents(new AccessoryMenuListener(accessoryRepository), this);
         getServer().getPluginManager().registerEvents(new TrinketAttributeListener(this, accessoryRepository,
@@ -240,5 +247,13 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public ArmorClassProfileRepository getArmorClassProfileRepository() {
         return armorClassProfileRepository;
+    }
+
+    public CombatFeedbackSettings getCombatFeedbackSettings() {
+        return combatFeedbackSettings;
+    }
+
+    public DpsTracker getDpsTracker() {
+        return dpsTracker;
     }
 }

@@ -1711,6 +1711,61 @@
     jeden ATTRIBUTE záznam přes nový editor a potvrdit, že se viditelnost
     fakt promítne do vygenerovaného lore.
 
+- **Efektivita barvou v action baru + `/pve dps` (2026-08-30), na
+  žádost**: "Udělej možnost do configu že bude se moct ukazovat v
+  hotbaru jestli to poškození je efektivní... žlutě/bíle/šedě... Také
+  přidej možnost si přes cmd zapnout... DPS." "Hotbar" = action bar (to
+  jediné, co dává technicky smysl pro průběžnou bojovou zpětnou vazbu -
+  přesně tam, kde `DamageFeedback` už dřív ukazovala čísla poškození po
+  každém zásahu, jen napevno červeně/žlutě podle role útočník/obránce).
+  - **Nový `config.yml` přepínač** `combat.show-effectiveness-colors`
+    (výchozí `false`) - `ConfigLoader.loadCombatFeedbackSettings` +
+    nový `CombatFeedbackSettings` record. Vypnuto = přesně stejné
+    chování jako předtím (plochá barva).
+  - **`DamageFeedback.render(...)`** dostala novou přetíženou variantu
+    s `resistance` mapou (ta samá, co si `CombatDamageListener` už
+    dřív počítal pro `DamagePipeline` - teď se předává i sem) + `boolean
+    effectivenessColors`. Když je zapnuto, každé číslo se obarví podle
+    `resist.get(type)`: `> 0` (cíl je odolný) → šedá, `< 0` (cíl má
+    slabinu) → žlutá, `0`/chybí → bílá - přesně mapování, co bylo
+    zadané. Aplikuje se na obě strany (útočník i obránce vidí stejnou
+    objektivní informaci o zásahu).
+  - **`/pve dps`** - self-toggle příkaz (žádný argument, přepíná pro
+    hráče, co ho zadal), nová oprávnění `purrtechpve.dps.use` (default
+    `true`, stejný vzor jako `accessory.use`). Nový `DpsTracker`
+    (čistě in-memory, per-hráč posuvné 5s okno) - `CombatDamageListener`
+    zaznamená každý zásah útočníka bez ohledu na to, jestli má DPS
+    zapnuté, a když ano, připojí `DPS: <číslo>` (azurová) na konec téhož
+    action-bar hlášení, co se stejně posílá po každém zásahu (žádný
+    samostatný scheduler task navíc).
+  - **Vědomá rozsahová rozhodnutí** (řečeno uživateli): (1) DPS okno je
+    napevno 5 sekund, ne konfigurovatelné - dá se přidat do configu
+    později, pokud to bude potřeba; (2) DPS se přepočítává a ukazuje
+    jen při zásahu (jede na stejné action-bar zprávě jako číslo
+    poškození), ne na nezávislém tikajícím časovači - takže mezi
+    zásahy hodnota nezmizí/needukazuje se, dokud nezasáhneš znovu (nebo
+    dokud vanilla action-bar timeout zprávu sám nezhasne); (3) DPS
+    toggle je čistě runtime stav (`DpsTracker`), nepřežije restart
+    serveru - "chci to zrovna teď vidět" je UI preference, ne stat.
+  - **Nové testy**: `DamageFeedbackTest` (čistě unit-testovatelná, žádný
+    živý Bukkit potřeba) - 4 nové testy pro efektivitu-barev overload
+    (vypnuto = plochá barva, zapnuto = žlutá/bílá/šedá podle znaménka
+    resistance) + test na `formatAmount` (teď veřejná, sdílená s DPS
+    textem v `CombatDamageListener`). `DpsTracker`/`CombatDamageListener`
+    samy testy nemají - vyžadují živý Bukkit (`Player`/`LivingEntity`),
+    stejná zavedená konvence jako `EquipmentResolver`/`ItemRenderer`.
+  - Čistý `compileJava`/`test` (162 testů)/`build`.
+  - **Ověřeno živě** (`runServer`, čerstvá DB i config): boot bez
+    výjimky, nová `combat:` sekce se správně vyextrahovala do disk
+    `config.yml`, `/pve dps` z konzole správně vrátil "jen hráč" chybu
+    (tab-completion na `dps` funguje automaticky, je to prostý literal).
+    **Nedá se ověřit v sandboxu**: skutečné obarvení čísel podle
+    efektivity a živý DPS counter v action baru - obojí potřebuje
+    reálný boj mezi připojenými hráči/entitami. Doporučuju před ostrým
+    nasazením zapnout `combat.show-effectiveness-colors: true`, praštit
+    do moba se slabinou/odolností a potvrdit barvy, a zapnout `/pve dps`
+    při pár zásazích a zkontrolovat, že číslo dává smysl.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

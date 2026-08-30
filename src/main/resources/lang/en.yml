@@ -9,6 +9,10 @@ error:
 system:
   reloaded: "<green>Configuration reloaded."
 
+dps:
+  enabled: "<green>DPS readout enabled.</green>"
+  disabled: "<gray>DPS readout disabled.</gray>"
+
 item:
   header:
     damage: "<gray>Damage on hit:"

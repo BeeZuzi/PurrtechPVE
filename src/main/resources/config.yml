@@ -16,6 +16,12 @@ pve:
   enabled: true
   disabled-worlds: []
 
+combat:
+  # Colors each damage-type number in the action-bar hit feedback by how effective it was
+  # against the target instead of a flat attacker/defender color: yellow = target is weak to
+  # it, white = normal, gray = target resists it. Off by default (flat red/yellow as before).
+  show-effectiveness-colors: false
+
 # virtual accessory (trinket) slots, in addition to vanilla equipment slots -
 # an item template can restrict itself to any of these by name
 accessory-slots:

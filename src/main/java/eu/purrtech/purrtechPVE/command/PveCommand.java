@@ -375,6 +375,9 @@ public final class PveCommand {
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
+                .then(Commands.literal("dps")
+                        .requires(source -> source.getSender().hasPermission("purrtechpve.dps.use"))
+                        .executes(ctx -> toggleDps(plugin, ctx)))
                 .then(Commands.literal("armorclass")
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .then(Commands.literal("set")
@@ -1274,6 +1277,18 @@ public final class PveCommand {
             return 0;
         }
         AccessoryMenu.open(player, plugin.getMessages(), plugin.getAccessorySettings(), plugin.getAccessoryRepository());
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Self-toggle for the executing player only - see {@code DpsTracker}'s javadoc for why this is in-memory, not persisted. */
+    private static int toggleDps(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+            return 0;
+        }
+        boolean nowEnabled = plugin.getDpsTracker().toggle(player.getUniqueId());
+        player.sendMessage(plugin.getMessages().render(player.locale(), nowEnabled ? "dps.enabled" : "dps.disabled"));
         return Command.SINGLE_SUCCESS;
     }
 

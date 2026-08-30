@@ -9,6 +9,10 @@ error:
 system:
   reloaded: "<green>Konfigurace znovu načtena."
 
+dps:
+  enabled: "<green>Zobrazení DPS zapnuto.</green>"
+  disabled: "<gray>Zobrazení DPS vypnuto.</gray>"
+
 item:
   header:
     damage: "<gray>Poškození při útoku:"
