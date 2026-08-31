@@ -1,6 +1,7 @@
 package eu.purrtech.purrtechPVE.gui;
 
 import eu.purrtech.purrtechPVE.PurrtechPVE;
+import eu.purrtech.purrtechPVE.item.BaseItemSnapshots;
 import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import eu.purrtech.purrtechPVE.item.TemplateNotFoundException;
@@ -8,6 +9,7 @@ import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -28,8 +30,19 @@ import java.util.Locale;
  * {@link ItemEditorMenu} on it, shift+right-click to delete it outright, and
  * shift+left-click to get a copy of it into your own inventory. Same
  * conventions as {@link ItemEditorMenu}/{@link SetEditorMenu} - one reused
- * chest inventory, chat-based prompt for the multi-field "create" input,
+ * chest inventory, chat-based prompt for the remaining "create" input,
  * every action calls straight into {@code ItemTemplateService}.
+ *
+ * <p>Creating a template is item-first, not text-first: the admin has to
+ * pick up the real item they want as the base onto their cursor (from their
+ * own inventory - {@link ItemEditorListener} specifically lets that one
+ * pickup through despite this GUI otherwise locking down every click) and
+ * click the "+ Create item" button while still holding it, same "show me the
+ * real item" spirit as {@code /pve item setbase}/{@code replace} and the
+ * BASE tab's rebase click. That one click captures material/custom model
+ * data/full NBT/lore exactly like an import does (see {@link
+ * BaseItemSnapshots}) - all that's left to type in chat afterwards is the
+ * new template's key.
  */
 public final class ItemListMenu {
 
@@ -76,7 +89,13 @@ public final class ItemListMenu {
         List<ItemTemplate> templates = sortedTemplates(plugin);
         int totalPages = lastPage(templates) + 1;
 
-        inventory.setItem(ADD_SLOT, named(Material.LIME_DYE, messages.render(locale, "gui.item-list.add")));
+        ItemStack addButton = named(Material.LIME_DYE, messages.render(locale, "gui.item-list.add"));
+        ItemMeta addMeta = addButton.getItemMeta();
+        addMeta.lore(List.of(
+                messages.render(locale, "gui.item-list.add-hint-1"),
+                messages.render(locale, "gui.item-list.add-hint-2")));
+        addButton.setItemMeta(addMeta);
+        inventory.setItem(ADD_SLOT, addButton);
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
 
         ItemStack info = named(Material.BOOK, messages.render(locale, "gui.item-list.page",
@@ -116,11 +135,15 @@ public final class ItemListMenu {
         }
     }
 
-    public static void handleClick(PurrtechPVE plugin, Player player, ItemListHolder holder, int slot, ClickType click) {
+    public static void handleClick(PurrtechPVE plugin, Player player, ItemListHolder holder, int slot, ClickType click, ItemStack cursor) {
         Locale locale = player.locale();
         Messages messages = plugin.getMessages();
         if (slot == ADD_SLOT) {
-            promptCreate(plugin, player, holder.page());
+            if (cursor == null || cursor.getType() == Material.AIR) {
+                player.sendMessage(messages.render(locale, "gui.item-list.create-needs-item"));
+                return;
+            }
+            promptCreate(plugin, player, holder.page(), cursor.clone());
             return;
         }
         if (slot == CLOSE_SLOT) {
@@ -165,7 +188,8 @@ public final class ItemListMenu {
         }
     }
 
-    private static void promptCreate(PurrtechPVE plugin, Player player, int page) {
+    /** {@code heldItem} is already a defensive clone - see the ADD_SLOT branch in {@link #handleClick}. */
+    private static void promptCreate(PurrtechPVE plugin, Player player, int page, ItemStack heldItem) {
         Locale locale = player.locale();
         Messages messages = plugin.getMessages();
         player.closeInventory();
@@ -177,28 +201,52 @@ public final class ItemListMenu {
                 open(plugin, p, page);
                 return;
             }
-            String[] parts = rawInput.trim().split("\\s+", 3);
-            if (parts.length != 3) {
+            String key = rawInput.trim();
+            if (key.isEmpty() || key.contains(" ")) {
                 p.sendMessage(messages.render(locale, "gui.item-list.create-invalid"));
                 open(plugin, p, page);
                 return;
             }
-            String key = parts[0];
-            Material material = Material.matchMaterial(parts[1]);
-            String displayName = parts[2];
-            if (material == null) {
-                p.sendMessage(messages.render(locale, "error.invalid-material", Placeholder.unparsed("material", parts[1])));
-                open(plugin, p, page);
-                return;
-            }
+            // Same capture this template would get from an import or a BASE-tab rebase - full
+            // NBT clone (so third-party plugins keying off custom_data still render this item
+            // correctly) plus the held item's own lore, seeded as this template's customLore
+            // rather than silently dropped (see ItemTemplate's javadoc).
+            Integer customModelData = heldItem.hasItemMeta() && heldItem.getItemMeta().hasCustomModelData()
+                    ? heldItem.getItemMeta().getCustomModelData() : null;
+            byte[] baseItemSnapshot = BaseItemSnapshots.capture(heldItem);
+            List<String> customLore = BaseItemSnapshots.captureLore(heldItem);
+            String displayName = displayNameOf(heldItem);
             try {
-                plugin.getItemTemplateService().create(key, material, displayName, p.getUniqueId().toString());
+                plugin.getItemTemplateService().create(key, heldItem.getType(), customModelData, baseItemSnapshot,
+                        customLore, displayName, p.getUniqueId().toString());
                 p.sendMessage(messages.render(locale, "item.created", Placeholder.unparsed("key", key)));
             } catch (DuplicateTemplateKeyException e) {
                 p.sendMessage(messages.render(locale, "item.duplicate-key", Placeholder.unparsed("key", key)));
             }
             open(plugin, p, page);
         });
+    }
+
+    /** The held item's own display name if it has one (e.g. anvil-renamed beforehand), else its material name humanized ("IRON_SWORD" -> "Iron Sword"). */
+    private static String displayNameOf(ItemStack stack) {
+        if (stack.hasItemMeta()) {
+            Component name = stack.getItemMeta().displayName();
+            if (name != null) {
+                String plain = PlainTextComponentSerializer.plainText().serialize(name);
+                if (!plain.isBlank()) {
+                    return plain;
+                }
+            }
+        }
+        String[] words = stack.getType().name().split("_");
+        StringBuilder humanized = new StringBuilder();
+        for (String word : words) {
+            if (!humanized.isEmpty()) {
+                humanized.append(' ');
+            }
+            humanized.append(word.charAt(0)).append(word.substring(1).toLowerCase(Locale.ROOT));
+        }
+        return humanized.toString();
     }
 
     private static boolean isCancel(String rawInput) {

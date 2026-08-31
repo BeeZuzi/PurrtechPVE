@@ -1766,6 +1766,58 @@
     do moba se slabinou/odolností a potvrdit barvy, a zapnout `/pve dps`
     při pár zásazích a zkontrolovat, že číslo dává smysl.
 
+- **Vytváření itemu v `/pve item menu` je teď item-first, ne text-first
+  (2026-08-30), na žádost**: "hráč najede itemem... a klikne s ním na
+  tlačítko add... pak jen napíše id." Dřív bylo `+ Vytvořit item`
+  čistě chatový 3-polní prompt (`<klíč> <materiál> <zobrazovaný
+  název>`, materiál jako text). Teď: hráč musí vzít na kurzor item,
+  který chce jako základ, a kliknout s ním na tlačítko `+ Vytvořit
+  item` - pak stačí do chatu napsat jen klíč (id).
+  - **`ItemEditorListener.onClick`** dřív cancelovala ÚPLNĚ každý klik
+    (i v hráčově vlastním inventáři dole), dokud bylo některé z těchto
+    menu otevřené - takže sebrat item na kurzor z vlastního inventáře
+    prostě nešlo. Teď: pro `ItemListHolder` konkrétně necháme projít
+    ne-shift klik ve spodním (hráčově) inventáři beze změny (aby šlo
+    item sebrat), shift-klik dole se pořád cancelluje (aby se
+    nemohlo něco omylem přesunout do horního GUI). Všechny ostatní
+    menu/kliky beze změny - stejné zamknuté chování jako předtím.
+  - **`ItemListMenu.handleClick`** dostala nový parametr `ItemStack
+    cursor` (z `InventoryClickEvent.getCursor()`). Klik na `+ Vytvořit
+    item` bez itemu na kurzoru → jen hláška "nejdřív vezmi item a
+    klikni s ním sem", GUI zůstává otevřené. S itemem na kurzoru →
+    zavře GUI, chat prompt vyžaduje JEN klíč.
+  - **Zachycení stejné jako u importu**: materiál, custom model data,
+    plný NBT (`BaseItemSnapshots.capture`) i lore itemu
+    (`BaseItemSnapshots.captureLore`, jde do `customLore`) - stejné
+    volání `ItemTemplateService.create(...)`, co používá
+    `/pve item import valhalla`/`valhallaall`.
+  - **Zobrazovaný název se teď odvozuje z itemu**: pokud má item
+    vlastní název (např. z kovadliny), použije se ten; jinak se
+    "humanizuje" název materiálu (`IRON_SWORD` → `Iron Sword`). Nová
+    `ItemListMenu.displayNameOf(ItemStack)` metoda, stejný vzor jako
+    `ValhallaMmoBulkImporter.displayNameOf`. **Pozor**: `ItemTemplateService`
+    zatím nemá `setDisplayName`/rename metodu vůbec (jen `create(...)`
+    ji nastavuje) - takže špatně odvozený/humanizovaný název se dá
+    zatím opravit jen smazáním a znovuvytvořením šablony. Řekl jsem to
+    uživateli explicitně, nebylo to součástí zadání, ale je to reálné
+    omezení nového flow.
+  - Tlačítko `+ Vytvořit item` dostalo lore nápovědu (`Vezmi na kurzor
+    item... a klikni s ním sem.`), aby nová mechanika nebyla skrytá.
+  - Nové lang klíče `gui.item-list.create-needs-item`/`add-hint-1`/
+    `add-hint-2`, přepsané `create-prompt`/`create-prompt-example`/
+    `create-invalid` (teď jen o klíči, ne o 3 polích).
+  - Čistý `compileJava`/`test`/`build`, žádné nové testy (`ItemListMenu`/
+    `ItemEditorListener` podle zavedené konvence nemají jednotkové testy
+    - vyžadují živý `Inventory`/`InventoryClickEvent`/`Player`).
+  - **Ověřeno živě** (`runServer`): čistý boot bez výjimky, žádná
+    regrese ve zbytku command tree. **Nedá se ověřit v sandboxu**:
+    samotné sebrání itemu na kurzor a klik na tlačítko - to je reálná
+    myší interakce, potřebuje připojeného hráče. Doporučuju před
+    ostrým nasazením naživo vyzkoušet: otevřít `/pve item menu`, vzít
+    pojmenovaný item (třeba z kovadliny) na kurzor, kliknout s ním na
+    `+ Vytvořit item`, napsat klíč do chatu, a zkontrolovat že nová
+    šablona má správný materiál/model data/lore/název.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

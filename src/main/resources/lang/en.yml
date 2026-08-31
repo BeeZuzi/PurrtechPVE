@@ -132,6 +132,8 @@ gui:
   item-list:
     title: "Items (templates)"
     add: "<green>+ Create item</green>"
+    add-hint-1: "<yellow>Pick up the item you want to add</yellow>"
+    add-hint-2: "<yellow>onto your cursor, and click here with it.</yellow>"
     page: "<aqua>Page <page>/<total></aqua>"
     count: "<gray><count> items total</gray>"
     prev-page: "<yellow>← Previous page</yellow>"
@@ -145,9 +147,10 @@ gui:
     deleted: "<green>Template <key> deleted.</green>"
     got-copy: "<green>You got a copy of item <key>.</green>"
     vanished: "<red>The template disappeared in the meantime.</red>"
-    create-prompt: "<yellow>Type in chat: <key> <material> <display name></yellow>"
-    create-prompt-example: "<gray>For example: fire-sword IRON_SWORD Fire Sword   (or type 'cancel')</gray>"
-    create-invalid: "<red>Invalid input, try again from the menu.</red>"
+    create-needs-item: "<red>Pick up the item you want to add onto your cursor first, and click this button while holding it.</red>"
+    create-prompt: "<yellow>Type the new template's key (id) in chat - the name and material came from the item you were holding.</yellow>"
+    create-prompt-example: "<gray>For example: fire-sword   (or type 'cancel')</gray>"
+    create-invalid: "<red>Invalid key (no spaces), try again from the menu.</red>"
   set-editor:
     title: "Set: <key>"
     tab:

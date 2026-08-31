@@ -45,12 +45,18 @@ public final class ItemEditorListener implements Listener {
                 && !(holder instanceof ArmorClassHolder) && !(holder instanceof ValueEditorHolder)) {
             return;
         }
-        event.setCancelled(true);
-        if (!(event.getWhoClicked() instanceof Player player)) {
+        int slot = event.getRawSlot();
+        boolean bottomClick = slot < 0 || slot >= event.getInventory().getSize();
+        // ItemListMenu's "+ Create item" button needs the player to pick an item onto their
+        // cursor from their OWN inventory first, then click the button while still holding it -
+        // so a plain (non-shift) click down there has to be let through to actually pick it up.
+        // Every other click in/around these GUIs (including a shift-click here, which could
+        // otherwise auto-transfer into our custom top slots) stays fully locked down, as before.
+        if (bottomClick && holder instanceof ItemListHolder && !event.isShiftClick()) {
             return;
         }
-        int slot = event.getRawSlot();
-        if (slot < 0 || slot >= event.getInventory().getSize()) {
+        event.setCancelled(true);
+        if (bottomClick || !(event.getWhoClicked() instanceof Player player)) {
             return;
         }
         if (holder instanceof ItemEditorHolder itemHolder) {
@@ -58,7 +64,7 @@ public final class ItemEditorListener implements Listener {
         } else if (holder instanceof SetEditorHolder setHolder) {
             SetEditorMenu.handleClick(plugin, player, setHolder, slot);
         } else if (holder instanceof ItemListHolder listHolder) {
-            ItemListMenu.handleClick(plugin, player, listHolder, slot, event.getClick());
+            ItemListMenu.handleClick(plugin, player, listHolder, slot, event.getClick(), event.getCursor());
         } else if (holder instanceof ArmorClassHolder armorClassHolder) {
             ArmorClassMenu.handleClick(plugin, player, armorClassHolder, slot, event.isShiftClick());
         } else if (holder instanceof ValueEditorHolder valueEditorHolder) {

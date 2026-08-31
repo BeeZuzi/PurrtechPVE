@@ -132,6 +132,8 @@ gui:
   item-list:
     title: "Itemy (šablony)"
     add: "<green>+ Vytvořit item</green>"
+    add-hint-1: "<yellow>Vezmi na kurzor item, který chceš přidat,</yellow>"
+    add-hint-2: "<yellow>a klikni s ním sem.</yellow>"
     page: "<aqua>Strana <page>/<total></aqua>"
     count: "<gray><count> itemů celkem</gray>"
     prev-page: "<yellow>← Předchozí strana</yellow>"
@@ -145,9 +147,10 @@ gui:
     deleted: "<green>Šablona <key> smazána.</green>"
     got-copy: "<green>Dostal jsi kopii itemu <key>.</green>"
     vanished: "<red>Šablona mezitím zmizela.</red>"
-    create-prompt: "<yellow>Napiš do chatu: <klíč> <materiál> <zobrazovaný název></yellow>"
-    create-prompt-example: "<gray>Například: fire-sword IRON_SWORD Plamenný meč   (nebo napiš 'zrusit')</gray>"
-    create-invalid: "<red>Neplatný vstup, zkus to znovu z menu.</red>"
+    create-needs-item: "<red>Nejdřív si na kurzor vezmi item, který chceš přidat, a s ním klikni na tohle tlačítko.</red>"
+    create-prompt: "<yellow>Napiš do chatu klíč (id) nové šablony - jméno a materiál se vzaly z itemu, cos držel.</yellow>"
+    create-prompt-example: "<gray>Například: fire-sword   (nebo napiš 'zrusit')</gray>"
+    create-invalid: "<red>Neplatný klíč (bez mezer), zkus to znovu z menu.</red>"
   set-editor:
     title: "Set: <key>"
     tab:
