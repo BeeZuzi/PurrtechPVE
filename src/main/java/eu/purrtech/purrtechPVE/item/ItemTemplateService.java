@@ -115,11 +115,20 @@ public final class ItemTemplateService {
         return setDamageContribution(key, damageTypeKey, amount, mode, context, true);
     }
 
-    /** Same as the 5-arg overload, but also sets whether this contribution shows its own lore line - see {@link DamageContribution#visible()}. */
+    /**
+     * Same as the 5-arg overload, but also sets whether this contribution shows its own lore line
+     * - see {@link DamageContribution#visible()}.
+     *
+     * @throws NonContributableDamageTypeException for {@code "bleed"} - a weapon's bleed damage
+     *         is configured via {@link #setBleedEffect} instead, not as a normal contribution
+     *         (see {@link BleedEffect}'s javadoc for why). {@code "bleed"} remains a perfectly
+     *         valid {@link #setTypeModifier} key though - only contributions reject it.
+     */
     public ItemTemplate setDamageContribution(String key, String damageTypeKey, double amount, DamageMode mode,
                                                ModifierContext context, boolean visible) {
         ItemTemplate template = requireTemplate(key);
         requireDamageType(damageTypeKey);
+        requireContributable(damageTypeKey);
         damageContributionRepository.upsert(template.id(), new DamageContribution(damageTypeKey, amount, mode, context, visible));
         return bumpVersion(template);
     }
@@ -230,22 +239,29 @@ public final class ItemTemplateService {
         return armorPenetrationRepository.findByTemplate(requireTemplate(key).id());
     }
 
-    /** This weapon's chance to inflict bleeding on a hit + how long it lasts - a stat, so it bumps version. See {@link BleedEffect}'s javadoc. */
-    public ItemTemplate setBleedEffect(String key, double chancePercent, double durationSeconds) {
-        return setBleedEffect(key, chancePercent, durationSeconds, currentBleedVisible(key));
+    /**
+     * This weapon's chance to inflict bleeding on a hit, how long it lasts, and how much total
+     * damage it deals over that duration ({@code damageAmount}/{@code mode}, exactly like a
+     * normal {@link DamageContribution}'s {@code amount}/{@code mode}) - a stat, so it bumps
+     * version. See {@link BleedEffect}'s javadoc; all 3 have to be set (see {@link
+     * BleedEffect#isComplete()}) before it actually rolls in combat.
+     */
+    public ItemTemplate setBleedEffect(String key, double chancePercent, double durationSeconds, double damageAmount, DamageMode mode) {
+        return setBleedEffect(key, chancePercent, durationSeconds, damageAmount, mode, currentBleedVisible(key));
     }
 
-    /** Same as the 3-arg overload, but also sets whether the combined bleed line shows in lore - see {@link BleedEffect#visible()}. */
-    public ItemTemplate setBleedEffect(String key, double chancePercent, double durationSeconds, boolean visible) {
+    /** Same as the 5-arg overload, but also sets whether the combined bleed line shows in lore - see {@link BleedEffect#visible()}. */
+    public ItemTemplate setBleedEffect(String key, double chancePercent, double durationSeconds, double damageAmount,
+                                        DamageMode mode, boolean visible) {
         ItemTemplate template = requireTemplate(key);
-        bleedEffectRepository.upsert(template.id(), new BleedEffect(chancePercent, durationSeconds, visible));
+        bleedEffectRepository.upsert(template.id(), new BleedEffect(chancePercent, durationSeconds, damageAmount, mode, visible));
         return bumpVersion(template);
     }
 
-    /** Flips the bleed effect's lore visibility without touching its chance/duration. */
+    /** Flips the bleed effect's lore visibility without touching its other fields. */
     public ItemTemplate toggleBleedEffectVisibility(String key) {
-        BleedEffect current = bleedEffect(key).orElse(new BleedEffect(0, 0, true));
-        return setBleedEffect(key, current.chancePercent(), current.durationSeconds(), !current.visible());
+        BleedEffect current = bleedEffect(key).orElse(new BleedEffect(0, 0, 0, DamageMode.FLAT, true));
+        return setBleedEffect(key, current.chancePercent(), current.durationSeconds(), current.damageAmount(), current.mode(), !current.visible());
     }
 
     private boolean currentBleedVisible(String key) {
@@ -446,6 +462,13 @@ public final class ItemTemplateService {
     private void requireDamageType(String damageTypeKey) {
         if (damageTypeRegistry.find(damageTypeKey).isEmpty()) {
             throw new UnknownDamageTypeException(damageTypeKey);
+        }
+    }
+
+    /** {@code "bleed"} is the only key this rejects right now - see {@link #setDamageContribution}'s javadoc. */
+    private void requireContributable(String damageTypeKey) {
+        if ("bleed".equals(damageTypeKey)) {
+            throw new NonContributableDamageTypeException(damageTypeKey);
         }
     }
 

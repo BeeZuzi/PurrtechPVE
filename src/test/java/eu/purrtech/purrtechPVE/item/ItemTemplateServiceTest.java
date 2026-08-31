@@ -274,18 +274,30 @@ class ItemTemplateServiceTest {
     @Test
     void setBleedEffectIsAWeaponStatAndBumpsVersion() {
         service.create("rusty-dagger", Material.IRON_SWORD, "Rusty Dagger", "console");
-        ItemTemplate withBleed = service.setBleedEffect("rusty-dagger", 25.0, 5.0);
+        ItemTemplate withBleed = service.setBleedEffect("rusty-dagger", 25.0, 5.0, 3.0, DamageMode.FLAT);
 
         assertEquals(2, withBleed.version(), "bleed effect is a stat like damage contributions - bumps version");
         assertTrue(service.bleedEffect("rusty-dagger").isPresent());
         assertEquals(25.0, service.bleedEffect("rusty-dagger").get().chancePercent());
         assertEquals(5.0, service.bleedEffect("rusty-dagger").get().durationSeconds());
+        assertEquals(3.0, service.bleedEffect("rusty-dagger").get().damageAmount());
+        assertEquals(DamageMode.FLAT, service.bleedEffect("rusty-dagger").get().mode());
+    }
+
+    @Test
+    void bleedEffectOnlyCountsAsCompleteOnceAllThreeFieldsAreSet() {
+        service.create("rusty-dagger", Material.IRON_SWORD, "Rusty Dagger", "console");
+        service.setBleedEffect("rusty-dagger", 25.0, 5.0, 0, DamageMode.FLAT);
+        assertFalse(service.bleedEffect("rusty-dagger").get().isComplete(), "damage amount still 0 - shouldn't count as complete yet");
+
+        service.setBleedEffect("rusty-dagger", 25.0, 5.0, 3.0, DamageMode.FLAT);
+        assertTrue(service.bleedEffect("rusty-dagger").get().isComplete());
     }
 
     @Test
     void removeBleedEffect() {
         service.create("rusty-dagger", Material.IRON_SWORD, "Rusty Dagger", "console");
-        service.setBleedEffect("rusty-dagger", 25.0, 5.0);
+        service.setBleedEffect("rusty-dagger", 25.0, 5.0, 3.0, DamageMode.FLAT);
         ItemTemplate afterRemove = service.removeBleedEffect("rusty-dagger");
 
         assertEquals(3, afterRemove.version());

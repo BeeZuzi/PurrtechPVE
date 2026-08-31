@@ -290,6 +290,12 @@ final class Schema {
                     )
                     """);
             addColumnIfMissing(connection, "item_bleed_effect", "visible", "INTEGER NOT NULL DEFAULT 1");
+            // A weapon's own bleed damage - see BleedEffect's javadoc for why this replaced the
+            // old "bleed" DamageType.dotTickPercent global fraction. 0 damage_amount on an
+            // already-shipped bleed effect just means BleedEffect.isComplete() is false until the
+            // admin sets it, same as any other missing-field state.
+            addColumnIfMissing(connection, "item_bleed_effect", "damage_amount", "REAL NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, "item_bleed_effect", "mode", "TEXT NOT NULL DEFAULT 'FLAT'");
 
             // A weapon's chance to land a critical hit + how much extra damage it deals - see
             // the CriticalEffect record's javadoc. At most one row per template.

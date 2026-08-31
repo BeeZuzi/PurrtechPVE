@@ -17,4 +17,13 @@ package eu.purrtech.purrtechPVE.item;
  *                lore - purely cosmetic, the crit always rolls at combat time regardless.
  */
 public record CriticalEffect(double chancePercent, double bonusDamagePercent, boolean visible) {
+
+    /**
+     * Both chance and bonus have to be actually set (not just a DB row existing) for this to
+     * actually roll in combat - see {@code CombatDamageListener}. Same reasoning as {@link
+     * BleedEffect#isComplete()}.
+     */
+    public boolean isComplete() {
+        return chancePercent > 0 && bonusDamagePercent > 0;
+    }
 }

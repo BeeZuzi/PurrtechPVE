@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.purrtech.purrtechPVE.item.BaseItemSnapshots;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
+import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
 import eu.purrtech.purrtechPVE.item.ItemTemplateService;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
@@ -133,6 +134,11 @@ public final class ValhallaMmoBulkImporter {
             }
             for (TypeModifier m : mapped.modifiers()) {
                 itemTemplateService.setTypeModifier(key, m.damageTypeKey(), m.percent());
+            }
+            if (mapped.bleedDamageAmount() != null) {
+                // Chance/duration have no ValhallaMMO equivalent to import from, so this stays
+                // incomplete (see BleedEffect.isComplete()) until the admin fills those in themselves.
+                itemTemplateService.setBleedEffect(key, 0, 0, mapped.bleedDamageAmount(), DamageMode.FLAT);
             }
             for (Map.Entry<Enchantment, Integer> enchant : decoded.getEnchantments().entrySet()) {
                 itemTemplateService.setEnchantment(key, enchant.getKey().getKey().toString(), enchant.getValue());

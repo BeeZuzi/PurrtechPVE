@@ -793,8 +793,9 @@ public final class ItemEditorMenu {
 
     private static final int SLOT_BLEED_CHANCE = CONTENT_START;
     private static final int SLOT_BLEED_DURATION = CONTENT_START + 1;
-    private static final int SLOT_CRIT_CHANCE = CONTENT_START + 2;
-    private static final int SLOT_CRIT_BONUS = CONTENT_START + 3;
+    private static final int SLOT_BLEED_DAMAGE = CONTENT_START + 2;
+    private static final int SLOT_CRIT_CHANCE = CONTENT_START + 3;
+    private static final int SLOT_CRIT_BONUS = CONTENT_START + 4;
 
     private static void renderSpecialEffects(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
         Messages messages = plugin.getMessages();
@@ -805,6 +806,8 @@ public final class ItemEditorMenu {
                 bleed.map(b -> formatAmount(b.chancePercent()) + "%").orElse(null)));
         inventory.setItem(SLOT_BLEED_DURATION, effectStatIcon(messages, locale, Material.CLOCK, "gui.item-editor.effects.bleed-duration",
                 bleed.map(b -> formatAmount(b.durationSeconds()) + "s").orElse(null)));
+        inventory.setItem(SLOT_BLEED_DAMAGE, effectStatIcon(messages, locale, Material.IRON_HOE, "gui.item-editor.effects.bleed-damage",
+                bleed.map(ItemEditorMenu::formatBleedDamage).orElse(null)));
         inventory.setItem(SLOT_CRIT_CHANCE, effectStatIcon(messages, locale, Material.IRON_SWORD, "gui.item-editor.effects.crit-chance",
                 critical.map(c -> formatAmount(c.chancePercent()) + "%").orElse(null)));
         inventory.setItem(SLOT_CRIT_BONUS, effectStatIcon(messages, locale, Material.GOLDEN_SWORD, "gui.item-editor.effects.crit-bonus",
@@ -812,13 +815,27 @@ public final class ItemEditorMenu {
 
         ItemStack info = named(Material.PAPER, messages.render(locale, "gui.item-editor.effects.info-title"));
         ItemMeta infoMeta = info.getItemMeta();
-        infoMeta.lore(List.of(
+        List<Component> infoLore = new ArrayList<>(List.of(
                 messages.render(locale, "gui.item-editor.effects.info-1"),
                 messages.render(locale, "gui.item-editor.effects.info-2"),
                 messages.render(locale, "gui.item-editor.effects.info-3"),
-                messages.render(locale, "gui.item-editor.effects.info-4")));
+                messages.render(locale, "gui.item-editor.effects.info-4"),
+                Component.empty()));
+        // All 3 bleed fields (chance/duration/damage) - or both crit fields - have to actually be
+        // set for the effect to roll at all (see BleedEffect/CriticalEffect.isComplete()), so an
+        // admin building one up one field at a time (this screen's own +/- editor works that way)
+        // can see at a glance whether it's live yet or still missing something.
+        infoLore.add(messages.render(locale, bleed.map(BleedEffect::isComplete).orElse(false)
+                ? "gui.item-editor.effects.bleed-complete" : "gui.item-editor.effects.bleed-incomplete"));
+        infoLore.add(messages.render(locale, critical.map(CriticalEffect::isComplete).orElse(false)
+                ? "gui.item-editor.effects.crit-complete" : "gui.item-editor.effects.crit-incomplete"));
+        infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
         inventory.setItem(PREVIEW_SLOT, info);
+    }
+
+    private static String formatBleedDamage(BleedEffect bleed) {
+        return "+" + formatAmount(bleed.damageAmount()) + (bleed.mode() == DamageMode.PERCENT_OF_TOTAL ? "%" : "");
     }
 
     private static ItemStack effectStatIcon(Messages messages, Locale locale, Material material, String labelKey, String currentValue) {
@@ -840,14 +857,18 @@ public final class ItemEditorMenu {
         Locale locale = player.locale();
         Messages messages = plugin.getMessages();
         switch (slot) {
-            case SLOT_BLEED_CHANCE, SLOT_BLEED_DURATION -> {
+            case SLOT_BLEED_CHANCE, SLOT_BLEED_DURATION, SLOT_BLEED_DAMAGE -> {
                 if (shift) {
                     plugin.getItemTemplateService().removeBleedEffect(holder.templateKey());
                     player.sendMessage(messages.render(locale, "gui.item-editor.effects.bleed-removed"));
                     render(plugin, holder.getInventory(), holder, locale);
                     return;
                 }
-                ValueEditorKind kind = slot == SLOT_BLEED_CHANCE ? ValueEditorKind.BLEED_CHANCE : ValueEditorKind.BLEED_DURATION;
+                ValueEditorKind kind = switch (slot) {
+                    case SLOT_BLEED_CHANCE -> ValueEditorKind.BLEED_CHANCE;
+                    case SLOT_BLEED_DURATION -> ValueEditorKind.BLEED_DURATION;
+                    default -> ValueEditorKind.BLEED_DAMAGE;
+                };
                 ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
             }
             case SLOT_CRIT_CHANCE, SLOT_CRIT_BONUS -> {

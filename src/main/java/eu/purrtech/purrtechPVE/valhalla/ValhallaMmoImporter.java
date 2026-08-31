@@ -33,10 +33,14 @@ import java.util.Set;
  * {@code ItemAttributesRegistry}'s {@code StatFormat} for each attribute
  * rather than guessed:
  * <ul>
- *     <li>{@code EXTRA_<TYPE>_DAMAGE} and the standalone {@code BLEED_DAMAGE}/
- *     {@code ARROW_DAMAGE}/{@code DAMAGE_ALL} (all {@code StatFormat.FLOAT_P2}
- *     or, for {@code DAMAGE_ALL}, deliberately treated as flat too - see its
- *     own note below) are flat, dealt on every hit -> {@link DamageContribution}.
+ *     <li>{@code EXTRA_<TYPE>_DAMAGE} and the standalone {@code ARROW_DAMAGE}/
+ *     {@code DAMAGE_ALL} (all {@code StatFormat.FLOAT_P2} or, for {@code
+ *     DAMAGE_ALL}, deliberately treated as flat too - see its own note below)
+ *     are flat, dealt on every hit -> {@link DamageContribution}. {@code
+ *     BLEED_DAMAGE} used to be folded in here too, but {@code "bleed"} isn't
+ *     a valid contribution type any more (see {@code BleedEffect}'s javadoc)
+ *     - it comes back as {@link ImportResult#bleedDamageAmount()} instead,
+ *     for the caller to set as the imported template's own bleed damage.
  *     <li>{@code <TYPE>_RESISTANCE} (including {@code DAMAGE_RESISTANCE},
  *     {@code BLEED_RESISTANCE}, {@code BLUDGEONING_RESISTANCE}, {@code
  *     PROJECTILE_RESISTANCE}) are all {@code StatFormat.PERCENTILE_BASE_1_*} -
@@ -80,6 +84,8 @@ public final class ValhallaMmoImporter {
     private static final NamespacedKey ACTUAL_STATS = new NamespacedKey("valhallammo", "actual_stats");
 
     private static final String DAMAGE_RESISTANCE_ATTRIBUTE = "DAMAGE_RESISTANCE";
+    /** No longer routed through {@link #FLAT_DAMAGE_TO_TYPE} - {@code "bleed"} isn't a valid {@code DamageContribution} type any more, see {@code BleedEffect}'s javadoc. Surfaced as {@link ImportResult#bleedDamageAmount()} instead. */
+    private static final String BLEED_DAMAGE_ATTRIBUTE = "BLEED_DAMAGE";
 
     /** Flat, dealt-on-every-hit ValhallaMMO attribute -> our damage type key ({@code StatFormat.FLOAT_P2}, plus DAMAGE_ALL - see class javadoc). */
     private static final Map<String, String> FLAT_DAMAGE_TO_TYPE = Map.ofEntries(
@@ -92,7 +98,6 @@ public final class ValhallaMmoImporter {
             Map.entry("EXTRA_FREEZING_DAMAGE", "frozen"),
             Map.entry("EXTRA_RADIANT_DAMAGE", "radiant"),
             Map.entry("EXTRA_NECROTIC_DAMAGE", "necrotic"),
-            Map.entry("BLEED_DAMAGE", "bleed"),
             Map.entry("ARROW_DAMAGE", "piercing"),
             Map.entry("DAMAGE_ALL", "physical")
     );
@@ -141,7 +146,8 @@ public final class ValhallaMmoImporter {
         return Optional.ofNullable(pdc.get(ACTUAL_STATS, PersistentDataType.STRING));
     }
 
-    public record ImportResult(List<DamageContribution> contributions, List<TypeModifier> modifiers, List<String> skipped) {
+    /** {@code bleedDamageAmount} is {@code null} when the source item had no {@code BLEED_DAMAGE} stat - the caller sets it as a flat {@code BleedEffect.damageAmount} (chance/duration are ValhallaMMO concepts this plugin has no equivalent import source for, so they're left at 0/incomplete until an admin fills them in - see {@code BleedEffect.isComplete()}). */
+    public record ImportResult(List<DamageContribution> contributions, List<TypeModifier> modifiers, List<String> skipped, Double bleedDamageAmount) {
     }
 
     public static ImportResult parse(String raw, Set<String> allDamageTypeKeys) {
@@ -182,11 +188,16 @@ public final class ValhallaMmoImporter {
         // DAMAGE_<TYPE> multipliers that had no matching flat contribution to scale end up here
         // instead, as a PERCENT_OF_TOTAL contribution of their own - see class javadoc.
         Map<String, Double> percentByType = new LinkedHashMap<>();
+        Double bleedDamageAmount = null;
 
         for (Map.Entry<String, Double> entry : attributes.entrySet()) {
             String attribute = entry.getKey();
             double value = entry.getValue();
 
+            if (BLEED_DAMAGE_ATTRIBUTE.equals(attribute)) {
+                bleedDamageAmount = value;
+                continue;
+            }
             String flatType = FLAT_DAMAGE_TO_TYPE.get(attribute);
             if (flatType != null) {
                 flatByType.merge(flatType, value, Double::sum);
@@ -232,7 +243,7 @@ public final class ValhallaMmoImporter {
         for (Map.Entry<String, Double> entry : percentByType.entrySet()) {
             contributions.add(new DamageContribution(entry.getKey(), entry.getValue(), DamageMode.PERCENT_OF_TOTAL, ModifierContext.WIELDED, true));
         }
-        return new ImportResult(contributions, modifiers, skipped);
+        return new ImportResult(contributions, modifiers, skipped, bleedDamageAmount);
     }
 
     private static Double parseDouble(String raw) {

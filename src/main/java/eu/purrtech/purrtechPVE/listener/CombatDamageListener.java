@@ -13,6 +13,7 @@ import eu.purrtech.purrtechPVE.damage.DamagePipeline;
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
 import eu.purrtech.purrtechPVE.item.CriticalEffect;
+import eu.purrtech.purrtechPVE.item.DamageMode;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -43,13 +44,15 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <p>Critical hits and bleed are both rolled off the attacker's wielded
  * weapon's {@link CriticalEffect}/{@link BleedEffect}, independently of
- * each other. A crit multiplies the fully-resolved total (and the action
- * bar breakdown shown, scaled the same way, so the numbers add up) - same
- * convention as vanilla's own sword crit. A successful bleed roll hands off
- * to {@link BleedManager}, which owns the actual over-time ticking; this
- * class only computes the per-tick damage (a fraction of the raw hit,
- * per the "bleed" {@code DamageType}'s own {@code dotTickPercent}) and how
- * many ticks fit the weapon's configured duration.
+ * each other, and only once every field either needs is actually set (see
+ * their {@code isComplete()}). A crit multiplies the fully-resolved total
+ * (and the action bar breakdown shown, scaled the same way, so the numbers
+ * add up) - same convention as vanilla's own sword crit. A successful bleed
+ * roll hands off to {@link BleedManager}, which owns the actual over-time
+ * ticking; this class only computes the per-tick damage (the weapon's own
+ * {@code damageAmount}/{@code mode}, same shape as a normal {@code
+ * DamageContribution}, split evenly across however many ticks fit the
+ * weapon's configured duration).
  *
  * <p>{@code combatFeedbackSettings.effectivenessColors()} (see {@code config.yml}) switches the
  * per-type numbers from a flat attacker/defender color to yellow/white/gray by how effective the
@@ -109,7 +112,7 @@ public final class CombatDamageListener implements Listener {
         // crit - not any one typed bucket, so the per-type action bar breakdown below is scaled by
         // the same factor to keep the numbers shown adding up to what's actually dealt.
         Optional<CriticalEffect> critical = equipmentResolver.resolveCriticalEffect(attacker);
-        boolean isCritical = critical.isPresent()
+        boolean isCritical = critical.isPresent() && critical.get().isComplete()
                 && ThreadLocalRandom.current().nextDouble(100) < critical.get().chancePercent();
         double total = result.total();
         Map<String, Double> perTypeForDisplay = result.perType();
@@ -122,14 +125,24 @@ public final class CombatDamageListener implements Listener {
         }
         event.setDamage(total);
 
-        // Bleed: rolled independently of crit, off the same wielded weapon. Ticks apply later via
-        // BleedManager, resolved against the target's CURRENT bleed resistance at each tick, not
-        // frozen at this moment - see BleedManager's javadoc.
+        // Bleed: rolled independently of crit, off the same wielded weapon, only once chance/
+        // duration/damage are ALL set (see BleedEffect.isComplete()) - a half-configured bleed
+        // (e.g. only chance set so far while an admin is still dialing in duration/damage via
+        // ValueEditorMenu's one-field-at-a-time +/- buttons) simply never rolls. damageAmount/
+        // mode work exactly like a normal DamageContribution's amount/mode (flat number, or a
+        // percent of the raw hit that triggered it) - the total is then spread evenly across
+        // however many ticks fit the duration, same cadence as before ("bleed" DamageType's own
+        // dotPeriodTicks). Ticks apply later via BleedManager, resolved against the target's
+        // CURRENT bleed resistance at each tick, not frozen at this moment - see that class's javadoc.
         Optional<BleedEffect> bleed = equipmentResolver.resolveBleedEffect(attacker);
-        if (bleed.isPresent() && ThreadLocalRandom.current().nextDouble(100) < bleed.get().chancePercent()) {
+        if (bleed.isPresent() && bleed.get().isComplete() && ThreadLocalRandom.current().nextDouble(100) < bleed.get().chancePercent()) {
             damageTypeRegistry.find("bleed").ifPresent(bleedType -> {
-                double tickDamage = bleedType.dotTickPercent() * rawDamage;
-                int totalTicks = (int) Math.ceil(bleed.get().durationSeconds() * 20.0 / bleedType.dotPeriodTicks());
+                BleedEffect effect = bleed.get();
+                double totalBleedDamage = effect.mode() == DamageMode.PERCENT_OF_TOTAL
+                        ? rawDamage * effect.damageAmount() / 100.0
+                        : effect.damageAmount();
+                int totalTicks = (int) Math.ceil(effect.durationSeconds() * 20.0 / bleedType.dotPeriodTicks());
+                double tickDamage = totalTicks > 0 ? totalBleedDamage / totalTicks : 0;
                 bleedManager.apply(defender, tickDamage, totalTicks);
             });
         }

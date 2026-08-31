@@ -130,16 +130,30 @@ class ValhallaMmoImporterTest {
     // for exactly which ValhallaMMO StatFormat backs each family and why.
 
     @Test
-    void bleedArrowAndAllDamageAreFlatNotPercent() {
+    void arrowAndAllDamageAreFlatNotPercent() {
         var result = ValhallaMmoImporter.fromAttributes(Map.of(
-                "BLEED_DAMAGE", 2.5,
                 "ARROW_DAMAGE", 1.5,
                 "DAMAGE_ALL", 3.0), DAMAGE_TYPE_KEYS);
 
-        assertEquals(3, result.contributions().size());
-        assertEquals(2.5, findContribution(result, "bleed").amount());
+        assertEquals(2, result.contributions().size());
         assertEquals(1.5, findContribution(result, "piercing").amount());
         assertEquals(3.0, findContribution(result, "physical").amount());
+    }
+
+    /** "bleed" isn't a valid DamageContribution type any more (see BleedEffect's javadoc) - BLEED_DAMAGE comes back as its own field instead of folding into the normal contribution list. */
+    @Test
+    void bleedDamageComesBackAsItsOwnFieldNotAContribution() {
+        var result = ValhallaMmoImporter.fromAttributes(Map.of("BLEED_DAMAGE", 2.5), DAMAGE_TYPE_KEYS);
+
+        assertTrue(result.contributions().isEmpty());
+        assertEquals(2.5, result.bleedDamageAmount());
+    }
+
+    @Test
+    void noBleedDamageAttributeLeavesBleedDamageAmountNull() {
+        var result = ValhallaMmoImporter.fromAttributes(Map.of("ARROW_DAMAGE", 1.5), DAMAGE_TYPE_KEYS);
+
+        assertEquals(null, result.bleedDamageAmount());
     }
 
     @Test

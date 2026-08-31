@@ -204,7 +204,8 @@ public final class ItemTemplateSnapshotRepository {
     }
 
     private static String encodeBleedEffect(BleedEffect effect) {
-        return effect == null ? null : effect.chancePercent() + "|" + effect.durationSeconds() + "|" + effect.visible();
+        return effect == null ? null : effect.chancePercent() + "|" + effect.durationSeconds() + "|" + effect.damageAmount()
+                + "|" + effect.mode() + "|" + effect.visible();
     }
 
     private static BleedEffect decodeBleedEffect(String raw) {
@@ -212,7 +213,16 @@ public final class ItemTemplateSnapshotRepository {
             return null;
         }
         String[] fields = raw.split("\\|");
-        return new BleedEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]), parseVisible(fields, 2));
+        double chancePercent = Double.parseDouble(fields[0]);
+        double durationSeconds = Double.parseDouble(fields[1]);
+        // A snapshot encoded before damageAmount/mode existed only has chance/duration(/visible) -
+        // default to 0/FLAT, same "not complete yet" state BleedEffect.isComplete() gives any
+        // bleed effect that simply hasn't had its damage set.
+        boolean hasDamageFields = fields.length >= 5;
+        double damageAmount = hasDamageFields ? Double.parseDouble(fields[2]) : 0;
+        DamageMode mode = hasDamageFields ? DamageMode.valueOf(fields[3]) : DamageMode.FLAT;
+        boolean visible = hasDamageFields ? parseVisible(fields, 4) : parseVisible(fields, 2);
+        return new BleedEffect(chancePercent, durationSeconds, damageAmount, mode, visible);
     }
 
     private static String encodeCriticalEffect(CriticalEffect effect) {

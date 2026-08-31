@@ -58,7 +58,7 @@ class ItemTemplateSnapshotRepositoryTest {
                 List.of(new TypeModifier("frozen", -25.0, true)),
                 List.of(new TemplateEnchantment("minecraft:sharpness", 5)),
                 List.of(new ArmorPenetration(ArmorClass.HEAVY, 15.0, true)),
-                new BleedEffect(25.0, 5.0, true),
+                new BleedEffect(25.0, 5.0, 3.0, DamageMode.FLAT, true),
                 new CriticalEffect(15.0, 50.0, true),
                 // NOT covered here: attributeModifiers round-tripping. Unlike every other list on
                 // this record, AttributeModifierEntry holds a real org.bukkit.attribute.Attribute,
@@ -88,6 +88,8 @@ class ItemTemplateSnapshotRepositoryTest {
         assertEquals(15.0, found.armorPenetration().get(0).amount());
         assertEquals(25.0, found.bleedEffect().chancePercent());
         assertEquals(5.0, found.bleedEffect().durationSeconds());
+        assertEquals(3.0, found.bleedEffect().damageAmount());
+        assertEquals(DamageMode.FLAT, found.bleedEffect().mode());
         assertEquals(15.0, found.criticalEffect().chancePercent());
         assertEquals(50.0, found.criticalEffect().bonusDamagePercent());
         assertTrue(found.attributeModifiers().isEmpty());

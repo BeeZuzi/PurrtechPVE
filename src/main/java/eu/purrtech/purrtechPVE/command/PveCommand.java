@@ -25,6 +25,7 @@ import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import eu.purrtech.purrtechPVE.item.ItemTemplateService;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
+import eu.purrtech.purrtechPVE.item.NonContributableDamageTypeException;
 import eu.purrtech.purrtechPVE.item.TemplateNotFoundException;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import eu.purrtech.purrtechPVE.item.UnknownDamageTypeException;
@@ -344,7 +345,10 @@ public final class PveCommand {
                                                 .suggests(templateKeys)
                                                 .then(Commands.argument("chancePercent", DoubleArgumentType.doubleArg())
                                                         .then(Commands.argument("durationSeconds", DoubleArgumentType.doubleArg())
-                                                                .executes(ctx -> setItemBleedEffect(plugin, ctx))))))
+                                                                .then(Commands.argument("damageAmount", DoubleArgumentType.doubleArg())
+                                                                        .then(Commands.argument("mode", StringArgumentType.word())
+                                                                                .suggests(DAMAGE_MODE_SUGGESTIONS)
+                                                                                .executes(ctx -> setItemBleedEffect(plugin, ctx))))))))
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .suggests(templateKeys)
@@ -583,6 +587,11 @@ public final class PveCommand {
         for (TypeModifier m : result.modifiers()) {
             plugin.getItemTemplateService().setTypeModifier(key, m.damageTypeKey(), m.percent());
         }
+        if (result.bleedDamageAmount() != null) {
+            // Chance/duration have no ValhallaMMO equivalent to import from, so this stays
+            // incomplete (see BleedEffect.isComplete()) until the admin fills those in themselves.
+            plugin.getItemTemplateService().setBleedEffect(key, 0, 0, result.bleedDamageAmount(), DamageMode.FLAT);
+        }
         int enchantCount = 0;
         int attributeCount = 0;
         if (held.hasItemMeta()) {
@@ -795,6 +804,9 @@ public final class PveCommand {
             return 0;
         } catch (UnknownDamageTypeException e) {
             sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-damage-type", Placeholder.unparsed("type", damageType)));
+            return 0;
+        } catch (NonContributableDamageTypeException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.non-contributable-damage-type", Placeholder.unparsed("type", damageType)));
             return 0;
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.damage-set",
@@ -1072,9 +1084,15 @@ public final class PveCommand {
         String key = StringArgumentType.getString(ctx, "key");
         double chancePercent = DoubleArgumentType.getDouble(ctx, "chancePercent");
         double durationSeconds = DoubleArgumentType.getDouble(ctx, "durationSeconds");
+        double damageAmount = DoubleArgumentType.getDouble(ctx, "damageAmount");
+        DamageMode mode = parseEnum(DamageMode.class, StringArgumentType.getString(ctx, "mode"));
+        if (mode == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "error.invalid-mode-or-context"));
+            return 0;
+        }
 
         try {
-            plugin.getItemTemplateService().setBleedEffect(key, chancePercent, durationSeconds);
+            plugin.getItemTemplateService().setBleedEffect(key, chancePercent, durationSeconds, damageAmount, mode);
         } catch (TemplateNotFoundException e) {
             sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
             return 0;

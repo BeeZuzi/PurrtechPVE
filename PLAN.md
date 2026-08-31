@@ -1818,6 +1818,82 @@
     `+ Vytvořit item`, napsat klíč do chatu, a zkontrolovat že nová
     šablona má správný materiál/model data/lore/název.
 
+- **Krvácení dostalo vlastní damage stat, odebráno z běžných typů
+  poškození (2026-08-30), na žádost**: "Krvácení udělej tak že... tam
+  přidej kolik to má dávat damage... Bude to fungovat normálně jako
+  nový poškození ale z typů poškození to odeber... bude muset mít
+  splněný všechny 3 ty podmínky (crit jen ty dvě)." Předem odsouhlaseno
+  přes AskUserQuestion: (1) damage pole má mít flat i percent mód jako
+  DAMAGE tab; (2) krvácení/krit se v boji vůbec neprojeví, dokud nejsou
+  všechna pole nastavená; (3) "bleed" zůstává platný typ pro RESIST tab,
+  jen zmizí z DAMAGE tabu.
+  - **`BleedEffect`** dostal 2 nová pole: `damageAmount`/`mode`
+    (`DamageMode.FLAT`/`PERCENT_OF_TOTAL`, přesně jako normální
+    `DamageContribution`) + `isComplete()` (`chance>0 && duration>0 &&
+    damage>0`). `CriticalEffect` dostal jen `isComplete()`
+    (`chance>0 && bonus>0`) - žádná nová pole, mělo je od začátku obě.
+  - **`"bleed"` už nejde přidat jako normální `DamageContribution`** -
+    nová `NonContributableDamageTypeException`, kontrola v
+    `ItemTemplateService.setDamageContribution` (nová
+    `requireContributable`, oddělená od `requireDamageType` - RESIST/
+    `setTypeModifier` pro "bleed" dál funguje beze změny). Vyhozeno jak
+    z GUI DAMAGE tabu (přes `/pve item damage set`), tak z command
+    řádky - jedno místo pravdy v service vrstvě, ne jen kosmeticky
+    schované v GUI.
+  - **`CombatDamageListener`**: bleed tik damage se už nepočítá z
+    globálního `"bleed"` `DamageType.dotTickPercent()` (jeden procento
+    pro všechny zbraně na serveru), ale ze zbraně vlastního
+    `damageAmount`/`mode` - stejně jako normální damage contribution
+    (flat číslo, nebo % z rány), rozpočítáno rovnoměrně přes tolik ticků,
+    kolik se vejde do nastavené doby trvání. Bleed i krit se teď navíc
+    rolují jen když `isComplete()` - půl-nastavený efekt (např. jen
+    šance, bez doby/damage) prostě nikdy nenaskočí.
+  - **`ValueEditorMenu`** dostal `BLEED_DAMAGE` jako další kind (5.
+    ikonka v SPECIAL_EFFECTS - `SLOT_BLEED_DAMAGE`, posunuly se sloty
+    kritu za ní) + nové `MODE_TOGGLE_SLOT` tlačítko (mód flat/percent) -
+    jediný kind, co má mód vůbec, každý jiný kind ho ignoruje.
+    SPECIAL_EFFECTS info panel teď navíc ukazuje "Krvácení: aktivní /
+    nekompletní" a totéž pro krit, aby bylo na první pohled vidět, jestli
+    efekt reálně funguje.
+  - **DB migrace**: `damage_amount REAL NOT NULL DEFAULT 0` + `mode TEXT
+    NOT NULL DEFAULT 'FLAT'` na `item_bleed_effect` (`addColumnIfMissing`)
+    - existující krvácení na starých šablonách po upgradu prostě začne
+    jako nekompletní (`damage=0`), dokud ho admin nedopíše, nic se
+    nerozbije. `ItemTemplateSnapshotRepository`'s zakódovaný
+    `bleed_effect` řetězec má `damageAmount`/`mode` jako nová trailing
+    pole - starší snapshoty bez nich se dekódují jako `0`/`FLAT`, stejný
+    vzor jako `visible`'s zpětná kompatibilita dřív.
+  - **`/pve item bleed set`** má teď 4 argumenty (`chancePercent
+    durationSeconds damageAmount mode`), ne 2 - `mode` tabcompletuje
+    stejně jako DAMAGE tabu (`flat`/`percent_of_total`).
+  - **ValhallaMMO import**: `BLEED_DAMAGE` atribut se dřív mapoval na
+    normální "bleed" `DamageContribution` - to by teď spadlo na nově
+    přidanou výjimku. Opraveno: `ValhallaMmoImporter.ImportResult`
+    dostal nové pole `bleedDamageAmount` (`Double`, `null` když item
+    ValhallaMMO `BLEED_DAMAGE` stat nemá), oba importery
+    (`/pve item import valhalla`/`valhallaall`) ho teď po vytvoření
+    šablony nastaví jako `setBleedEffect(key, 0, 0, amount, FLAT)` -
+    šance/doba trvání nemají ve ValhallaMMO ekvivalent, takže dovezené
+    krvácení zůstane nekompletní/neaktivní, dokud ho admin ručně
+    nedopíše (šance+doba) přes GUI/příkaz.
+  - Mechanická oprava testů (`BleedEffectRepositoryTest`,
+    `ItemTemplateSnapshotRepositoryTest`, `ItemTemplateServiceTest`,
+    `ValhallaMmoImporterTest`) + 2 nové testy (`isComplete()` gating,
+    `BLEED_DAMAGE` už není contribution). Čistý `compileJava`/
+    `compileTestJava`/`test` (165 testů)/`build`.
+  - **Ověřeno živě** (`runServer`, čerstvá DB): boot bez výjimky,
+    `item damage set bleedtest bleed ...` správně odmítnuto s novou
+    hláškou, `item bleed set bleedtest 25 5 3 flat` (nový 4-arg tvar)
+    proběhlo, `item resist set bleedtest bleed 20` dál funguje beze
+    změny (bleed zůstává platný RESIST typ). **Nedá se ověřit v
+    sandboxu**: samotné klikání na nový `BLEED_DAMAGE`/mód tlačítko v
+    `ValueEditorMenu`, a že se krvácení v boji reálně chová podle
+    nového výpočtu (rozpočet damage přes ticky) - obojí potřebuje
+    připojeného hráče a reálný souboj. Doporučuju před ostrým nasazením
+    nastavit kompletní krvácení na testovací zbrani (šance+doba+damage
+    přes GUI) a praštit do moba, zkontrolovat že tikající damage sedí
+    na `damageAmount` děleném počtem ticků.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

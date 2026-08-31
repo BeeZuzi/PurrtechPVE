@@ -1,6 +1,7 @@
 package eu.purrtech.purrtechPVE.db;
 
 import eu.purrtech.purrtechPVE.item.BleedEffect;
+import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import org.bukkit.Material;
 import org.junit.jupiter.api.AfterEach;
@@ -47,27 +48,31 @@ class BleedEffectRepositoryTest {
 
     @Test
     void upsertThenFindRoundTrips() {
-        repository.upsert(templateId, new BleedEffect(25.0, 5.0, true));
+        repository.upsert(templateId, new BleedEffect(25.0, 5.0, 3.0, DamageMode.FLAT, true));
 
         Optional<BleedEffect> found = repository.findByTemplate(templateId);
         assertTrue(found.isPresent());
         assertEquals(25.0, found.get().chancePercent());
         assertEquals(5.0, found.get().durationSeconds());
+        assertEquals(3.0, found.get().damageAmount());
+        assertEquals(DamageMode.FLAT, found.get().mode());
     }
 
     @Test
     void upsertReplacesTheExistingRow() {
-        repository.upsert(templateId, new BleedEffect(10.0, 2.0, true));
-        repository.upsert(templateId, new BleedEffect(50.0, 8.0, true));
+        repository.upsert(templateId, new BleedEffect(10.0, 2.0, 1.0, DamageMode.FLAT, true));
+        repository.upsert(templateId, new BleedEffect(50.0, 8.0, 10.0, DamageMode.PERCENT_OF_TOTAL, true));
 
         Optional<BleedEffect> found = repository.findByTemplate(templateId);
         assertEquals(50.0, found.get().chancePercent());
         assertEquals(8.0, found.get().durationSeconds());
+        assertEquals(10.0, found.get().damageAmount());
+        assertEquals(DamageMode.PERCENT_OF_TOTAL, found.get().mode());
     }
 
     @Test
     void removeDeletesTheRow() {
-        repository.upsert(templateId, new BleedEffect(25.0, 5.0, true));
+        repository.upsert(templateId, new BleedEffect(25.0, 5.0, 3.0, DamageMode.FLAT, true));
         assertTrue(repository.remove(templateId));
         assertFalse(repository.remove(templateId));
         assertTrue(repository.findByTemplate(templateId).isEmpty());
