@@ -49,7 +49,7 @@ item:
   setbase-empty-hand: "<red>Drž v ruce item, který chceš použít jako nový základ."
   setbase-done: "<green>Šablona <white><key></white>: základ změněn na <white><material></white>."
   import-no-stats: "<red>Item v ruce nemá žádná ValhallaMMO data (žádné default_stats/actual_stats)."
-  import-done: "<green>Šablona <white><key></white> naimportována z ValhallaMMO: <white><damage></white> typů poškození, <white><resist></white> odolností/slabin, <white><enchants></white> enchantů, <white><attributes></white> reálných atributů přeneseno 1:1."
+  import-done: "<green>Šablona <white><key></white> naimportována z ValhallaMMO: <white><damage></white> typů poškození, <white><resist></white> odolností/slabin, <white><enchants></white> enchantů."
   import-skipped: "<yellow>Přeskočené (nemají u nás obdobu): <white><attributes></white>"
   bulk-import-file-missing: "<red>Soubor s items od ValhallaMMO nenalezen: <white><path></white>."
   bulk-import-error: "<red>Nepodařilo se přečíst soubor s items od ValhallaMMO: <white><error></white>"

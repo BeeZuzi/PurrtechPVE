@@ -243,7 +243,11 @@ public final class PveCommand {
                         .then(Commands.literal("import")
                                 .then(Commands.literal("valhalla")
                                         // key: no suggestions - creates a new template, same reasoning as "create".
+                                        // displayName is optional - omit it to use the held item's own name
+                                        // (or its humanized material name if it doesn't have one), same
+                                        // fallback the item-menu's "+ Create item" flow uses.
                                         .then(Commands.argument("key", StringArgumentType.word())
+                                                .executes(ctx -> importFromValhalla(plugin, ctx))
                                                 .then(Commands.argument("displayName", StringArgumentType.greedyString())
                                                         .executes(ctx -> importFromValhalla(plugin, ctx)))))
                                 .then(Commands.literal("valhallaall")
@@ -559,13 +563,22 @@ public final class PveCommand {
         }
         Locale locale = player.locale();
         String key = StringArgumentType.getString(ctx, "key");
-        String displayName = StringArgumentType.getString(ctx, "displayName");
 
         ItemStack held = player.getInventory().getItemInMainHand();
         Optional<String> rawStats = ValhallaMmoImporter.readRawStats(held);
         if (rawStats.isEmpty()) {
             player.sendMessage(plugin.getMessages().render(locale, "item.import-no-stats"));
             return 0;
+        }
+
+        // Optional - omitted entirely from the shorter "import valhalla <key>" command tree path
+        // above, not just blank, so falling back to the held item's own name (or its humanized
+        // material name if it doesn't have one) needs no empty-string special-casing.
+        String displayName;
+        try {
+            displayName = StringArgumentType.getString(ctx, "displayName");
+        } catch (IllegalArgumentException e) {
+            displayName = BaseItemSnapshots.ownDisplayName(held).orElseGet(() -> BaseItemSnapshots.humanizedMaterialName(held.getType()));
         }
 
         ValhallaMmoImporter.ImportResult result = ValhallaMmoImporter.parse(rawStats.get(),
@@ -593,23 +606,16 @@ public final class PveCommand {
             plugin.getItemTemplateService().setBleedEffect(key, 0, 0, result.bleedDamageAmount(), DamageMode.FLAT);
         }
         int enchantCount = 0;
-        int attributeCount = 0;
+        // Deliberately NOT copying the held item's own real vanilla AttributeModifiers (unlike
+        // enchantments, which come over 1:1 below): those on a ValhallaMMO item reflect ITS stat
+        // system, already translated above into our own DamageContribution/TypeModifier - copying
+        // them too would double up. Leaving none set at all means the rendered item just gets
+        // whatever attributes vanilla normally grants that base material by default, per explicit
+        // instruction.
         if (held.hasItemMeta()) {
             for (Map.Entry<Enchantment, Integer> enchant : held.getItemMeta().getEnchants().entrySet()) {
                 plugin.getItemTemplateService().setEnchantment(key, enchant.getKey().getKey().toString(), enchant.getValue());
                 enchantCount++;
-            }
-            // Copied 1:1, not translated through ValhallaMMO's attribute tables above - whatever
-            // real vanilla attribute modifiers the held item already carries (from an anvil,
-            // another plugin, /give with components, ...) come over exactly as they are, slot
-            // group and all, same as the enchantments above.
-            if (held.getItemMeta().hasAttributeModifiers()) {
-                for (Map.Entry<Attribute, AttributeModifier> entry : held.getItemMeta().getAttributeModifiers().entries()) {
-                    AttributeModifier modifier = entry.getValue();
-                    plugin.getItemTemplateService().setAttributeModifier(key, entry.getKey(), modifier.getAmount(),
-                            modifier.getOperation(), modifier.getSlotGroup().toString());
-                    attributeCount++;
-                }
             }
         }
 
@@ -617,8 +623,7 @@ public final class PveCommand {
                 Placeholder.unparsed("key", key),
                 Placeholder.unparsed("damage", String.valueOf(result.contributions().size())),
                 Placeholder.unparsed("resist", String.valueOf(result.modifiers().size())),
-                Placeholder.unparsed("enchants", String.valueOf(enchantCount)),
-                Placeholder.unparsed("attributes", String.valueOf(attributeCount))));
+                Placeholder.unparsed("enchants", String.valueOf(enchantCount))));
         if (!result.skipped().isEmpty()) {
             player.sendMessage(plugin.getMessages().render(locale, "item.import-skipped",
                     Placeholder.unparsed("attributes", String.join(", ", result.skipped()))));

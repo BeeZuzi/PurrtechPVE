@@ -9,7 +9,6 @@ import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -229,24 +228,7 @@ public final class ItemListMenu {
 
     /** The held item's own display name if it has one (e.g. anvil-renamed beforehand), else its material name humanized ("IRON_SWORD" -> "Iron Sword"). */
     private static String displayNameOf(ItemStack stack) {
-        if (stack.hasItemMeta()) {
-            Component name = stack.getItemMeta().displayName();
-            if (name != null) {
-                String plain = PlainTextComponentSerializer.plainText().serialize(name);
-                if (!plain.isBlank()) {
-                    return plain;
-                }
-            }
-        }
-        String[] words = stack.getType().name().split("_");
-        StringBuilder humanized = new StringBuilder();
-        for (String word : words) {
-            if (!humanized.isEmpty()) {
-                humanized.append(' ');
-            }
-            humanized.append(word.charAt(0)).append(word.substring(1).toLowerCase(Locale.ROOT));
-        }
-        return humanized.toString();
+        return BaseItemSnapshots.ownDisplayName(stack).orElseGet(() -> BaseItemSnapshots.humanizedMaterialName(stack.getType()));
     }
 
     private static boolean isCancel(String rawInput) {

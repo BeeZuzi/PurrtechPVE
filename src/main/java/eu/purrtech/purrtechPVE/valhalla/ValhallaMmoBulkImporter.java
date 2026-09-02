@@ -9,10 +9,8 @@ import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.DuplicateTemplateKeyException;
 import eu.purrtech.purrtechPVE.item.ItemTemplateService;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
@@ -192,16 +190,7 @@ public final class ValhallaMmoBulkImporter {
     }
 
     private static String displayNameOf(ItemStack stack, String fallback) {
-        if (stack.hasItemMeta()) {
-            ItemMeta meta = stack.getItemMeta();
-            if (meta.displayName() != null) {
-                String plain = PlainTextComponentSerializer.plainText().serialize(meta.displayName());
-                if (!plain.isBlank()) {
-                    return plain;
-                }
-            }
-        }
-        return fallback;
+        return BaseItemSnapshots.ownDisplayName(stack).orElse(fallback);
     }
 
     /** {@code "valhalla-" + <id, lowercased, non [a-z0-9_-] chars collapsed to '-'>} - stable across re-imports of the same id. */

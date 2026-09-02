@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE.item;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -9,6 +10,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Captures/restores the FULL original item as raw NBT bytes ({@link ItemStack#serializeAsBytes()} -
@@ -80,6 +83,38 @@ public final class BaseItemSnapshots {
             return List.of();
         }
         return lore.stream().map(line -> MiniMessage.miniMessage().serialize(line)).toList();
+    }
+
+    /**
+     * The item's own display name, plain-text (colors/formatting stripped), if it has a real one
+     * set (e.g. anvil-renamed) - empty otherwise. Shared by every "derive this template's display
+     * name from a real item" flow: ValhallaMMO import (single-item and bulk), and the item
+     * list menu's "hold an item, click + Create item" flow.
+     */
+    public static Optional<String> ownDisplayName(ItemStack stack) {
+        if (stack != null && stack.hasItemMeta()) {
+            Component name = stack.getItemMeta().displayName();
+            if (name != null) {
+                String plain = PlainTextComponentSerializer.plainText().serialize(name);
+                if (!plain.isBlank()) {
+                    return Optional.of(plain);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** Fallback for {@link #ownDisplayName} when the item has no display name of its own: its material name humanized ("IRON_SWORD" -> "Iron Sword"). */
+    public static String humanizedMaterialName(Material material) {
+        String[] words = material.name().split("_");
+        StringBuilder humanized = new StringBuilder();
+        for (String word : words) {
+            if (!humanized.isEmpty()) {
+                humanized.append(' ');
+            }
+            humanized.append(word.charAt(0)).append(word.substring(1).toLowerCase(Locale.ROOT));
+        }
+        return humanized.toString();
     }
 
     /** A real clone of whatever was captured, or a bare new stack of {@code fallbackMaterial} if nothing ever was (or the blob is unreadable). */

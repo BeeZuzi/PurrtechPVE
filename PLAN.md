@@ -1906,6 +1906,45 @@
   (čistě kosmetická GUI změna, `ValueEditorMenu` podle zavedené
   konvence testy nemá - živý `Inventory`/`ItemMeta`).
 
+- **ValhallaMMO import: bez vanilla atributů, DisplayName nepovinný
+  (2026-09-02), na žádost**: "neber v potaz Vanilla attributy a udělej
+  normálně defaultní attributy... display name nebude povinný... použij
+  ten DisplayName co má ten předmět."
+  - **`/pve item import valhalla`** (jednotlivý import) už nekopíruje
+    reálné vanilla `AttributeModifier`y z drženého itemu 1:1 - ty na
+    ValhallaMMO itemu odrážely JEJICH statový systém, který se navíc už
+    překládá výše do vlastního `DamageContribution`/`TypeModifier`
+    (kopírovat oboje by bylo zdvojené). Bez explicitně nastavených
+    atributů item při renderu prostě dostane defaultní vanilla atributy
+    pro svůj base materiál (žádný kód navíc netřeba - to je jak vanilla
+    itemy stejně fungují bez vlastních modifierů). Enchanty se dál
+    kopírují 1:1 beze změny. `/pve item import valhallaall` (hromadný
+    import) tohle nikdy nedělal, netýká se ho tedy.
+  - **`displayName` argument u jednotlivého importu je teď nepovinný**
+    - `/pve item import valhalla <key>` bez display name teď funguje,
+    použije se vlastní název drženého itemu (např. z kovadliny), a
+    pokud item žádný nemá, humanizovaný název materiálu (`IRON_SWORD`
+    → `Iron Sword`) - stejná logika, co používá `ItemListMenu`ovo
+    "vezmi item, klikni na + Vytvořit item" tlačítko.
+  - **Nová sdílená `BaseItemSnapshots.ownDisplayName(ItemStack)`** (a
+    `humanizedMaterialName(Material)`) - extrahováno z dřívějšího
+    duplicitního kódu v `ItemListMenu`/`ValhallaMmoBulkImporter`, obě
+    teď na ni delegují místo vlastní kopie stejné logiky. Jedno místo
+    pravdy pro "odvoď display name z reálného itemu" napříč celým
+    pluginem.
+  - `item.import-done` zpráva už nezmiňuje atributy (dřív "X reálných
+    atributů přeneseno 1:1") - přepsána bez té části v obou jazycích.
+  - Čistý `compileJava`/`test`/`build`, žádné nové testy (příkazová
+    vrstva se podle zavedené konvence netestuje jednotkově - živý
+    `Player`/`CommandContext`).
+  - **Ověřeno živě** (`runServer`): oba tvary příkazu (`import valhalla
+    <key>` i `import valhalla <key> <displayName>`) se správně
+    naparsovaly (žádné "Unknown or incomplete command"), obě správně
+    spadly na "jen hráč" chybu z konzole. **Nedá se ověřit v
+    sandboxu**: samotné chování s reálným ValhallaMMO itemem (že se
+    vanilla atributy skutečně nekopírují a že fallback display name
+    sedí) - potřebuje reálného hráče držícího skutečný ValhallaMMO item.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

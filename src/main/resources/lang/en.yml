@@ -49,7 +49,7 @@ item:
   setbase-empty-hand: "<red>Hold the item you want to use as the new base."
   setbase-done: "<green>Template <white><key></white>: base changed to <white><material></white>."
   import-no-stats: "<red>The item in hand has no ValhallaMMO data (no default_stats/actual_stats)."
-  import-done: "<green>Template <white><key></white> imported from ValhallaMMO: <white><damage></white> damage types, <white><resist></white> resistances/weaknesses, <white><enchants></white> enchantments, <white><attributes></white> real attributes carried over as-is."
+  import-done: "<green>Template <white><key></white> imported from ValhallaMMO: <white><damage></white> damage types, <white><resist></white> resistances/weaknesses, <white><enchants></white> enchantments."
   import-skipped: "<yellow>Skipped (no equivalent here): <white><attributes></white>"
   bulk-import-file-missing: "<red>ValhallaMMO items file not found at <white><path></white>."
   bulk-import-error: "<red>Failed to read the ValhallaMMO items file: <white><error></white>"
