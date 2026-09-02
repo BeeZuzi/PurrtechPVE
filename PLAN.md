@@ -1894,6 +1894,18 @@
     přes GUI) a praštit do moba, zkontrolovat že tikající damage sedí
     na `damageAmount` děleném počtem ticků.
 
+- **`ValueEditorMenu`: aktuální hodnota i v lore +/- tlačítek
+  (2026-09-02), na žádost**: "napiš do jejich loru jaká je aktuální
+  hodnota, aby hráč nemusel pořád najíždět na ten item uprostřed."
+  Všech 8 stepovacích tlačítek (`-10/-5/-1/-0.1/+0.1/+1/+5/+10`) teď má
+  v lore stejnou "Aktuální hodnota: X" hlášku, co dřív byla vidět jen
+  na prostřední `VALUE_SLOT` ikonce - stačí najet myší na kterékoli
+  tlačítko, není nutné přejíždět zpátky doprostřed. Přepínače
+  viditelnosti/módu beze změny (žádost se týkala výslovně jen +/-
+  tlačítek). Čistý `compileJava`/`test`/`build`, žádné nové testy
+  (čistě kosmetická GUI změna, `ValueEditorMenu` podle zavedené
+  konvence testy nemá - živý `Inventory`/`ItemMeta`).
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

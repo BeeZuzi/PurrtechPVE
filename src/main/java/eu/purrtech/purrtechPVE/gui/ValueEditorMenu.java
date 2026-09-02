@@ -72,14 +72,14 @@ public final class ValueEditorMenu {
         Messages messages = plugin.getMessages();
         CurrentState state = currentState(plugin, holder);
 
-        inventory.setItem(DEC_10, stepButton(messages, locale, false, "10"));
-        inventory.setItem(DEC_5, stepButton(messages, locale, false, "5"));
-        inventory.setItem(DEC_1, stepButton(messages, locale, false, "1"));
-        inventory.setItem(DEC_POINT_1, stepButton(messages, locale, false, "0.1"));
-        inventory.setItem(INC_POINT_1, stepButton(messages, locale, true, "0.1"));
-        inventory.setItem(INC_1, stepButton(messages, locale, true, "1"));
-        inventory.setItem(INC_5, stepButton(messages, locale, true, "5"));
-        inventory.setItem(INC_10, stepButton(messages, locale, true, "10"));
+        inventory.setItem(DEC_10, stepButton(messages, locale, false, "10", state.value()));
+        inventory.setItem(DEC_5, stepButton(messages, locale, false, "5", state.value()));
+        inventory.setItem(DEC_1, stepButton(messages, locale, false, "1", state.value()));
+        inventory.setItem(DEC_POINT_1, stepButton(messages, locale, false, "0.1", state.value()));
+        inventory.setItem(INC_POINT_1, stepButton(messages, locale, true, "0.1", state.value()));
+        inventory.setItem(INC_1, stepButton(messages, locale, true, "1", state.value()));
+        inventory.setItem(INC_5, stepButton(messages, locale, true, "5", state.value()));
+        inventory.setItem(INC_10, stepButton(messages, locale, true, "10", state.value()));
 
         ItemStack valueIcon = named(Material.BOOK, messages.render(locale, "gui.value-editor.current-value",
                 Placeholder.unparsed("value", formatAmount(state.value()))));
@@ -110,10 +110,16 @@ public final class ValueEditorMenu {
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
     }
 
-    private static ItemStack stepButton(Messages messages, Locale locale, boolean increase, String amount) {
+    /** {@code currentValue} goes in the lore (not just the center VALUE_SLOT icon) so a player can see where they're starting from without moving their cursor off whichever +/- button they're about to click. */
+    private static ItemStack stepButton(Messages messages, Locale locale, boolean increase, String amount, double currentValue) {
         String key = increase ? "gui.value-editor.increase" : "gui.value-editor.decrease";
-        return named(increase ? Material.LIME_DYE : Material.RED_DYE,
+        ItemStack button = named(increase ? Material.LIME_DYE : Material.RED_DYE,
                 messages.render(locale, key, Placeholder.unparsed("amount", amount)));
+        ItemMeta meta = button.getItemMeta();
+        meta.lore(List.of(messages.render(locale, "gui.value-editor.current-value",
+                Placeholder.unparsed("value", formatAmount(currentValue)))));
+        button.setItemMeta(meta);
+        return button;
     }
 
     public static void handleClick(PurrtechPVE plugin, Player player, ValueEditorHolder holder, int slot) {
