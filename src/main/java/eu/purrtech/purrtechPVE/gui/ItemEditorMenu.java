@@ -72,6 +72,11 @@ public final class ItemEditorMenu {
     // separate headers, "Damage on hit" (wielded) and "Passive bonus" (worn).
     private static final int HEADER_TOGGLE_SLOT = 9;
     private static final int HEADER_TOGGLE_SLOT_2 = 10;
+    // Universal buttons available on every tab - slots 11 and 12 are free in row 1 across every
+    // tab (confirmed by grep: only 9/10/13/17 are ever touched there), so they're safe for
+    // cross-tab controls that don't belong to any single tab's own content.
+    private static final int BACK_TO_LIST_SLOT = 11;
+    private static final int LORE_ORDER_SLOT = 12;
     private static final int PUBLISH_BUTTON_SLOT = 22;
     private static final int CONTENT_START = 18;
 
@@ -133,6 +138,8 @@ public final class ItemEditorMenu {
         inventory.setItem(TAB_MOBS, tabIcon(messages, locale, Material.ZOMBIE_HEAD, "gui.item-editor.tab.mobs", active == ItemEditorTab.MOBS));
         inventory.setItem(TAB_PUBLISH, tabIcon(messages, locale, Material.EMERALD, "gui.item-editor.tab.publish", active == ItemEditorTab.PUBLISH));
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
+        inventory.setItem(BACK_TO_LIST_SLOT, named(Material.OAK_DOOR, messages.render(locale, "gui.item-editor.back-to-list")));
+        inventory.setItem(LORE_ORDER_SLOT, named(Material.WRITABLE_BOOK, messages.render(locale, "gui.item-editor.lore-order-button")));
     }
 
     private static ItemStack tabIcon(Messages messages, Locale locale, Material material, String labelKey, boolean active) {
@@ -1115,6 +1122,8 @@ public final class ItemEditorMenu {
             case TAB_MOBS -> switchTab(plugin, player, holder, ItemEditorTab.MOBS);
             case TAB_PUBLISH -> switchTab(plugin, player, holder, ItemEditorTab.PUBLISH);
             case CLOSE_SLOT -> player.closeInventory();
+            case BACK_TO_LIST_SLOT -> ItemListMenu.open(plugin, player, 0);
+            case LORE_ORDER_SLOT -> LoreOrderMenu.open(plugin, player, holder.templateKey(), holder.tab());
             default -> {
                 switch (holder.tab()) {
                     case BASE -> handleBaseClick(plugin, player, holder, slot, shift);

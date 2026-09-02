@@ -91,8 +91,8 @@ public final class ItemTemplateService {
             throw new DuplicateTemplateKeyException(key);
         }
         long now = System.currentTimeMillis();
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, List.of(), baseMaterial, baseItemSnapshot,
-                customModelData, false, List.of(), null, 1, 1, now, now, createdBy);
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, List.of(), LoreBlock.defaultOrderKeys(),
+                baseMaterial, baseItemSnapshot, customModelData, false, List.of(), null, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
         snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, List.of()));
         return template;
@@ -361,8 +361,8 @@ public final class ItemTemplateService {
     public ItemTemplate setCustomLore(String key, List<String> lines) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), List.copyOf(lines),
-                template.hiddenHeaders(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
-                template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
+                template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
                 template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
@@ -379,8 +379,32 @@ public final class ItemTemplateService {
             hidden.add(header.key());
         }
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
-                List.copyOf(hidden), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
-                template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
+                List.copyOf(hidden), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
+                template.createdAt(), template.updatedAt(), template.createdBy());
+        return bumpVersion(updated);
+    }
+
+    /**
+     * Swaps {@code block}'s position with its left or right neighbor in {@link
+     * ItemTemplate#loreOrder()} (see {@link LoreBlock}'s javadoc for what a "block" is) - a stat
+     * like {@link #setCustomLore}, so it bumps version. A no-op (still bumps version, for the same
+     * reason {@code /pve item damage set} does even when nothing about the result differs) if
+     * {@code block} is already at that end - there's no wraparound.
+     */
+    public ItemTemplate moveLoreBlock(String key, LoreBlock block, boolean moveLeft) {
+        ItemTemplate template = requireTemplate(key);
+        List<LoreBlock> order = new ArrayList<>(LoreBlock.canonicalize(template.loreOrder()));
+        int index = order.indexOf(block);
+        int swapWith = moveLeft ? index - 1 : index + 1;
+        if (swapWith >= 0 && swapWith < order.size()) {
+            order.set(index, order.get(swapWith));
+            order.set(swapWith, block);
+        }
+        List<String> newOrder = order.stream().map(LoreBlock::key).toList();
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
+                template.hiddenHeaders(), newOrder, template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
                 template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
@@ -402,9 +426,9 @@ public final class ItemTemplateService {
     public ItemTemplate setAllowedSlots(String key, List<String> slotNames) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
-                template.hiddenHeaders(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), !slotNames.isEmpty(),
-                List.copyOf(slotNames), template.armorClass(), template.version(), template.syncedVersion(), template.createdAt(),
-                System.currentTimeMillis(), template.createdBy());
+                template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(), template.version(), template.syncedVersion(),
+                template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -420,8 +444,8 @@ public final class ItemTemplateService {
     public ItemTemplate setArmorClass(String key, ArmorClass armorClass) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
-                template.hiddenHeaders(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), template.trinket(),
-                template.allowedSlots(), armorClass, template.version(), template.syncedVersion(), template.createdAt(),
+                template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                template.trinket(), template.allowedSlots(), armorClass, template.version(), template.syncedVersion(), template.createdAt(),
                 System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
@@ -437,9 +461,9 @@ public final class ItemTemplateService {
     public ItemTemplate rebase(String key, Material newBaseMaterial, Integer newCustomModelData, byte[] newBaseItemSnapshot) {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate withNewBase = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
-                template.hiddenHeaders(), newBaseMaterial, newBaseItemSnapshot, newCustomModelData, template.trinket(), template.allowedSlots(),
-                template.armorClass(), template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(),
-                template.createdBy());
+                template.hiddenHeaders(), template.loreOrder(), newBaseMaterial, newBaseItemSnapshot, newCustomModelData, template.trinket(),
+                template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(), template.createdAt(),
+                template.updatedAt(), template.createdBy());
         return bumpVersion(withNewBase);
     }
 
@@ -490,7 +514,7 @@ public final class ItemTemplateService {
                                          List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                                          BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(), template.customLore(),
-                template.hiddenHeaders(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), contributions,
-                modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, attributeModifiers, template.updatedAt());
+                template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                contributions, modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, attributeModifiers, template.updatedAt());
     }
 }

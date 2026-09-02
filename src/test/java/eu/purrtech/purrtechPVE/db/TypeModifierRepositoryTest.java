@@ -28,7 +28,7 @@ class TypeModifierRepositoryTest {
         database.connect();
         repository = new TypeModifierRepository(database);
 
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-armor", "Test Armor", List.of(), List.of(), Material.IRON_CHESTPLATE,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-armor", "Test Armor", List.of(), List.of(), List.of(), Material.IRON_CHESTPLATE,
                 null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();

@@ -51,7 +51,7 @@ class ItemSetServiceTest {
     }
 
     private void createTemplate(String key) {
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, key, List.of(), List.of(), Material.IRON_HELMET,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, key, List.of(), List.of(), List.of(), Material.IRON_HELMET,
                 null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         templateRepository.insert(template);
     }

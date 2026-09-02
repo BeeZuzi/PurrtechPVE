@@ -192,6 +192,8 @@ gui:
     picker-hint-add: "<yellow>Click: add</yellow>"
     picker-all-added: "<gray>Everything is already added.</gray>"
     picker-hint-back: "<yellow>Click: back to the list</yellow>"
+    back-to-list: "<yellow>← Back to item list</yellow>"
+    lore-order-button: "<aqua>Lore line order</aqua>"
     tab:
       base: "Base"
       damage: "Custom Damages"
@@ -330,3 +332,17 @@ gui:
     mode-percent: "<white>Mode: % of the hit</white>"
     hint-toggle-mode: "<yellow>Click: toggle mode (flat/percent)</yellow>"
     hint-adjust: "<yellow>Click the buttons above to adjust the value</yellow>"
+  lore-order:
+    title: "Lore line order"
+    position: "<aqua>Position: <position>/<total></aqua>"
+    hint-left: "<yellow>Left-click: move left (higher in the lore)</yellow>"
+    hint-right: "<yellow>Right-click: move right (lower in the lore)</yellow>"
+    block:
+      custom: "<white>Custom text</white>"
+      damage: "<white>Damage (damage types)</white>"
+      passive: "<white>Passive bonus (worn)</white>"
+      resist: "<white>Resistances / Weaknesses</white>"
+      penetration: "<white>Armor penetration</white>"
+      bleed: "<white>Bleed</white>"
+      critical: "<white>Critical hit</white>"
+      attributes: "<white>Attributes</white>"

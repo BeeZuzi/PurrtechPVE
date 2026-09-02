@@ -47,10 +47,10 @@ public final class ItemTemplateSnapshotRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT OR REPLACE INTO item_template_snapshot
-                         (template_id, version, template_key, display_name, custom_lore, hidden_headers, base_material, custom_model_data,
+                         (template_id, version, template_key, display_name, custom_lore, hidden_headers, lore_order, base_material, custom_model_data,
                           damage_contributions, type_modifiers, enchantments, armor_penetration, bleed_effect,
                           critical_effect, attribute_modifiers, base_item_snapshot, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             statement.setString(1, snapshot.templateId().toString());
             statement.setInt(2, snapshot.version());
@@ -58,25 +58,26 @@ public final class ItemTemplateSnapshotRepository {
             statement.setString(4, snapshot.displayName());
             statement.setString(5, ItemTemplateRepository.encodeLore(snapshot.customLore()));
             statement.setString(6, String.join(",", snapshot.hiddenHeaders()));
-            statement.setString(7, snapshot.baseMaterial().name());
+            statement.setString(7, String.join(",", snapshot.loreOrder()));
+            statement.setString(8, snapshot.baseMaterial().name());
             if (snapshot.customModelData() != null) {
-                statement.setInt(8, snapshot.customModelData());
+                statement.setInt(9, snapshot.customModelData());
             } else {
-                statement.setNull(8, Types.INTEGER);
+                statement.setNull(9, Types.INTEGER);
             }
-            statement.setString(9, encodeContributions(snapshot.damageContributions()));
-            statement.setString(10, encodeModifiers(snapshot.typeModifiers()));
-            statement.setString(11, encodeEnchantments(snapshot.enchantments()));
-            statement.setString(12, encodeArmorPenetration(snapshot.armorPenetration()));
-            statement.setString(13, encodeBleedEffect(snapshot.bleedEffect()));
-            statement.setString(14, encodeCriticalEffect(snapshot.criticalEffect()));
-            statement.setString(15, encodeAttributeModifiers(snapshot.attributeModifiers()));
+            statement.setString(10, encodeContributions(snapshot.damageContributions()));
+            statement.setString(11, encodeModifiers(snapshot.typeModifiers()));
+            statement.setString(12, encodeEnchantments(snapshot.enchantments()));
+            statement.setString(13, encodeArmorPenetration(snapshot.armorPenetration()));
+            statement.setString(14, encodeBleedEffect(snapshot.bleedEffect()));
+            statement.setString(15, encodeCriticalEffect(snapshot.criticalEffect()));
+            statement.setString(16, encodeAttributeModifiers(snapshot.attributeModifiers()));
             if (snapshot.baseItemSnapshot() != null) {
-                statement.setBytes(16, snapshot.baseItemSnapshot());
+                statement.setBytes(17, snapshot.baseItemSnapshot());
             } else {
-                statement.setNull(16, Types.BLOB);
+                statement.setNull(17, Types.BLOB);
             }
-            statement.setLong(17, snapshot.createdAt());
+            statement.setLong(18, snapshot.createdAt());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
@@ -108,6 +109,11 @@ public final class ItemTemplateSnapshotRepository {
                 ? List.of()
                 : Arrays.asList(hiddenHeadersRaw.split(","));
 
+        String loreOrderRaw = rs.getString("lore_order");
+        List<String> loreOrder = loreOrderRaw == null || loreOrderRaw.isBlank()
+                ? List.of()
+                : Arrays.asList(loreOrderRaw.split(","));
+
         return new TemplateSnapshot(
                 UUID.fromString(rs.getString("template_id")),
                 rs.getString("template_key"),
@@ -115,6 +121,7 @@ public final class ItemTemplateSnapshotRepository {
                 rs.getString("display_name"),
                 ItemTemplateRepository.decodeLore(rs.getString("custom_lore")),
                 hiddenHeaders,
+                loreOrder,
                 Material.valueOf(rs.getString("base_material")),
                 rs.getBytes("base_item_snapshot"),
                 customModelDataBoxed,

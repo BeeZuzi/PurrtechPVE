@@ -53,6 +53,7 @@ final class Schema {
             addColumnIfMissing(connection, "item_templates", "armor_class", "TEXT");
             addColumnIfMissing(connection, "item_templates", "custom_lore", "TEXT");
             addColumnIfMissing(connection, "item_templates", "hidden_headers", "TEXT");
+            addColumnIfMissing(connection, "item_templates", "lore_order", "TEXT");
 
             // Full computed state at every version a template has ever had - not just the
             // current one. Needed so a stack that was deliberately NOT pushed to circulation
@@ -90,6 +91,7 @@ final class Schema {
             addColumnIfMissing(connection, "item_template_snapshot", "base_item_snapshot", "BLOB");
             addColumnIfMissing(connection, "item_template_snapshot", "custom_lore", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "hidden_headers", "TEXT");
+            addColumnIfMissing(connection, "item_template_snapshot", "lore_order", "TEXT");
 
             // damage_type_key is NOT a FK to damage_type_definitions: DamageTypeRegistry is
             // still in-memory-only (Fáze 1), that table stays unpopulated until a later

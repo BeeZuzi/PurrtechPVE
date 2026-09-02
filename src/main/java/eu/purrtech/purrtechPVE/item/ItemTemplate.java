@@ -49,6 +49,14 @@ import java.util.UUID;
  * under it (see {@code ItemRenderer.buildLore}). Independent of each
  * individual stat entry's own {@code visible} flag (e.g. {@code
  * DamageContribution.visible()}), which hides just that one line.
+ *
+ * <p>{@code loreOrder} lists the 8 {@link LoreBlock} keys in the order the
+ * admin has arranged them (see {@code LoreOrderMenu}) - which section
+ * renders where in the final lore, independent of both {@code
+ * hiddenHeaders} (visibility, not position) and each entry's own {@code
+ * visible} flag. See {@link LoreBlock#canonicalize} for how a template
+ * whose stored order is empty or missing a block (anything predating this
+ * field) still renders every block, in the original hardcoded sequence.
  */
 public record ItemTemplate(
         UUID id,
@@ -56,6 +64,7 @@ public record ItemTemplate(
         String displayName,
         List<String> customLore,
         List<String> hiddenHeaders,
+        List<String> loreOrder,
         Material baseMaterial,
         byte[] baseItemSnapshot,
         Integer customModelData,
@@ -70,13 +79,13 @@ public record ItemTemplate(
 ) {
 
     public ItemTemplate withBumpedVersion(long updatedAt) {
-        return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, baseMaterial, baseItemSnapshot, customModelData, trinket,
-                allowedSlots, armorClass, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
+        return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
+                trinket, allowedSlots, armorClass, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public ItemTemplate withSyncedVersion(int syncedVersion, long updatedAt) {
-        return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, baseMaterial, baseItemSnapshot, customModelData, trinket,
-                allowedSlots, armorClass, version, syncedVersion, createdAt, updatedAt, createdBy);
+        return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
+                trinket, allowedSlots, armorClass, version, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public boolean isFullySynced() {

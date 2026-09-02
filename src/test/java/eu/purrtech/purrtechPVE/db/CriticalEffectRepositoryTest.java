@@ -29,7 +29,7 @@ class CriticalEffectRepositoryTest {
         database.connect();
         repository = new CriticalEffectRepository(database);
 
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-rapier", "Test Rapier", List.of(), List.of(), Material.IRON_SWORD,
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-rapier", "Test Rapier", List.of(), List.of(), List.of(), Material.IRON_SWORD,
                 null, null, false, List.of(), null, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();

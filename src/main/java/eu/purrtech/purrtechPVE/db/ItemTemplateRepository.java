@@ -27,9 +27,9 @@ public final class ItemTemplateRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT INTO item_templates
-                         (id, key, display_name, custom_lore, hidden_headers, base_material, base_item_snapshot, custom_model_data,
+                         (id, key, display_name, custom_lore, hidden_headers, lore_order, base_material, base_item_snapshot, custom_model_data,
                           is_trinket, allowed_slots, armor_class, version, synced_version, created_at, updated_at, created_by)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             bind(statement, template);
             statement.executeUpdate();
@@ -42,32 +42,33 @@ public final class ItemTemplateRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      UPDATE item_templates
-                     SET key = ?, display_name = ?, custom_lore = ?, hidden_headers = ?, base_material = ?, base_item_snapshot = ?, custom_model_data = ?,
-                         is_trinket = ?, allowed_slots = ?, armor_class = ?, version = ?, synced_version = ?, updated_at = ?
+                     SET key = ?, display_name = ?, custom_lore = ?, hidden_headers = ?, lore_order = ?, base_material = ?, base_item_snapshot = ?,
+                         custom_model_data = ?, is_trinket = ?, allowed_slots = ?, armor_class = ?, version = ?, synced_version = ?, updated_at = ?
                      WHERE id = ?
                      """)) {
             statement.setString(1, template.key());
             statement.setString(2, template.displayName());
             statement.setString(3, encodeLore(template.customLore()));
             statement.setString(4, String.join(",", template.hiddenHeaders()));
-            statement.setString(5, template.baseMaterial().name());
+            statement.setString(5, String.join(",", template.loreOrder()));
+            statement.setString(6, template.baseMaterial().name());
             if (template.baseItemSnapshot() != null) {
-                statement.setBytes(6, template.baseItemSnapshot());
+                statement.setBytes(7, template.baseItemSnapshot());
             } else {
-                statement.setNull(6, Types.BLOB);
+                statement.setNull(7, Types.BLOB);
             }
             if (template.customModelData() != null) {
-                statement.setInt(7, template.customModelData());
+                statement.setInt(8, template.customModelData());
             } else {
-                statement.setNull(7, Types.INTEGER);
+                statement.setNull(8, Types.INTEGER);
             }
-            statement.setInt(8, template.trinket() ? 1 : 0);
-            statement.setString(9, String.join(",", template.allowedSlots()));
-            statement.setString(10, template.armorClass() != null ? template.armorClass().name() : null);
-            statement.setInt(11, template.version());
-            statement.setInt(12, template.syncedVersion());
-            statement.setLong(13, template.updatedAt());
-            statement.setString(14, template.id().toString());
+            statement.setInt(9, template.trinket() ? 1 : 0);
+            statement.setString(10, String.join(",", template.allowedSlots()));
+            statement.setString(11, template.armorClass() != null ? template.armorClass().name() : null);
+            statement.setInt(12, template.version());
+            statement.setInt(13, template.syncedVersion());
+            statement.setLong(14, template.updatedAt());
+            statement.setString(15, template.id().toString());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to update item template " + template.key(), e);
@@ -125,25 +126,26 @@ public final class ItemTemplateRepository {
         statement.setString(3, template.displayName());
         statement.setString(4, encodeLore(template.customLore()));
         statement.setString(5, String.join(",", template.hiddenHeaders()));
-        statement.setString(6, template.baseMaterial().name());
+        statement.setString(6, String.join(",", template.loreOrder()));
+        statement.setString(7, template.baseMaterial().name());
         if (template.baseItemSnapshot() != null) {
-            statement.setBytes(7, template.baseItemSnapshot());
+            statement.setBytes(8, template.baseItemSnapshot());
         } else {
-            statement.setNull(7, Types.BLOB);
+            statement.setNull(8, Types.BLOB);
         }
         if (template.customModelData() != null) {
-            statement.setInt(8, template.customModelData());
+            statement.setInt(9, template.customModelData());
         } else {
-            statement.setNull(8, Types.INTEGER);
+            statement.setNull(9, Types.INTEGER);
         }
-        statement.setInt(9, template.trinket() ? 1 : 0);
-        statement.setString(10, String.join(",", template.allowedSlots()));
-        statement.setString(11, template.armorClass() != null ? template.armorClass().name() : null);
-        statement.setInt(12, template.version());
-        statement.setInt(13, template.syncedVersion());
-        statement.setLong(14, template.createdAt());
-        statement.setLong(15, template.updatedAt());
-        statement.setString(16, template.createdBy());
+        statement.setInt(10, template.trinket() ? 1 : 0);
+        statement.setString(11, String.join(",", template.allowedSlots()));
+        statement.setString(12, template.armorClass() != null ? template.armorClass().name() : null);
+        statement.setInt(13, template.version());
+        statement.setInt(14, template.syncedVersion());
+        statement.setLong(15, template.createdAt());
+        statement.setLong(16, template.updatedAt());
+        statement.setString(17, template.createdBy());
     }
 
     private ItemTemplate map(ResultSet rs) throws SQLException {
@@ -163,12 +165,18 @@ public final class ItemTemplateRepository {
                 ? List.of()
                 : Arrays.asList(hiddenHeadersRaw.split(","));
 
+        String loreOrderRaw = rs.getString("lore_order");
+        List<String> loreOrder = loreOrderRaw == null || loreOrderRaw.isBlank()
+                ? List.of()
+                : Arrays.asList(loreOrderRaw.split(","));
+
         return new ItemTemplate(
                 UUID.fromString(rs.getString("id")),
                 rs.getString("key"),
                 rs.getString("display_name"),
                 decodeLore(rs.getString("custom_lore")),
                 hiddenHeaders,
+                loreOrder,
                 Material.valueOf(rs.getString("base_material")),
                 rs.getBytes("base_item_snapshot"),
                 customModelDataBoxed,

@@ -1945,6 +1945,60 @@
     vanilla atributy skutečně nekopírují a že fallback display name
     sedí) - potřebuje reálného hráče držícího skutečný ValhallaMMO item.
 
+- **Tlačítko zpět + přeřazování řádků loru (2026-09-02), na žádost**:
+  "Udělej tlačítko zpět v menu kde upravuješ itemy... půjde měnit
+  rozřazení řádků loru... papírky... levé tlačítko doleva, pravé
+  doprava... typy poškození dej jako jeden papírek dohromady."
+  - **Tlačítko zpět**: `/pve item edit <key>` má teď v řádku 1 (sloty
+    11/12, potvrzeno grepem jako volné napříč všemi taby) dvě nová
+    univerzální tlačítka viditelná na KAŽDÉM tabu: "← Zpět na seznam
+    itemů" (otevře `/pve item menu`) a "Pořadí řádků loru" (otevře nové
+    menu níže, s aktuálním tabem zapamatovaným jako návratový).
+  - **Scope rozhodnutí (neschváleno explicitně, jen odkomunikováno
+    zpětně)**: přeřazování NENÍ po jednotlivých řádcích loru, ale po
+    **8 pevných blocích** (nový enum `LoreBlock`): vlastní text
+    (`customLore` jako celek), poškození, pasivní bonus, odolnosti,
+    penetrace, krvácení, kritický zásah, atributy. Přesně podle žádosti
+    jsou "typy poškození" jeden papírek bez ohledu na to, kolik jich je
+    nastaveno (i nula) - stejná logika je teď použitá na všech 7
+    statových kategorií kvůli konzistenci, a `customLore` je taky
+    jeden blok (ne rozřaditelný po řádcích), protože je to volný text
+    nahrazovaný vcelku přes `/pve item lore set` - řádek v něm nemá
+    stabilní identitu, po které by šlo pamatovat pozici. Pokud bys
+    chtěl přeřazování po jednotlivých řádcích vlastního textu, klidně
+    napiš a rozšířím to.
+  - **Nové `LoreOrderMenu`** (27 slotů): jeden `PAPER` papírek na blok,
+    zleva doprava = shora dolů ve finálním loru, v loru papírku pozice
+    (`X/8`) + nápověda. Levý klik = o slot doleva (výš v loru), pravý
+    klik = o slot doprava (níž), na kraji no-op. "Zpět" se vrací do
+    `ItemEditorMenu` na tab, ze kterého se sem přišlo.
+  - `ItemTemplate`/`TemplateSnapshot` mají nové pole `loreOrder`
+    (`List<String>` klíčů bloků, sloupec `lore_order` přes
+    `Schema.addColumnIfMissing` na obou tabulkách - staré řádky mají
+    `NULL`/prázdno). `LoreBlock.canonicalize(...)` z uloženého pořadí
+    vždy vyrobí kompletní seznam všech 8 bloků v konzistentním pořadí -
+    doplní chybějící/nové bloky na konec, zahodí neznámé/duplicitní
+    klíče. Díky tomu staré šablony (bez `loreOrder` v DB) i budoucí
+    nové bloky fungují bez migrace dat, jen s výchozím pořadím.
+    `ItemTemplateService.moveLoreBlock(key, block, doleva?)` prohodí
+    dva sousední bloky a bumpne verzi jako každá jiná statová mutace.
+    `ItemRenderer.buildLore(...)` teď skládá výsledné lore poskládáním
+    bloků v `canonicalize(loreOrder)` pořadí místo pevného pořadí
+    damage→passive→resist→penetration→bleed→crit→attributes→custom.
+  - Mechanická oprava ~11 testovacích souborů (`List.of()` na nové
+    pozici v pozičním konstruktoru `ItemTemplate`/`TemplateSnapshot`) -
+    stejný opakovaný vzor jako u každého předchozího přidání pole.
+    Čistý `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Ověřeno živě** (`runServer`, čerstvá DB): boot bez výjimky
+    (migrace `lore_order` sloupce proběhla na obou tabulkách),
+    `item create loretest STICK ...` uspělo, v DB má nová šablona
+    `lore_order = custom,damage,passive,resist,penetration,bleed,
+    critical,attributes` (výchozí pořadí). **Nedá se ověřit v
+    sandboxu**: samotné klikání na "Zpět"/"Pořadí řádků loru" tlačítka
+    a levý/pravý klik na papírky v `LoreOrderMenu` - potřebuje
+    reálného připojeného hráče, stejně jako u každé předchozí GUI
+    funkce v tomhle pluginu.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

@@ -20,8 +20,10 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -66,22 +68,23 @@ public final class ItemRenderer {
                              List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                              BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
         return render(template.key(), template.version(), template.displayName(), template.customLore(), template.hiddenHeaders(),
-                template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), contributions, modifiers, enchantments,
-                armorPenetration, bleedEffect, criticalEffect, attributeModifiers);
+                template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), contributions,
+                modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, attributeModifiers);
     }
 
     /** Renders exactly as a given historical version looked - used to catch up a stack pinned behind the live version. */
     public ItemStack renderSnapshot(TemplateSnapshot snapshot) {
         return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.customLore(), snapshot.hiddenHeaders(),
-                snapshot.baseMaterial(), snapshot.baseItemSnapshot(), snapshot.customModelData(), snapshot.damageContributions(),
-                snapshot.typeModifiers(), snapshot.enchantments(), snapshot.armorPenetration(), snapshot.bleedEffect(),
-                snapshot.criticalEffect(), snapshot.attributeModifiers());
+                snapshot.loreOrder(), snapshot.baseMaterial(), snapshot.baseItemSnapshot(), snapshot.customModelData(),
+                snapshot.damageContributions(), snapshot.typeModifiers(), snapshot.enchantments(), snapshot.armorPenetration(),
+                snapshot.bleedEffect(), snapshot.criticalEffect(), snapshot.attributeModifiers());
     }
 
     private ItemStack render(String key, int version, String displayName, List<String> customLore, List<String> hiddenHeaders,
-                              Material baseMaterial, byte[] baseItemSnapshot, Integer customModelData, List<DamageContribution> contributions,
-                              List<TypeModifier> modifiers, List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
-                              BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
+                              List<String> loreOrder, Material baseMaterial, byte[] baseItemSnapshot, Integer customModelData,
+                              List<DamageContribution> contributions, List<TypeModifier> modifiers, List<TemplateEnchantment> enchantments,
+                              List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
+                              List<AttributeModifierEntry> attributeModifiers) {
         // Starts from a full clone of whatever real item this template was created/rebased from
         // (raw NBT, not just Bukkit's PersistentDataContainer view of it - see BaseItemSnapshots for
         // exactly why that distinction is the whole fix) instead of a bare new ItemStack, so
@@ -96,7 +99,8 @@ public final class ItemRenderer {
         if (customModelData != null) {
             meta.setCustomModelData(customModelData);
         }
-        meta.lore(buildLore(customLore, hiddenHeaders, contributions, modifiers, armorPenetration, bleedEffect, criticalEffect, attributeModifiers));
+        meta.lore(buildLore(customLore, hiddenHeaders, loreOrder, contributions, modifiers, armorPenetration, bleedEffect, criticalEffect,
+                attributeModifiers));
 
         for (TemplateEnchantment enchantment : enchantments) {
             resolveEnchantment(enchantment.enchantmentKey())
@@ -153,16 +157,23 @@ public final class ItemRenderer {
     public record StampedTemplate(String templateKey, int templateVersion) {
     }
 
-    private List<Component> buildLore(List<String> customLore, List<String> hiddenHeaders, List<DamageContribution> contributions,
-                                       List<TypeModifier> modifiers, List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect,
-                                       CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
-        List<Component> lore = new ArrayList<>();
+    /**
+     * Builds each of the 8 {@link LoreBlock}s independently (possibly empty - e.g. no damage
+     * types configured, or every entry in a category individually hidden), then concatenates
+     * them in whatever order {@code loreOrder} says (see {@link LoreBlock#canonicalize}) rather
+     * than a fixed sequence - {@code LoreOrderMenu} is what lets an admin change that order.
+     * {@code hiddenHeaders} (see {@link LoreHeader}) still only controls a header's own
+     * visibility, not the block's position; a header never shows with nothing under it, same as
+     * before this existed.
+     */
+    private List<Component> buildLore(List<String> customLore, List<String> hiddenHeaders, List<String> loreOrder,
+                                       List<DamageContribution> contributions, List<TypeModifier> modifiers,
+                                       List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
+                                       List<AttributeModifierEntry> attributeModifiers) {
+        Map<LoreBlock, List<Component>> blocks = new EnumMap<>(LoreBlock.class);
 
-        // Admin-authored (or import-seeded) lore first, above whatever stat lines get
-        // auto-generated below - see ItemTemplate's javadoc for why this exists.
-        for (String line : customLore) {
-            lore.add(parseMiniMessage(line));
-        }
+        // Admin-authored (or import-seeded) lore - see ItemTemplate's javadoc for why this exists.
+        blocks.put(LoreBlock.CUSTOM, customLore.stream().map(ItemRenderer::parseMiniMessage).toList());
 
         // Each category filters to its own visible-only entries before deciding whether to show
         // at all - an entry's own `visible` flag hides just that one line, while hiddenHeaders
@@ -177,45 +188,66 @@ public final class ItemRenderer {
         List<ArmorPenetration> visiblePenetration = armorPenetration.stream().filter(ArmorPenetration::visible).toList();
         List<AttributeModifierEntry> visibleAttributes = attributeModifiers.stream().filter(AttributeModifierEntry::visible).toList();
 
+        List<Component> damageLines = new ArrayList<>();
         if (!wielded.isEmpty() && !hiddenHeaders.contains(LoreHeader.DAMAGE.key())) {
-            lore.add(messages.render(locale, "item.header.damage"));
+            damageLines.add(messages.render(locale, "item.header.damage"));
             for (DamageContribution c : wielded) {
-                lore.add(damageLine(c));
+                damageLines.add(damageLine(c));
             }
         }
+        blocks.put(LoreBlock.DAMAGE, damageLines);
+
+        List<Component> passiveLines = new ArrayList<>();
         if (!worn.isEmpty() && !hiddenHeaders.contains(LoreHeader.PASSIVE.key())) {
-            lore.add(messages.render(locale, "item.header.passive"));
+            passiveLines.add(messages.render(locale, "item.header.passive"));
             for (DamageContribution c : worn) {
-                lore.add(damageLine(c));
+                passiveLines.add(damageLine(c));
             }
         }
+        blocks.put(LoreBlock.PASSIVE, passiveLines);
+
+        List<Component> resistLines = new ArrayList<>();
         if (!visibleModifiers.isEmpty() && !hiddenHeaders.contains(LoreHeader.RESIST.key())) {
-            lore.add(messages.render(locale, "item.header.resist"));
+            resistLines.add(messages.render(locale, "item.header.resist"));
             for (TypeModifier m : visibleModifiers) {
-                lore.add(resistLine(m));
+                resistLines.add(resistLine(m));
             }
         }
+        blocks.put(LoreBlock.RESIST, resistLines);
+
+        List<Component> penetrationLines = new ArrayList<>();
         if (!visiblePenetration.isEmpty() && !hiddenHeaders.contains(LoreHeader.PENETRATION.key())) {
-            lore.add(messages.render(locale, "item.header.penetration"));
+            penetrationLines.add(messages.render(locale, "item.header.penetration"));
             for (ArmorPenetration p : visiblePenetration) {
-                lore.add(penetrationLine(p));
+                penetrationLines.add(penetrationLine(p));
             }
         }
-        if (bleedEffect != null && bleedEffect.visible()) {
-            lore.add(messages.render(locale, "item.line.bleed",
-                    Placeholder.unparsed("chance", formatAmount(bleedEffect.chancePercent())),
-                    Placeholder.unparsed("duration", formatAmount(bleedEffect.durationSeconds()))));
-        }
-        if (criticalEffect != null && criticalEffect.visible()) {
-            lore.add(messages.render(locale, "item.line.critical",
-                    Placeholder.unparsed("chance", formatAmount(criticalEffect.chancePercent())),
-                    Placeholder.unparsed("bonus", formatAmount(criticalEffect.bonusDamagePercent()))));
-        }
+        blocks.put(LoreBlock.PENETRATION, penetrationLines);
+
+        blocks.put(LoreBlock.BLEED, bleedEffect != null && bleedEffect.visible()
+                ? List.of(messages.render(locale, "item.line.bleed",
+                        Placeholder.unparsed("chance", formatAmount(bleedEffect.chancePercent())),
+                        Placeholder.unparsed("duration", formatAmount(bleedEffect.durationSeconds()))))
+                : List.of());
+
+        blocks.put(LoreBlock.CRITICAL, criticalEffect != null && criticalEffect.visible()
+                ? List.of(messages.render(locale, "item.line.critical",
+                        Placeholder.unparsed("chance", formatAmount(criticalEffect.chancePercent())),
+                        Placeholder.unparsed("bonus", formatAmount(criticalEffect.bonusDamagePercent()))))
+                : List.of());
+
+        List<Component> attributeLines = new ArrayList<>();
         if (!visibleAttributes.isEmpty() && !hiddenHeaders.contains(LoreHeader.ATTRIBUTES.key())) {
-            lore.add(messages.render(locale, "item.header.attributes"));
+            attributeLines.add(messages.render(locale, "item.header.attributes"));
             for (AttributeModifierEntry a : visibleAttributes) {
-                lore.add(attributeLine(a));
+                attributeLines.add(attributeLine(a));
             }
+        }
+        blocks.put(LoreBlock.ATTRIBUTES, attributeLines);
+
+        List<Component> lore = new ArrayList<>();
+        for (LoreBlock block : LoreBlock.canonicalize(loreOrder)) {
+            lore.addAll(blocks.get(block));
         }
         return lore;
     }

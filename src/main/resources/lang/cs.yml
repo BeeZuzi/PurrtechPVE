@@ -192,6 +192,8 @@ gui:
     picker-hint-add: "<yellow>Klik: přidat</yellow>"
     picker-all-added: "<gray>Všechno už je přidané.</gray>"
     picker-hint-back: "<yellow>Klik: zpět na seznam</yellow>"
+    back-to-list: "<yellow>← Zpět na seznam itemů</yellow>"
+    lore-order-button: "<aqua>Pořadí řádků loru</aqua>"
     tab:
       base: "Základ"
       damage: "Custom Damages"
@@ -330,3 +332,17 @@ gui:
     mode-percent: "<white>Mód: % z rány</white>"
     hint-toggle-mode: "<yellow>Klik: přepnout mód (pevná částka/procenta)</yellow>"
     hint-adjust: "<yellow>Klikni na tlačítka nahoře pro úpravu hodnoty</yellow>"
+  lore-order:
+    title: "Pořadí řádků loru"
+    position: "<aqua>Pozice: <position>/<total></aqua>"
+    hint-left: "<yellow>Levý klik: posunout doleva (výš v loru)</yellow>"
+    hint-right: "<yellow>Pravý klik: posunout doprava (níž v loru)</yellow>"
+    block:
+      custom: "<white>Vlastní text</white>"
+      damage: "<white>Poškození (typy poškození)</white>"
+      passive: "<white>Pasivní bonus (nasazeno)</white>"
+      resist: "<white>Odolnosti / Slabiny</white>"
+      penetration: "<white>Penetrace armoru</white>"
+      bleed: "<white>Krvácení</white>"
+      critical: "<white>Kritický zásah</white>"
+      attributes: "<white>Atributy</white>"
