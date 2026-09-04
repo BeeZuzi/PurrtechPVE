@@ -1999,6 +1999,41 @@
     reálného připojeného hráče, stejně jako u každé předchozí GUI
     funkce v tomhle pluginu.
 
+- **`LoreOrderMenu`: reálný náhled bloku místo obecného popisku
+  (2026-09-04), na žádost**: "v těch papírcích dej buď do loru nebo do
+  názvu ten lore který se posouvá, i se správnými barvami... aby to
+  podporovalo i Componenty."
+  - Papírek pro každý blok teď místo obecného popisku ("Poškození
+    (typy poškození)") ukazuje **skutečný, plně obarvený obsah** toho
+    bloku - přesně ty `Component`y (barvy, styly z MiniMessage), co by
+    se opravdu objevily ve finálním loru itemu. První reálný řádek
+    bloku je název papírku, zbytek (pokud jich je víc - třeba dva
+    nastavené damage typy) jde do jeho loru, pod tím zůstává pozice
+    (`X/8`) + nápověda na levý/pravý klik. Prázdný blok (typicky žádné
+    nastavené damage typy) nemá co ukázat, tak zůstává u obecného
+    popisku + nová hláška "(teď nic k zobrazení)" - přesně kvůli
+    tomu, aby šlo poznat, kam se to bude řadit, i když je momentálně
+    prázdný.
+  - Nové `ItemRenderer.blockContents(...)` - veřejná varianta toho, co
+    už `buildLore(...)` interně počítalo (mapa blok→jeho řádky), teď
+    sdílená mezi skutečným vykreslením itemu a náhledem v menu, takže
+    obojí je vždy stejné (žádná duplicitní/rozjetá logika). Nové
+    `ItemTemplateService.loreBlockContents(key)` - stejný vzor jako
+    `renderGiveable(key)`, jen vrací tu mapu místo hotového `ItemStack`.
+  - Řádky náhledu jsou schválně ponechané přesně tak, jak by vypadaly
+    na reálném itemu (včetně výchozí kurzívy Minecraftího lore) - je to
+    věrný náhled, ne aproximace; jen název papírku (jako každá jiná
+    ikonka v těchhle menu) má kurzívu vypnutou kvůli konzistenci s
+    ostatními tlačítky.
+  - Čistý `compileJava`/`test`/`build`, žádné nové testy (`ItemRenderer`
+    podle zavedené konvence testy nemá - živé `Component`y přes
+    `Messages`/živý `ItemStack` render).
+  - **Ověřeno živě** (`runServer`): založena šablona s reálným
+    poškozením (`fire`, 4 flat wielded) i odolností (`fire`, 20 %) -
+    žádná výjimka v logu při vytvoření/nastavení. **Nedá se ověřit v
+    sandboxu**: vizuální vzhled samotného papírku (barvy, zalomení
+    řádků) v `LoreOrderMenu` - potřebuje reálného připojeného hráče.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

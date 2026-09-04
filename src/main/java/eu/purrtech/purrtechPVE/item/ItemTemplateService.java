@@ -10,6 +10,7 @@ import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
@@ -17,6 +18,7 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -477,6 +479,19 @@ public final class ItemTemplateService {
         CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
         List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
         return renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical, attributeModifiers);
+    }
+
+    /** Real, fully-rendered lore lines per {@link LoreBlock} - what {@code LoreOrderMenu} previews on each reorder paper. */
+    public Map<LoreBlock, List<Component>> loreBlockContents(String key) {
+        ItemTemplate template = requireTemplate(key);
+        List<DamageContribution> contributions = damageContributionRepository.findByTemplate(template.id());
+        List<TypeModifier> modifiers = typeModifierRepository.findByTemplate(template.id());
+        List<ArmorPenetration> armorPenetration = armorPenetrationRepository.findByTemplate(template.id());
+        BleedEffect bleed = bleedEffectRepository.findByTemplate(template.id()).orElse(null);
+        CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
+        List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
+        return renderer.blockContents(template.customLore(), template.hiddenHeaders(), contributions, modifiers,
+                armorPenetration, bleed, critical, attributeModifiers);
     }
 
     private ItemTemplate requireTemplate(String key) {

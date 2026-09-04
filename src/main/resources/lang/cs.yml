@@ -334,6 +334,7 @@ gui:
     hint-adjust: "<yellow>Klikni na tlačítka nahoře pro úpravu hodnoty</yellow>"
   lore-order:
     title: "Pořadí řádků loru"
+    empty: "<gray><italic>(teď nic k zobrazení)</italic></gray>"
     position: "<aqua>Pozice: <position>/<total></aqua>"
     hint-left: "<yellow>Levý klik: posunout doleva (výš v loru)</yellow>"
     hint-right: "<yellow>Pravý klik: posunout doprava (níž v loru)</yellow>"

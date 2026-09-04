@@ -334,6 +334,7 @@ gui:
     hint-adjust: "<yellow>Click the buttons above to adjust the value</yellow>"
   lore-order:
     title: "Lore line order"
+    empty: "<gray><italic>(nothing to preview right now)</italic></gray>"
     position: "<aqua>Position: <position>/<total></aqua>"
     hint-left: "<yellow>Left-click: move left (higher in the lore)</yellow>"
     hint-right: "<yellow>Right-click: move right (lower in the lore)</yellow>"

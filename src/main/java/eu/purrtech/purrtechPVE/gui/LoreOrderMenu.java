@@ -18,6 +18,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Reorders a template's 8 {@link LoreBlock}s (see that enum's javadoc for what a "block" is and
@@ -50,15 +51,31 @@ public final class LoreOrderMenu {
         Messages messages = plugin.getMessages();
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
         List<LoreBlock> order = LoreBlock.canonicalize(template.loreOrder());
+        Map<LoreBlock, List<Component>> contents = plugin.getItemTemplateService().loreBlockContents(templateKey);
 
         for (int i = 0; i < order.size(); i++) {
             LoreBlock block = order.get(i);
-            ItemStack icon = named(Material.PAPER, messages.render(locale, labelKey(block)));
+            // Preview the block's actual, fully-colored lore Components (not just a generic
+            // category label) - the first real line becomes the icon's name, any further lines
+            // go in its lore, so the admin sees exactly what's about to move. An empty block (e.g.
+            // no damage types configured yet) falls back to the plain category label so it stays
+            // identifiable even with nothing to preview.
+            List<Component> content = contents.getOrDefault(block, List.of());
+            Component name = content.isEmpty() ? messages.render(locale, labelKey(block)) : content.get(0);
+            ItemStack icon = named(Material.PAPER, name);
             ItemMeta meta = icon.getItemMeta();
             List<Component> lore = new ArrayList<>();
+            if (content.isEmpty()) {
+                lore.add(messages.render(locale, "gui.lore-order.empty"));
+            } else {
+                // Left exactly as ItemRenderer would show it on the real item - including
+                // Minecraft's own default italic lore styling - so this is a true preview, not an
+                // approximation.
+                lore.addAll(content.subList(1, content.size()));
+            }
+            lore.add(Component.empty());
             lore.add(messages.render(locale, "gui.lore-order.position",
                     Placeholder.unparsed("position", String.valueOf(i + 1)), Placeholder.unparsed("total", String.valueOf(order.size()))));
-            lore.add(Component.empty());
             lore.add(messages.render(locale, "gui.lore-order.hint-left"));
             lore.add(messages.render(locale, "gui.lore-order.hint-right"));
             meta.lore(lore);

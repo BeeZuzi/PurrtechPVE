@@ -170,6 +170,24 @@ public final class ItemRenderer {
                                        List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                        List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
                                        List<AttributeModifierEntry> attributeModifiers) {
+        Map<LoreBlock, List<Component>> blocks = blockContents(customLore, hiddenHeaders, contributions, modifiers,
+                armorPenetration, bleedEffect, criticalEffect, attributeModifiers);
+        List<Component> lore = new ArrayList<>();
+        for (LoreBlock block : LoreBlock.canonicalize(loreOrder)) {
+            lore.addAll(blocks.get(block));
+        }
+        return lore;
+    }
+
+    /**
+     * Same per-block breakdown {@link #buildLore} concatenates, exposed on its own so {@code
+     * LoreOrderMenu} can preview each block's real, fully-colored {@link Component} lines
+     * (rather than a generic category label) right on the paper icon that reorders it.
+     */
+    public Map<LoreBlock, List<Component>> blockContents(List<String> customLore, List<String> hiddenHeaders,
+                                       List<DamageContribution> contributions, List<TypeModifier> modifiers,
+                                       List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
+                                       List<AttributeModifierEntry> attributeModifiers) {
         Map<LoreBlock, List<Component>> blocks = new EnumMap<>(LoreBlock.class);
 
         // Admin-authored (or import-seeded) lore - see ItemTemplate's javadoc for why this exists.
@@ -245,11 +263,7 @@ public final class ItemRenderer {
         }
         blocks.put(LoreBlock.ATTRIBUTES, attributeLines);
 
-        List<Component> lore = new ArrayList<>();
-        for (LoreBlock block : LoreBlock.canonicalize(loreOrder)) {
-            lore.addAll(blocks.get(block));
-        }
-        return lore;
+        return blocks;
     }
 
     private Component damageLine(DamageContribution c) {
