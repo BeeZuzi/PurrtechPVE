@@ -1,8 +1,7 @@
 package eu.purrtech.purrtechPVE.gui;
 
 import eu.purrtech.purrtechPVE.PurrtechPVE;
-import eu.purrtech.purrtechPVE.item.ItemTemplate;
-import eu.purrtech.purrtechPVE.item.LoreBlock;
+import eu.purrtech.purrtechPVE.item.LoreLine;
 import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -18,21 +17,25 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 /**
- * Reorders a template's 8 {@link LoreBlock}s (see that enum's javadoc for what a "block" is and
- * why {@link LoreBlock#CUSTOM} moves as one unit rather than per-line) - one paper per block,
- * left-to-right in the row matching top-to-bottom in the rendered lore. Left-click moves a paper
- * one slot left (up in the lore), right-click moves it one slot right (down) - no wraparound, a
- * click at either end that can't move further is just a no-op re-render.
+ * Reorders a template's individual {@link LoreLine}s - one paper per line (a header, a single
+ * stat entry, or one custom-lore line), left-to-right/top-to-bottom in the row matching top-to-
+ * bottom in the rendered lore. Left-click moves a paper one slot earlier (up in the lore),
+ * right-click moves it one slot later (down) - no wraparound, a click at either end that can't
+ * move further is just a no-op re-render. Line-level (not whole-category) granularity is
+ * deliberate - see {@link LoreLine}'s javadoc for why: an admin needs to be able to interleave a
+ * custom line between two stat lines, which a fixed category block could never allow.
  */
 public final class LoreOrderMenu {
 
-    private static final int SIZE = 27;
-    private static final int BLOCK_COUNT = LoreBlock.values().length;
-    private static final int BACK_SLOT = 22;
-    private static final int CLOSE_SLOT = 26;
+    private static final int SIZE = 54;
+    // Bottom-right corner for Back/Close, same relative feel as every other menu in this GUI -
+    // everything before them (slots 0-48) is available for line icons, comfortably more than any
+    // realistic item's lore will ever need.
+    private static final int BACK_SLOT = 49;
+    private static final int CLOSE_SLOT = 53;
+    private static final int CONTENT_CAPACITY = BACK_SLOT;
 
     private LoreOrderMenu() {
     }
@@ -49,33 +52,20 @@ public final class LoreOrderMenu {
     private static void render(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
         inventory.clear();
         Messages messages = plugin.getMessages();
-        ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
-        List<LoreBlock> order = LoreBlock.canonicalize(template.loreOrder());
-        Map<LoreBlock, List<Component>> contents = plugin.getItemTemplateService().loreBlockContents(templateKey);
+        List<LoreLine> lines = plugin.getItemTemplateService().loreLines(templateKey);
 
-        for (int i = 0; i < order.size(); i++) {
-            LoreBlock block = order.get(i);
-            // Preview the block's actual, fully-colored lore Components (not just a generic
-            // category label) - the first real line becomes the icon's name, any further lines
-            // go in its lore, so the admin sees exactly what's about to move. An empty block (e.g.
-            // no damage types configured yet) falls back to the plain category label so it stays
-            // identifiable even with nothing to preview.
-            List<Component> content = contents.getOrDefault(block, List.of());
-            Component name = content.isEmpty() ? messages.render(locale, labelKey(block)) : content.get(0);
-            ItemStack icon = named(Material.PAPER, name);
+        for (int i = 0; i < lines.size() && i < CONTENT_CAPACITY; i++) {
+            LoreLine line = lines.get(i);
+            // The icon's name IS the real, fully-colored line it represents (exactly the
+            // MiniMessage-rendered Component that would show up on the actual item) - not a
+            // generic description - so the admin sees exactly what's about to move. Only italics
+            // are normalized away here, same as every other icon name in this GUI; the color/
+            // bold/etc. styling underneath is untouched.
+            ItemStack icon = named(Material.PAPER, line.component());
             ItemMeta meta = icon.getItemMeta();
             List<Component> lore = new ArrayList<>();
-            if (content.isEmpty()) {
-                lore.add(messages.render(locale, "gui.lore-order.empty"));
-            } else {
-                // Left exactly as ItemRenderer would show it on the real item - including
-                // Minecraft's own default italic lore styling - so this is a true preview, not an
-                // approximation.
-                lore.addAll(content.subList(1, content.size()));
-            }
-            lore.add(Component.empty());
             lore.add(messages.render(locale, "gui.lore-order.position",
-                    Placeholder.unparsed("position", String.valueOf(i + 1)), Placeholder.unparsed("total", String.valueOf(order.size()))));
+                    Placeholder.unparsed("position", String.valueOf(i + 1)), Placeholder.unparsed("total", String.valueOf(lines.size()))));
             lore.add(messages.render(locale, "gui.lore-order.hint-left"));
             lore.add(messages.render(locale, "gui.lore-order.hint-right"));
             meta.lore(lore);
@@ -96,30 +86,16 @@ public final class LoreOrderMenu {
             player.closeInventory();
             return;
         }
-        if (slot < 0 || slot >= BLOCK_COUNT || (click != ClickType.LEFT && click != ClickType.RIGHT)) {
+        if (slot < 0 || slot >= CONTENT_CAPACITY || (click != ClickType.LEFT && click != ClickType.RIGHT)) {
             return;
         }
-        ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
-        List<LoreBlock> order = LoreBlock.canonicalize(template.loreOrder());
-        if (slot >= order.size()) {
+        List<LoreLine> lines = plugin.getItemTemplateService().loreLines(holder.templateKey());
+        if (slot >= lines.size()) {
             return;
         }
-        LoreBlock block = order.get(slot);
-        plugin.getItemTemplateService().moveLoreBlock(holder.templateKey(), block, click == ClickType.LEFT);
+        LoreLine line = lines.get(slot);
+        plugin.getItemTemplateService().moveLoreLine(holder.templateKey(), line.key(), click == ClickType.LEFT);
         render(plugin, holder.getInventory(), holder.templateKey(), player.locale());
-    }
-
-    private static String labelKey(LoreBlock block) {
-        return switch (block) {
-            case CUSTOM -> "gui.lore-order.block.custom";
-            case DAMAGE -> "gui.lore-order.block.damage";
-            case PASSIVE -> "gui.lore-order.block.passive";
-            case RESIST -> "gui.lore-order.block.resist";
-            case PENETRATION -> "gui.lore-order.block.penetration";
-            case BLEED -> "gui.lore-order.block.bleed";
-            case CRITICAL -> "gui.lore-order.block.critical";
-            case ATTRIBUTES -> "gui.lore-order.block.attributes";
-        };
     }
 
     private static ItemStack named(Material material, Component name) {

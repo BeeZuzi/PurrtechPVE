@@ -334,16 +334,6 @@ gui:
     hint-adjust: "<yellow>Klikni na tlačítka nahoře pro úpravu hodnoty</yellow>"
   lore-order:
     title: "Pořadí řádků loru"
-    empty: "<gray><italic>(teď nic k zobrazení)</italic></gray>"
     position: "<aqua>Pozice: <position>/<total></aqua>"
     hint-left: "<yellow>Levý klik: posunout doleva (výš v loru)</yellow>"
     hint-right: "<yellow>Pravý klik: posunout doprava (níž v loru)</yellow>"
-    block:
-      custom: "<white>Vlastní text</white>"
-      damage: "<white>Poškození (typy poškození)</white>"
-      passive: "<white>Pasivní bonus (nasazeno)</white>"
-      resist: "<white>Odolnosti / Slabiny</white>"
-      penetration: "<white>Penetrace armoru</white>"
-      bleed: "<white>Krvácení</white>"
-      critical: "<white>Kritický zásah</white>"
-      attributes: "<white>Atributy</white>"

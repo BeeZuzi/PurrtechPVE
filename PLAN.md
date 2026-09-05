@@ -2034,6 +2034,66 @@
     sandboxu**: vizuální vzhled samotného papírku (barvy, zalomení
     řádků) v `LoreOrderMenu` - potřebuje reálného připojeného hráče.
 
+- **`LoreOrderMenu`: přepsáno z 8 bloků na jednotlivé řádky
+  (2026-09-05), oprava scope na žádost**: "myslel jsem to tak, že
+  půjdou jednotlivé řádky switchovat mezi sebou... chtěl bych mezi ty
+  řádky doprostřed dát něco jiného a přeřadit to... teďka to je
+  udělaný tak že ten lore co je na tom itemu... posouvám celý a ne že
+  bych tam mohl někam mezi vložit."
+  - Předchozí den jsem přeřazování udělal po **8 pevných blocích**
+    (`LoreBlock`) - výslovný scope call, který jsem sice odkomunikoval,
+    ale nebyl to, co uživatel chtěl: chtěl přeřazovat/vkládat
+    **jednotlivé řádky** (i vlastní text mezi dva statové řádky), ne
+    posouvat celou kategorii najednou. **`LoreBlock` je celé smazané**,
+    nahrazené novým `LoreLine` modelem.
+  - Nový `LoreLine` (`record key, Component`) - jeden záznam = jeden
+    řádek finálního loru (jeden nadpis, jeden statový řádek, nebo jeden
+    řádek vlastního textu), identifikovaný stabilním klíčem
+    (`custom#0`, `header#damage`, `damage#fire`, `passive#fire`,
+    `resist#fire`, `penetration#HEAVY`, `bleed`, `critical`,
+    `attribute#STRENGTH|mainhand`, ...), aby si menu pamatovalo pozici
+    napříč re-rendery, i když se hodnota (barva/číslo) změní.
+    `LoreLine.canonicalize(storedOrder, candidates)` - stejný princip
+    jako dřívější `LoreBlock.canonicalize`: neznámý uložený klíč (řádek
+    zmizel) se zahodí, nový nikdy-neuložený klíč (nový damage typ,
+    ...) se přidá na konec, připravený k přeřazení - **nikdy se
+    nehádá**, kam nová věc "patří".
+  - **Omezení, na které chci upozornit**: `customLore` je pořád jen
+    `List<String>` nahrazovaný vcelku přes `/pve item lore set` (žádná
+    stabilní identita na řádek), takže identita vlastního řádku je
+    jeho **index**. Kompletní přepsání vlastního textu tedy nepřenese
+    staré pozice podle obsahu - nové řádky se objeví jako nové na konci
+    a je potřeba je znovu přeřadit, stejně jako u čerstvě přidaného
+    statového řádku. Menší úprava jednoho řádku (beze změny počtu
+    řádků) pozice nijak nenaruší.
+  - Prázdná kategorie (žádné nastavené damage typy) teď **nemá žádný
+    papírek vůbec** - u modelu "reálný řádek = jeden papírek" není co
+    ukazovat ani předpozicovat, když nic neexistuje (na rozdíl od
+    starého blokového modelu, kde to byl záměrný požadavek). Jakmile
+    admin první entry přidá, objeví se jako nový řádek na konci seznamu
+    a jde ho přesunout, kam potřeba.
+  - `LoreOrderMenu` teď má **54 slotů** místo 27 (papírků může být
+    libovolně víc než pevných 8 bloků - třeba víc damage typů/atributů)
+    - Zpět/Zavřít přesunuty do pravého dolního rohu (sloty 49/53),
+    sloty 0-48 (49 řádků kapacita) pro řádky, s velkou rezervou nad
+    cokoliv reálně nakonfigurované.
+  - `ItemRenderer.blockContents(...)` nahrazeno `lineCandidates(...)`
+    (stejný "natural order" princip jako dřív, teď generuje jednotlivé
+    `LoreLine`, ne bloky). `ItemTemplateService.moveLoreBlock`/
+    `loreBlockContents` nahrazeno `moveLoreLine`/`loreLines` (+ sdílený
+    private `currentLoreLines` helper) - stejný vzor.
+  - Čistý `compileJava`/`compileTestJava`/`test`/`build`, žádné nové
+    testy (stejná zavedená konvence - `ItemRenderer`/`LoreOrderMenu`
+    testy nemají).
+  - **Ověřeno živě** (`runServer`, čerstvá DB): založena šablona,
+    nastaven vlastní 2-řádkový text (`/pve item lore set`), reálné
+    poškození (`fire`, flat wielded) i odolnost (`fire`, 20 %) - žádná
+    výjimka v logu při žádném z kroků, `lore_order` v DB zůstal prázdný
+    (nic zatím nepřeřazeno, žije jen z natural-order generování).
+    **Nedá se ověřit v sandboxu**: samotné přeřazení kliknutím (levý/
+    pravý klik na papírek) a vizuální výsledek v `LoreOrderMenu` -
+    potřebuje reálného připojeného hráče.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

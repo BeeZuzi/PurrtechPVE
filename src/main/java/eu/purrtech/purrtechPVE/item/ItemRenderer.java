@@ -20,10 +20,8 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -158,40 +156,40 @@ public final class ItemRenderer {
     }
 
     /**
-     * Builds each of the 8 {@link LoreBlock}s independently (possibly empty - e.g. no damage
-     * types configured, or every entry in a category individually hidden), then concatenates
-     * them in whatever order {@code loreOrder} says (see {@link LoreBlock#canonicalize}) rather
-     * than a fixed sequence - {@code LoreOrderMenu} is what lets an admin change that order.
-     * {@code hiddenHeaders} (see {@link LoreHeader}) still only controls a header's own
-     * visibility, not the block's position; a header never shows with nothing under it, same as
-     * before this existed.
+     * Builds the natural candidate {@link LoreLine}s (see {@link #lineCandidates}), then
+     * concatenates them in whatever order {@code loreOrder} says (see {@link
+     * LoreLine#canonicalize}) rather than a fixed sequence - {@code LoreOrderMenu} is what lets an
+     * admin change that order, line by line rather than whole-category.
      */
     private List<Component> buildLore(List<String> customLore, List<String> hiddenHeaders, List<String> loreOrder,
                                        List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                        List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
                                        List<AttributeModifierEntry> attributeModifiers) {
-        Map<LoreBlock, List<Component>> blocks = blockContents(customLore, hiddenHeaders, contributions, modifiers,
+        List<LoreLine> candidates = lineCandidates(customLore, hiddenHeaders, contributions, modifiers,
                 armorPenetration, bleedEffect, criticalEffect, attributeModifiers);
-        List<Component> lore = new ArrayList<>();
-        for (LoreBlock block : LoreBlock.canonicalize(loreOrder)) {
-            lore.addAll(blocks.get(block));
-        }
-        return lore;
+        return LoreLine.canonicalize(loreOrder, candidates).stream().map(LoreLine::component).toList();
     }
 
     /**
-     * Same per-block breakdown {@link #buildLore} concatenates, exposed on its own so {@code
-     * LoreOrderMenu} can preview each block's real, fully-colored {@link Component} lines
-     * (rather than a generic category label) right on the paper icon that reorders it.
+     * The individual lore lines this template's data currently produces, in a fixed "natural"
+     * default sequence (customLore, then damage/passive/resist/penetration/bleed/critical/
+     * attributes) - exposed on its own so {@code LoreOrderMenu} can preview each line's real,
+     * fully-colored {@link Component} (rather than a generic category label) on the icon that
+     * reorders it. {@code hiddenHeaders} (see {@link LoreHeader}) still only controls a header
+     * line's own presence, not position; a header is never a candidate with nothing under it -
+     * same as before this existed, just one line at a time instead of a whole block.
      */
-    public Map<LoreBlock, List<Component>> blockContents(List<String> customLore, List<String> hiddenHeaders,
-                                       List<DamageContribution> contributions, List<TypeModifier> modifiers,
-                                       List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
-                                       List<AttributeModifierEntry> attributeModifiers) {
-        Map<LoreBlock, List<Component>> blocks = new EnumMap<>(LoreBlock.class);
+    public List<LoreLine> lineCandidates(List<String> customLore, List<String> hiddenHeaders,
+                                          List<DamageContribution> contributions, List<TypeModifier> modifiers,
+                                          List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
+                                          List<AttributeModifierEntry> attributeModifiers) {
+        List<LoreLine> lines = new ArrayList<>();
 
         // Admin-authored (or import-seeded) lore - see ItemTemplate's javadoc for why this exists.
-        blocks.put(LoreBlock.CUSTOM, customLore.stream().map(ItemRenderer::parseMiniMessage).toList());
+        // Identified by index (see LoreLine's javadoc for why that's the best identity available).
+        for (int i = 0; i < customLore.size(); i++) {
+            lines.add(new LoreLine("custom#" + i, parseMiniMessage(customLore.get(i))));
+        }
 
         // Each category filters to its own visible-only entries before deciding whether to show
         // at all - an entry's own `visible` flag hides just that one line, while hiddenHeaders
@@ -200,70 +198,59 @@ public final class ItemRenderer {
         // the header is skipped too, same as having no entries there at all.
         List<DamageContribution> wielded = contributions.stream()
                 .filter(c -> c.context() == ModifierContext.WIELDED && c.visible()).toList();
+        if (!wielded.isEmpty() && !hiddenHeaders.contains(LoreHeader.DAMAGE.key())) {
+            lines.add(new LoreLine("header#damage", messages.render(locale, "item.header.damage")));
+            for (DamageContribution c : wielded) {
+                lines.add(new LoreLine("damage#" + c.damageTypeKey(), damageLine(c)));
+            }
+        }
+
         List<DamageContribution> worn = contributions.stream()
                 .filter(c -> c.context() == ModifierContext.WORN && c.visible()).toList();
-        List<TypeModifier> visibleModifiers = modifiers.stream().filter(TypeModifier::visible).toList();
-        List<ArmorPenetration> visiblePenetration = armorPenetration.stream().filter(ArmorPenetration::visible).toList();
-        List<AttributeModifierEntry> visibleAttributes = attributeModifiers.stream().filter(AttributeModifierEntry::visible).toList();
-
-        List<Component> damageLines = new ArrayList<>();
-        if (!wielded.isEmpty() && !hiddenHeaders.contains(LoreHeader.DAMAGE.key())) {
-            damageLines.add(messages.render(locale, "item.header.damage"));
-            for (DamageContribution c : wielded) {
-                damageLines.add(damageLine(c));
-            }
-        }
-        blocks.put(LoreBlock.DAMAGE, damageLines);
-
-        List<Component> passiveLines = new ArrayList<>();
         if (!worn.isEmpty() && !hiddenHeaders.contains(LoreHeader.PASSIVE.key())) {
-            passiveLines.add(messages.render(locale, "item.header.passive"));
+            lines.add(new LoreLine("header#passive", messages.render(locale, "item.header.passive")));
             for (DamageContribution c : worn) {
-                passiveLines.add(damageLine(c));
+                lines.add(new LoreLine("passive#" + c.damageTypeKey(), damageLine(c)));
             }
         }
-        blocks.put(LoreBlock.PASSIVE, passiveLines);
 
-        List<Component> resistLines = new ArrayList<>();
+        List<TypeModifier> visibleModifiers = modifiers.stream().filter(TypeModifier::visible).toList();
         if (!visibleModifiers.isEmpty() && !hiddenHeaders.contains(LoreHeader.RESIST.key())) {
-            resistLines.add(messages.render(locale, "item.header.resist"));
+            lines.add(new LoreLine("header#resist", messages.render(locale, "item.header.resist")));
             for (TypeModifier m : visibleModifiers) {
-                resistLines.add(resistLine(m));
+                lines.add(new LoreLine("resist#" + m.damageTypeKey(), resistLine(m)));
             }
         }
-        blocks.put(LoreBlock.RESIST, resistLines);
 
-        List<Component> penetrationLines = new ArrayList<>();
+        List<ArmorPenetration> visiblePenetration = armorPenetration.stream().filter(ArmorPenetration::visible).toList();
         if (!visiblePenetration.isEmpty() && !hiddenHeaders.contains(LoreHeader.PENETRATION.key())) {
-            penetrationLines.add(messages.render(locale, "item.header.penetration"));
+            lines.add(new LoreLine("header#penetration", messages.render(locale, "item.header.penetration")));
             for (ArmorPenetration p : visiblePenetration) {
-                penetrationLines.add(penetrationLine(p));
+                lines.add(new LoreLine("penetration#" + p.armorClass().name(), penetrationLine(p)));
             }
         }
-        blocks.put(LoreBlock.PENETRATION, penetrationLines);
 
-        blocks.put(LoreBlock.BLEED, bleedEffect != null && bleedEffect.visible()
-                ? List.of(messages.render(locale, "item.line.bleed",
-                        Placeholder.unparsed("chance", formatAmount(bleedEffect.chancePercent())),
-                        Placeholder.unparsed("duration", formatAmount(bleedEffect.durationSeconds()))))
-                : List.of());
+        if (bleedEffect != null && bleedEffect.visible()) {
+            lines.add(new LoreLine("bleed", messages.render(locale, "item.line.bleed",
+                    Placeholder.unparsed("chance", formatAmount(bleedEffect.chancePercent())),
+                    Placeholder.unparsed("duration", formatAmount(bleedEffect.durationSeconds())))));
+        }
 
-        blocks.put(LoreBlock.CRITICAL, criticalEffect != null && criticalEffect.visible()
-                ? List.of(messages.render(locale, "item.line.critical",
-                        Placeholder.unparsed("chance", formatAmount(criticalEffect.chancePercent())),
-                        Placeholder.unparsed("bonus", formatAmount(criticalEffect.bonusDamagePercent()))))
-                : List.of());
+        if (criticalEffect != null && criticalEffect.visible()) {
+            lines.add(new LoreLine("critical", messages.render(locale, "item.line.critical",
+                    Placeholder.unparsed("chance", formatAmount(criticalEffect.chancePercent())),
+                    Placeholder.unparsed("bonus", formatAmount(criticalEffect.bonusDamagePercent())))));
+        }
 
-        List<Component> attributeLines = new ArrayList<>();
+        List<AttributeModifierEntry> visibleAttributes = attributeModifiers.stream().filter(AttributeModifierEntry::visible).toList();
         if (!visibleAttributes.isEmpty() && !hiddenHeaders.contains(LoreHeader.ATTRIBUTES.key())) {
-            attributeLines.add(messages.render(locale, "item.header.attributes"));
+            lines.add(new LoreLine("header#attributes", messages.render(locale, "item.header.attributes")));
             for (AttributeModifierEntry a : visibleAttributes) {
-                attributeLines.add(attributeLine(a));
+                lines.add(new LoreLine("attribute#" + a.attribute().name() + "|" + a.slot(), attributeLine(a)));
             }
         }
-        blocks.put(LoreBlock.ATTRIBUTES, attributeLines);
 
-        return blocks;
+        return lines;
     }
 
     private Component damageLine(DamageContribution c) {

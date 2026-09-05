@@ -10,7 +10,6 @@ import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
@@ -18,7 +17,6 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -93,7 +91,7 @@ public final class ItemTemplateService {
             throw new DuplicateTemplateKeyException(key);
         }
         long now = System.currentTimeMillis();
-        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, List.of(), LoreBlock.defaultOrderKeys(),
+        ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, List.of(), List.of(),
                 baseMaterial, baseItemSnapshot, customModelData, false, List.of(), null, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
         snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, List.of()));
@@ -388,24 +386,31 @@ public final class ItemTemplateService {
     }
 
     /**
-     * Swaps {@code block}'s position with its left or right neighbor in {@link
-     * ItemTemplate#loreOrder()} (see {@link LoreBlock}'s javadoc for what a "block" is) - a stat
-     * like {@link #setCustomLore}, so it bumps version. A no-op (still bumps version, for the same
-     * reason {@code /pve item damage set} does even when nothing about the result differs) if
-     * {@code block} is already at that end - there's no wraparound.
+     * Swaps {@code lineKey}'s position with its left or right neighbor in the template's current,
+     * fully-resolved {@link LoreLine} order - a stat like {@link #setCustomLore}, so it bumps
+     * version. Persists the WHOLE resolved order (not just whatever was stored before), so any
+     * line that was only implicitly at the end (never explicitly positioned) becomes an explicit,
+     * stable position from here on - matching what the admin actually sees in {@code
+     * LoreOrderMenu} at click time. A no-op (still bumps version, for the same reason {@code /pve
+     * item damage set} does even when nothing about the result differs) if {@code lineKey} is
+     * already at that end - no wraparound - and a plain no-op with no version bump if {@code
+     * lineKey} no longer exists at all (the entry it pointed at was removed between the menu's
+     * last render and this click).
      */
-    public ItemTemplate moveLoreBlock(String key, LoreBlock block, boolean moveLeft) {
+    public ItemTemplate moveLoreLine(String key, String lineKey, boolean moveLeft) {
         ItemTemplate template = requireTemplate(key);
-        List<LoreBlock> order = new ArrayList<>(LoreBlock.canonicalize(template.loreOrder()));
-        int index = order.indexOf(block);
+        List<String> order = new ArrayList<>(currentLoreLines(template).stream().map(LoreLine::key).toList());
+        int index = order.indexOf(lineKey);
+        if (index < 0) {
+            return template;
+        }
         int swapWith = moveLeft ? index - 1 : index + 1;
         if (swapWith >= 0 && swapWith < order.size()) {
             order.set(index, order.get(swapWith));
-            order.set(swapWith, block);
+            order.set(swapWith, lineKey);
         }
-        List<String> newOrder = order.stream().map(LoreBlock::key).toList();
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
-                template.hiddenHeaders(), newOrder, template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                template.hiddenHeaders(), order, template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
                 template.trinket(), template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
                 template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
@@ -481,17 +486,21 @@ public final class ItemTemplateService {
         return renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical, attributeModifiers);
     }
 
-    /** Real, fully-rendered lore lines per {@link LoreBlock} - what {@code LoreOrderMenu} previews on each reorder paper. */
-    public Map<LoreBlock, List<Component>> loreBlockContents(String key) {
-        ItemTemplate template = requireTemplate(key);
+    /** Real, fully-rendered, correctly-ordered lore lines - what {@code LoreOrderMenu} previews and reorders one at a time. */
+    public List<LoreLine> loreLines(String key) {
+        return currentLoreLines(requireTemplate(key));
+    }
+
+    private List<LoreLine> currentLoreLines(ItemTemplate template) {
         List<DamageContribution> contributions = damageContributionRepository.findByTemplate(template.id());
         List<TypeModifier> modifiers = typeModifierRepository.findByTemplate(template.id());
         List<ArmorPenetration> armorPenetration = armorPenetrationRepository.findByTemplate(template.id());
         BleedEffect bleed = bleedEffectRepository.findByTemplate(template.id()).orElse(null);
         CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
         List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
-        return renderer.blockContents(template.customLore(), template.hiddenHeaders(), contributions, modifiers,
+        List<LoreLine> candidates = renderer.lineCandidates(template.customLore(), template.hiddenHeaders(), contributions, modifiers,
                 armorPenetration, bleed, critical, attributeModifiers);
+        return LoreLine.canonicalize(template.loreOrder(), candidates);
     }
 
     private ItemTemplate requireTemplate(String key) {

@@ -50,13 +50,15 @@ import java.util.UUID;
  * individual stat entry's own {@code visible} flag (e.g. {@code
  * DamageContribution.visible()}), which hides just that one line.
  *
- * <p>{@code loreOrder} lists the 8 {@link LoreBlock} keys in the order the
- * admin has arranged them (see {@code LoreOrderMenu}) - which section
- * renders where in the final lore, independent of both {@code
- * hiddenHeaders} (visibility, not position) and each entry's own {@code
- * visible} flag. See {@link LoreBlock#canonicalize} for how a template
- * whose stored order is empty or missing a block (anything predating this
- * field) still renders every block, in the original hardcoded sequence.
+ * <p>{@code loreOrder} lists {@link LoreLine} keys in the order the admin has
+ * arranged them (see {@code LoreOrderMenu}) - individual lore lines (a
+ * section header, one stat entry, one custom-lore line, ...), not whole
+ * categories, so a custom line can be interleaved between two stat lines.
+ * Independent of both {@code hiddenHeaders} (visibility, not position) and
+ * each entry's own {@code visible} flag. See {@link LoreLine#canonicalize}
+ * for how a template whose stored order is empty, stale, or missing a line
+ * (anything predating this field, or added since it was last saved) still
+ * renders every current line, appending anything not yet positioned.
  */
 public record ItemTemplate(
         UUID id,
