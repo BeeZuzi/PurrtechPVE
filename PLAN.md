@@ -2094,6 +2094,62 @@
     pravý klik na papírek) a vizuální výsledek v `LoreOrderMenu` -
     potřebuje reálného připojeného hráče.
 
+- **Nový výchozí vzhled statového loru: fialová + tiny font + šedé
+  závorky (2026-09-05), na žádost**: "dej tam tuhle barvu &#7425E9 ale
+  zanech ty barevný procenta... zelená/červená... předělej to na tiny
+  font... jediný písmena který nech normálním fontem ale malým
+  písmem jsou písmena s háčky, čárkami a kolečkama... tu hodnotu...
+  dej do šedivých hranatých závorek."
+  - Přepsané `item.header.*`/`item.line.*` klíče v `cs.yml`/`en.yml` -
+    tohle je čistě konfigurační (lang) změna, žádný Java kód se
+    netýkal.
+  - **Barva**: základní barva nadpisů i statových řádků je teď
+    `<#7425E9>` místo `<gray>`/`<white>`. **Výjimka, kterou jsem
+    zachoval podle žádosti**: u odolnosti/slabiny zůstává jen ta
+    konkrétní zobrazená hodnota (číslo v hranaté závorce) zelená/
+    červená podle znaménka - zbytek řádku (název typu poškození) je
+    už taky fialový. Neroztáhl jsem zelenou/červenou nikam jinam (např.
+    na atributy, kde jde hodnota taky být záporná) - nebylo to
+    výslovně požadované, jen zachování toho, co už existovalo.
+  - **Tiny font**: všechna anglická písmena a-z (case-insensitive) v
+    STATICKÉM textu šablon (nadpisy + spojovací slova jako "armoru
+    typu", "šance na") nahrazena unicode "small caps" znaky (ᴀ ʙ ᴄ ᴅ
+    ᴇ ꜰ ɢ ʜ ɪ ᴊ ᴋ ʟ ᴍ ɴ ᴏ ᴘ ʀ ꜱ ᴛ ᴜ ᴠ ᴡ ʏ ᴢ - `x`/`q` beze změny, nemají
+    spolehlivý ekvivalent), což v defaultním Minecraft fontu vypadá
+    jako menší písmo. České znaky s háčkem/čárkou/kroužkem (á č ď é ě
+    í ň ó ř š ť ú ů ý ž) - pro který tenhle trik nemá unicode
+    náhradu - zůstaly v normálním fontu, ale přepsané na malá písmena
+    (přesně jak jsi chtěl). **Dynamický obsah (jméno typu poškození,
+    název atributu, slot) beze změny** - to je za běhu dosazovaný
+    text z jinud (config damage typů / Bukkit enum), ne statický
+    text téhle šablony, takže do "tiny fontu" nespadá.
+  - **Šedé hranaté závorky**: hlavní zobrazovaná hodnota (číslo, u
+    krvácení/kritu obě hodnoty zvlášť) je teď obalená `<gray>[...]
+    </gray>` - znaménko (+/-) je uvnitř závorky spolu s číslem. U
+    odolnosti/slabiny je vnitřek závorky pořád zelený/červený, jen
+    samotné hranaté závorky jsou šedé (ověřeno scratch testem, že se
+    barva po zavření vnitřního tagu správně vrátí k obalující fialové,
+    ne že by zůstala bez barvy).
+  - **Mimochodem opravená drobnost**: anglická `penetration` řádka
+    měla už předtím slovo "armor" omylem MIMO barevný `<white>` tag
+    (renderovalo se bez barvy) - při týhle přestavbě jsem to zahrnul
+    dovnitř nové fialové.
+  - Žádné nové testy (čistě YAML config, `ItemRenderer` beze změny) -
+    ověřeno dočasným scratch JUnit testem (stejná technika jako dřív
+    v týhle session), který přes reálný `MiniMessage.deserialize` +
+    `LegacyComponentSerializer` potvrdil, že se všech 12 šablon (5
+    nadpisů + 7 řádků) parsuje bez chyby a barvy/závorky/zanoření
+    vycházejí přesně jak mají - test byl po ověření smazaný, nezůstal
+    v repu.
+  - **Ověřeno živě** (`runServer`, smazané staré `lang/*.yml` na
+    disku, aby se vynutila čerstvá extrakce z jaru): nová šablona se
+    skutečným poškozením (`fire`), dvěma odolnostmi/slabinami
+    (`fire`+, `poison`-) a krvácením - žádná výjimka v logu, čerstvě
+    vytažený `lang/cs.yml` na disku obsahuje přesně nový obsah.
+    **Nedá se ověřit v sandboxu**: jak to reálně vypadá v inventáři
+    ve hře (skutečná velikost/barva písma) - potřebuje reálného
+    připojeného hráče.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
