@@ -150,6 +150,23 @@ public final class ItemTemplateService {
         return bumpVersion(template);
     }
 
+    /**
+     * Moves a contribution from one context to the other (an admin toggling "attacks with it" vs
+     * "just wears it" in {@code ValueEditorMenu}) while keeping its amount/mode/visibility - one
+     * stat mutation (one version bump), not a separate remove + re-add. The caller ({@code
+     * ValueEditorMenu}) is responsible for checking the target context isn't already a distinct
+     * contribution for this damage type - this would otherwise silently overwrite it, since {@code
+     * context} is part of a contribution's identity (see {@code Schema}'s {@code
+     * item_damage_contribution} primary key).
+     */
+    public ItemTemplate moveDamageContributionContext(String key, String damageTypeKey, ModifierContext from, ModifierContext to,
+                                                       double amount, DamageMode mode, boolean visible) {
+        ItemTemplate template = requireTemplate(key);
+        damageContributionRepository.remove(template.id(), damageTypeKey, from);
+        damageContributionRepository.upsert(template.id(), new DamageContribution(damageTypeKey, amount, mode, to, visible));
+        return bumpVersion(template);
+    }
+
     public ItemTemplate setTypeModifier(String key, String damageTypeKey, double percent) {
         return setTypeModifier(key, damageTypeKey, percent, true);
     }

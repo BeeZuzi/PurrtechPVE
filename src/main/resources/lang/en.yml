@@ -227,14 +227,9 @@ gui:
     damage:
       wielded-line: "<white>On hit: <amount></white>"
       worn-line: "<white>Passively worn: <amount></white>"
-      hint-edit-1: "<yellow>Click: edit (you'll type the amount, flat/percent</yellow>"
-      hint-edit-2: "<yellow>and wielded/worn in chat)</yellow>"
-      hint-shift-delete: "<red>Shift+click: delete both (wielded and worn)</red>"
+      hint-edit: "<yellow>Click: edit</yellow>"
       add: "<green>+ Add damage</green>"
       removed: "<green>Damage <type> deleted.</green>"
-      prompt-1: "<yellow>Type in chat: <amount> <flat|percent> <wielded|worn> [show|hide]</yellow>"
-      prompt-2: "<gray>flat = fixed number, percent = % of total hit damage. show/hide is optional (defaults to show) - whether it appears in the lore.</gray>"
-      prompt-example: "<gray>For example: 4 flat wielded    or:    10 percent worn hide    (or type 'cancel')</gray>"
     resist:
       resist-line: "<green>Resistance: <amount>%</green>"
       weakness-line: "<red>Weakness: <amount>%</red>"
@@ -331,6 +326,9 @@ gui:
     mode-flat: "<white>Mode: flat amount</white>"
     mode-percent: "<white>Mode: % of the hit</white>"
     hint-toggle-mode: "<yellow>Click: toggle mode (flat/percent)</yellow>"
+    context-wielded: "<white>On hit (held in hand)</white>"
+    context-worn: "<white>Passively worn</white>"
+    hint-toggle-context: "<yellow>Click: toggle whether it must attack or just be worn</yellow>"
     hint-adjust: "<yellow>Click the buttons above to adjust the value</yellow>"
   lore-order:
     title: "Lore line order"

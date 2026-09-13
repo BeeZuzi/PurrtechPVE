@@ -339,12 +339,13 @@ public final class ItemEditorMenu {
     }
 
     // ---- DAMAGE ----
-    // Only damage types the item already has a contribution for are listed, followed by an
-    // "Add" button - clicking it flips ItemEditorHolder.pickerOpen and the same tab
-    // re-renders as a picker of the remaining (not yet configured) types instead. Picking one
-    // there (or clicking an already-listed type) both funnel into the same chat prompt, which is
-    // where flat-vs-percent is actually chosen (see promptDamageContribution) - the picker only
-    // decides *which* damage type you're about to configure, not flat/percent.
+    // Each row is one DamageContribution (a damage type + context pair), not one per damage
+    // type - the same type can have up to two independent contributions (one WIELDED, one WORN),
+    // e.g. a sword that both deals radiant damage on hit AND passively radiates it while worn.
+    // "Add" lists types with fewer than 2 contributions (excluding "bleed", which isn't a normal
+    // contribution - see ItemTemplateService.setDamageContribution's javadoc); picking one opens
+    // ValueEditorMenu straight away, defaulted to whichever context isn't already taken - no chat
+    // involved anywhere in this flow, amount/mode/context/visibility are all button-driven there.
 
     private static void renderDamage(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
         Messages messages = plugin.getMessages();
@@ -355,22 +356,18 @@ public final class ItemEditorMenu {
         }
         inventory.setItem(HEADER_TOGGLE_SLOT, headerToggleIcon(plugin, locale, templateKey, LoreHeader.DAMAGE));
         inventory.setItem(HEADER_TOGGLE_SLOT_2, headerToggleIcon(plugin, locale, templateKey, LoreHeader.PASSIVE));
-        List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(templateKey);
-        List<DamageType> configured = configuredDamageTypes(plugin, contributions);
-        for (int i = 0; i < configured.size() && CONTENT_START + i < SIZE; i++) {
-            DamageType type = configured.get(i);
-            Optional<DamageContribution> wielded = contributions.stream()
-                    .filter(c -> c.damageTypeKey().equals(type.key()) && c.context() == ModifierContext.WIELDED).findFirst();
-            Optional<DamageContribution> worn = contributions.stream()
-                    .filter(c -> c.damageTypeKey().equals(type.key()) && c.context() == ModifierContext.WORN).findFirst();
+        List<DamageContribution> contributions = orderedDamageContributions(plugin, plugin.getItemTemplateService().damageContributions(templateKey));
+        for (int i = 0; i < contributions.size() && CONTENT_START + i < SIZE; i++) {
+            DamageContribution contribution = contributions.get(i);
+            DamageType type = plugin.getDamageTypeRegistry().find(contribution.damageTypeKey()).orElseThrow();
+            String lineKey = contribution.context() == ModifierContext.WIELDED
+                    ? "gui.item-editor.damage.wielded-line" : "gui.item-editor.damage.worn-line";
 
             List<Component> lore = new ArrayList<>();
-            wielded.ifPresent(c -> lore.add(messages.render(locale, "gui.item-editor.damage.wielded-line", Placeholder.unparsed("amount", formatContribution(c)))));
-            worn.ifPresent(c -> lore.add(messages.render(locale, "gui.item-editor.damage.worn-line", Placeholder.unparsed("amount", formatContribution(c)))));
+            lore.add(messages.render(locale, lineKey, Placeholder.unparsed("amount", formatContribution(contribution))));
             lore.add(Component.empty());
-            lore.add(messages.render(locale, "gui.item-editor.damage.hint-edit-1"));
-            lore.add(messages.render(locale, "gui.item-editor.damage.hint-edit-2"));
-            lore.add(messages.render(locale, "gui.item-editor.damage.hint-shift-delete"));
+            lore.add(messages.render(locale, "gui.item-editor.damage.hint-edit"));
+            lore.add(messages.render(locale, "gui.item-editor.hint-shift-delete"));
 
             ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.type-icon",
                     Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
@@ -379,7 +376,7 @@ public final class ItemEditorMenu {
             icon.setItemMeta(meta);
             inventory.setItem(CONTENT_START + i, icon);
         }
-        int addSlot = CONTENT_START + configured.size();
+        int addSlot = CONTENT_START + contributions.size();
         if (addSlot < SIZE) {
             inventory.setItem(addSlot, addButton(messages, locale, "gui.item-editor.damage.add"));
         }
@@ -387,19 +384,35 @@ public final class ItemEditorMenu {
 
     private static void renderDamageTypePicker(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
         List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(templateKey);
-        renderTypePicker(plugin.getMessages(), locale, inventory, unconfiguredDamageTypes(plugin, contributions));
+        renderTypePicker(plugin.getMessages(), locale, inventory, pickableDamageTypes(plugin, contributions));
     }
 
-    private static List<DamageType> configuredDamageTypes(PurrtechPVE plugin, List<DamageContribution> contributions) {
-        Set<String> keys = contributions.stream().map(DamageContribution::damageTypeKey)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        return plugin.getDamageTypeRegistry().all().values().stream().filter(t -> keys.contains(t.key())).toList();
+    /** WIELDED before WORN within each type, types in registry order - stable across renders, matched by index in {@link #handleDamageClick}. */
+    private static List<DamageContribution> orderedDamageContributions(PurrtechPVE plugin, List<DamageContribution> contributions) {
+        List<DamageContribution> ordered = new ArrayList<>();
+        for (DamageType type : plugin.getDamageTypeRegistry().all().values()) {
+            contributions.stream().filter(c -> c.damageTypeKey().equals(type.key()) && c.context() == ModifierContext.WIELDED)
+                    .findFirst().ifPresent(ordered::add);
+            contributions.stream().filter(c -> c.damageTypeKey().equals(type.key()) && c.context() == ModifierContext.WORN)
+                    .findFirst().ifPresent(ordered::add);
+        }
+        return ordered;
     }
 
-    private static List<DamageType> unconfiguredDamageTypes(PurrtechPVE plugin, List<DamageContribution> contributions) {
-        Set<String> keys = contributions.stream().map(DamageContribution::damageTypeKey)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        return plugin.getDamageTypeRegistry().all().values().stream().filter(t -> !keys.contains(t.key())).toList();
+    /** Types still missing at least one of {WIELDED, WORN} - "bleed" is never contributable (see {@code ItemTemplateService}). */
+    private static List<DamageType> pickableDamageTypes(PurrtechPVE plugin, List<DamageContribution> contributions) {
+        Map<String, Long> countByType = contributions.stream()
+                .collect(Collectors.groupingBy(DamageContribution::damageTypeKey, Collectors.counting()));
+        return plugin.getDamageTypeRegistry().all().values().stream()
+                .filter(t -> !"bleed".equals(t.key()))
+                .filter(t -> countByType.getOrDefault(t.key(), 0L) < 2)
+                .toList();
+    }
+
+    private static ModifierContext freeContextFor(List<DamageContribution> contributions, String damageTypeKey) {
+        boolean wieldedTaken = contributions.stream()
+                .anyMatch(c -> c.damageTypeKey().equals(damageTypeKey) && c.context() == ModifierContext.WIELDED);
+        return wieldedTaken ? ModifierContext.WORN : ModifierContext.WIELDED;
     }
 
     private static void handleDamageClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
@@ -415,26 +428,26 @@ public final class ItemEditorMenu {
             handleHeaderToggleClick(plugin, player, holder, LoreHeader.PASSIVE);
             return;
         }
-        List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(holder.templateKey());
-        List<DamageType> configured = configuredDamageTypes(plugin, contributions);
+        List<DamageContribution> contributions = orderedDamageContributions(plugin, plugin.getItemTemplateService().damageContributions(holder.templateKey()));
         int index = slot - CONTENT_START;
-        if (index == configured.size()) {
+        if (index == contributions.size()) {
             holder.setPickerOpen(true);
             render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
-        if (index < 0 || index >= configured.size()) {
+        if (index < 0 || index >= contributions.size()) {
             return;
         }
-        DamageType type = configured.get(index);
+        DamageContribution contribution = contributions.get(index);
         if (shift) {
-            plugin.getItemTemplateService().removeDamageContribution(holder.templateKey(), type.key(), ModifierContext.WIELDED);
-            plugin.getItemTemplateService().removeDamageContribution(holder.templateKey(), type.key(), ModifierContext.WORN);
+            plugin.getItemTemplateService().removeDamageContribution(holder.templateKey(), contribution.damageTypeKey(), contribution.context());
+            DamageType type = plugin.getDamageTypeRegistry().find(contribution.damageTypeKey()).orElseThrow();
             player.sendMessage(plugin.getMessages().render(player.locale(), "gui.item-editor.damage.removed", Placeholder.unparsed("type", type.displayName())));
             render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
-        promptDamageContribution(plugin, player, holder, type);
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.DAMAGE,
+                contribution.damageTypeKey() + "|" + contribution.context().name());
     }
 
     private static void handleDamageTypePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
@@ -444,62 +457,19 @@ public final class ItemEditorMenu {
             return;
         }
         List<DamageContribution> contributions = plugin.getItemTemplateService().damageContributions(holder.templateKey());
-        List<DamageType> available = unconfiguredDamageTypes(plugin, contributions);
+        List<DamageType> available = pickableDamageTypes(plugin, contributions);
         int index = slot - CONTENT_START;
         if (index < 0 || index >= available.size()) {
             return;
         }
-        promptDamageContribution(plugin, player, holder, available.get(index));
-    }
-
-    private static void promptDamageContribution(PurrtechPVE plugin, Player player, ItemEditorHolder holder, DamageType type) {
-        Locale locale = player.locale();
-        Messages messages = plugin.getMessages();
-        player.closeInventory();
-        player.sendMessage(messages.render(locale, "gui.item-editor.damage.prompt-1"));
-        player.sendMessage(messages.render(locale, "gui.item-editor.damage.prompt-2"));
-        player.sendMessage(messages.render(locale, "gui.item-editor.damage.prompt-example"));
-        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
-            if (isCancel(rawInput)) {
-                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
-                return;
-            }
-            String[] parts = rawInput.trim().split("\\s+");
-            // 4th word is optional - "show"/"hide" whether this line appears in the rendered
-            // lore (see DamageContribution.visible()); defaults to shown, same as every other
-            // stat that predates this toggle.
-            if (parts.length != 3 && parts.length != 4) {
-                p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
-                return;
-            }
-            Double amount = parseDouble(parts[0]);
-            DamageMode mode = parseMode(parts[1]);
-            ModifierContext parsedContext = parseContext(parts[2]);
-            Boolean visible = parts.length == 4 ? parseVisible(parts[3]) : Boolean.TRUE;
-            if (amount == null || mode == null || parsedContext == null || visible == null) {
-                p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
-                return;
-            }
-            try {
-                plugin.getItemTemplateService().setDamageContribution(holder.templateKey(), type.key(), amount, mode, parsedContext, visible);
-                p.sendMessage(messages.render(locale, "gui.prompt.done"));
-            } catch (TemplateNotFoundException e) {
-                p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
-            }
-            open(plugin, p, holder.templateKey(), ItemEditorTab.DAMAGE);
-        });
-    }
-
-    /** {@code null} on anything but "show"/"hide" - same lenient/explicit shape as {@link #parseMode}/{@link #parseContext}. */
-    private static Boolean parseVisible(String raw) {
-        return switch (raw.trim().toLowerCase(Locale.ROOT)) {
-            case "show" -> Boolean.TRUE;
-            case "hide" -> Boolean.FALSE;
-            default -> null;
-        };
+        DamageType type = available.get(index);
+        // A brand-new contribution starts at 0 (ValueEditorMenu.currentState defaults gracefully
+        // to 0/flat/visible when nothing's saved yet, same as a fresh RESIST/ARMOR_PENETRATION
+        // entry) - straight into the same +/- editor an existing row's icon opens, no chat needed.
+        // Defaults to whichever context (wielded/worn) isn't already taken by this type; the
+        // editor's own context toggle can flip it afterwards.
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.DAMAGE,
+                type.key() + "|" + freeContextFor(contributions, type.key()).name());
     }
 
     // ---- RESIST ----
@@ -1223,22 +1193,6 @@ public final class ItemEditorMenu {
         } catch (NumberFormatException e) {
             return null;
         }
-    }
-
-    private static DamageMode parseMode(String raw) {
-        return switch (raw.trim().toLowerCase(Locale.ROOT)) {
-            case "flat" -> DamageMode.FLAT;
-            case "percent", "percent_of_total" -> DamageMode.PERCENT_OF_TOTAL;
-            default -> null;
-        };
-    }
-
-    private static ModifierContext parseContext(String raw) {
-        return switch (raw.trim().toLowerCase(Locale.ROOT)) {
-            case "wielded" -> ModifierContext.WIELDED;
-            case "worn" -> ModifierContext.WORN;
-            default -> null;
-        };
     }
 
     private static AttributeModifier.Operation parseOperation(String raw) {

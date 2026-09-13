@@ -227,14 +227,9 @@ gui:
     damage:
       wielded-line: "<white>Při útoku: <amount></white>"
       worn-line: "<white>Pasivně nasazeno: <amount></white>"
-      hint-edit-1: "<yellow>Klik: upravit (napíšeš částku, flat/percent</yellow>"
-      hint-edit-2: "<yellow>a wielded/worn do chatu)</yellow>"
-      hint-shift-delete: "<red>Shift+klik: smazat obojí (wielded i worn)</red>"
+      hint-edit: "<yellow>Klik: upravit</yellow>"
       add: "<green>+ Přidat poškození</green>"
       removed: "<green>Poškození <type> smazáno.</green>"
-      prompt-1: "<yellow>Napiš do chatu: <částka> <flat|percent> <wielded|worn> [show|hide]</yellow>"
-      prompt-2: "<gray>flat = pevné číslo, percent = % z celkového poškození útoku. show/hide je nepovinné (výchozí show) - jestli se to má zobrazit v loru.</gray>"
-      prompt-example: "<gray>Například: 4 flat wielded    nebo:    10 percent worn hide    (nebo napiš 'zrusit')</gray>"
     resist:
       resist-line: "<green>Odolnost: <amount>%</green>"
       weakness-line: "<red>Slabina: <amount>%</red>"
@@ -331,6 +326,9 @@ gui:
     mode-flat: "<white>Mód: pevná částka</white>"
     mode-percent: "<white>Mód: % z rány</white>"
     hint-toggle-mode: "<yellow>Klik: přepnout mód (pevná částka/procenta)</yellow>"
+    context-wielded: "<white>Při útoku (drženo v ruce)</white>"
+    context-worn: "<white>Pasivně nasazeno</white>"
+    hint-toggle-context: "<yellow>Klik: přepnout, jestli to musí útočit nebo stačí to mít nasazené</yellow>"
     hint-adjust: "<yellow>Klikni na tlačítka nahoře pro úpravu hodnoty</yellow>"
   lore-order:
     title: "Pořadí řádků loru"

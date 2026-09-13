@@ -2150,6 +2150,64 @@
     ve hře (skutečná velikost/barva písma) - potřebuje reálného
     připojeného hráče.
 
+- **Poškození vícekrát (wielded+worn zároveň) + celý DAMAGE tab bez
+  chatu (2026-09-13), na žádost**: "půjde mít jakékoliv poškození
+  vícekrát... zářivé poškození... i pro útok i pro nasazeno... hráč
+  nebude muset vůbec psát hodnoty do chatu... tlačítka na přepínání
+  jestli to musí útočit nebo mít jen na sobě a jestli se to bude
+  zobrazovat."
+  - **Datový model už to uměl** (`item_damage_contribution` má PK
+    `(template_id, damage_type_key, context)`, `DamageContributionRepository.remove`
+    už bral context v potaz) - jediná skutečná překážka byla v GUI:
+    `ItemEditorMenu`'s DAMAGE tab dedupoval podle typu (ne podle
+    typu+kontextu), takže jakmile měl typ JEDNU kontribuci (útok NEBO
+    nasazeno), zmizel z "+ Add" pickeru úplně a nešlo přidat tu druhou.
+  - DAMAGE tab teď zobrazuje **jeden papírek na každou kontribuci**
+    (typ+kontext pár), ne jeden na typ - stejný typ tak může mít
+    zároveň řádek "při útoku" i "pasivně nasazeno" jako dvě nezávislé
+    položky, každá zvlášť upravitelná/smazatelná (shift-klik maže jen
+    tu jednu, ne obojí najednou jako dřív).
+  - **"+ Add" picker** teď nabízí typy, kterým chybí aspoň jeden ze
+    dvou kontextů (ne jen "vůbec nic nastaveno") - kliknutí rovnou
+    otevře `ValueEditorMenu` s výchozím kontextem podle toho, co je
+    ještě volné (útok, pokud je volný, jinak nasazeno).
+  - **Nulový chat**: `ValueEditorMenu` dostal nový `ValueEditorKind.DAMAGE`
+    - +/- tlačítka na částku (sdílené s ostatními kindy), přepínač
+    flat/percent (sdílené s `BLEED_DAMAGE`), **nový přepínač
+    útok/nasazeno** a přepínač viditelnosti v loru (sdílený). Celá
+    dřívější chatová `promptDamageContribution` (i `parseMode`/
+    `parseContext`/`parseVisible` pomocníci) je pryč - kompletně
+    nahrazená tlačítky.
+  - Přepnutí kontextu je technicky "přesun", ne obyčejná úprava pole
+    (kontext je součástí identity kontribuce) - nová
+    `ItemTemplateService.moveDamageContributionContext(...)` udělá
+    remove+upsert jako JEDNU statovou mutaci (jedno navýšení verze).
+    Pokud by přepnutí kolidovalo s už existující samostatnou
+    kontribucí stejného typu v cílovém kontextu, tlačítko je
+    tiše no-op (stejná konvence "no-op na hranici" jako všude jinde v
+    týhle GUI, např. `LoreOrderMenu`'s no-wraparound).
+  - **Mimochodem opravený latentní bug**: "bleed" byl v `+ Add`
+    pickeru pořád nabízený (je to platný `DamageType`, jen ne platná
+    normální kontribuce - viz `NonContributableDamageTypeException`),
+    takže vybrání "bleed" a vyplnění starého chat promptu by skončilo
+    neodchycenou výjimkou. Nový picker "bleed" rovnou vylučuje.
+  - Odstraněné mrtvé lang klíče (`hint-edit-1/2`, `prompt-1/2/-example`,
+    damage-specifické `hint-shift-delete`) - shift-delete teď sdílí
+    obecný `gui.item-editor.hint-shift-delete` klíč (stejně jako BASE
+    tab atributy).
+  - Čistý `compileJava`/`compileTestJava`/`test`/`build`, žádné nové
+    testy (stejná zavedená konvence - `ItemEditorMenu`/`ValueEditorMenu`
+    testy nemají).
+  - **Ověřeno živě** (`runServer`, čerstvá DB): `/pve item damage set
+    <key> radiant 4 flat wielded` a `radiant 6 flat worn` na STEJNÉ
+    šabloně oba prošly bez chyby - v DB jsou dva samostatné řádky
+    (`radiant|4.0|FLAT|WIELDED` a `radiant|6.0|FLAT|WORN`), přesně jak
+    má. `/pve item damage set <key> bleed 5 flat wielded` se správně
+    odmítl se stávající hláškou. **Nedá se ověřit v sandboxu**: samotné
+    klikání na tlačítka v `ItemEditorMenu`/`ValueEditorMenu` (Add
+    picker, +/-, přepínač útok/nasazeno) - potřebuje reálného
+    připojeného hráče, stejně jako u každé předchozí GUI funkce.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
