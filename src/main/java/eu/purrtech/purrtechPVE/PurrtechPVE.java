@@ -98,7 +98,7 @@ public final class PurrtechPVE extends JavaPlugin {
         ItemSetMemberRepository itemSetMemberRepository = new ItemSetMemberRepository(database);
         ItemSetDamageThresholdRepository itemSetDamageThresholdRepository = new ItemSetDamageThresholdRepository(database);
         ItemSetModifierThresholdRepository itemSetModifierThresholdRepository = new ItemSetModifierThresholdRepository(database);
-        ItemRenderer itemRenderer = new ItemRenderer(this, messages, defaultLocale, damageTypeRegistry);
+        ItemRenderer itemRenderer = new ItemRenderer(this, messages, defaultLocale);
         itemTemplateService = new ItemTemplateService(
                 itemTemplateRepository,
                 damageContributionRepository,

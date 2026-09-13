@@ -13,6 +13,95 @@ dps:
   enabled: "<green>DPS readout enabled.</green>"
   disabled: "<gray>DPS readout disabled.</gray>"
 
+# Each damage type's name + icon (a Unicode symbol) as shown in item lore and the GUI editor
+# (NOT in action-bar combat feedback - that still runs off the fixed values in DamageType.java).
+# "name" is used when that section's header (Damage on hit/Passive bonus) is shown; "name-full"
+# is used when the header is hidden (see gui.item-editor.*.header-toggle) - without a header,
+# plain "Blunt" loses its context, so it becomes "Blunt damage" instead. Resist/weakness lines
+# always use "name" regardless of the header - "+20% Blunt" already reads fine thanks to the
+# green/red coloring.
+damage-type:
+  physical:
+    name: "Physical"
+    name-full: "Physical damage"
+    icon: "⚔"
+  blunt:
+    name: "Blunt"
+    name-full: "Blunt damage"
+    icon: "⚒"
+  piercing:
+    name: "Piercing"
+    name-full: "Piercing damage"
+    icon: "†"
+  slashing:
+    name: "Slashing"
+    name-full: "Slashing damage"
+    icon: "‡"
+  fire:
+    name: "Fire"
+    name-full: "Fire damage"
+    icon: "♨"
+  frozen:
+    name: "Frost"
+    name-full: "Frost damage"
+    icon: "❄"
+  lightning:
+    name: "Lightning"
+    name-full: "Lightning damage"
+    icon: "⚡"
+  acid:
+    name: "Acid"
+    name-full: "Acid damage"
+    icon: "☣"
+  shadow:
+    name: "Shadow"
+    name-full: "Shadow damage"
+    icon: "☾"
+  spirit:
+    name: "Spirit"
+    name-full: "Spirit damage"
+    icon: "☯"
+  radiant:
+    name: "Radiant"
+    name-full: "Radiant damage"
+    icon: "☀"
+  holy:
+    name: "Holy"
+    name-full: "Holy damage"
+    icon: "✝"
+  magic:
+    name: "Magic"
+    name-full: "Magic damage"
+    icon: "✦"
+  bleed:
+    name: "Bleed"
+    name-full: "Bleed"
+    icon: "⚕"
+  poison:
+    name: "Poison"
+    name-full: "Poison damage"
+    icon: "☠"
+  explosive:
+    name: "Explosive"
+    name-full: "Explosive damage"
+    icon: "☄"
+  psychic:
+    name: "Psychic"
+    name-full: "Psychic damage"
+    icon: "Ψ"
+  sonic:
+    name: "Sonic"
+    name-full: "Sonic damage"
+    icon: "♪"
+  gravity:
+    name: "Gravity"
+    name-full: "Gravity damage"
+    icon: "↓"
+  necrotic:
+    name: "Necrotic"
+    name-full: "Necrotic damage"
+    icon: "⚰"
+
 item:
   header:
     damage: "<#7425E9>ᴅᴀᴍᴀɢᴇ ᴏɴ ʜɪᴛ:</#7425E9>"

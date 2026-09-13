@@ -82,7 +82,8 @@ public final class ArmorClassMenu {
             lore.add(messages.render(locale, "gui.armor-class.lore.hint-remove"));
 
             ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.type-icon",
-                    Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
+                    Placeholder.unparsed("icon", messages.damageTypeIcon(locale, type.key())),
+                    Placeholder.component("type", messages.damageTypeName(locale, type.key(), false))));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
@@ -115,7 +116,8 @@ public final class ArmorClassMenu {
         if (shift) {
             plugin.getArmorClassProfileRepository().remove(armorClass.name(), type.key());
             player.sendMessage(messages.render(locale, "gui.armor-class.removed",
-                    Placeholder.unparsed("type", type.displayName()), Placeholder.unparsed("class", armorClass.name())));
+                    Placeholder.component("type", messages.damageTypeName(locale, type.key(), false)),
+                    Placeholder.unparsed("class", armorClass.name())));
             render(plugin, holder.getInventory(), armorClass, locale);
             return;
         }

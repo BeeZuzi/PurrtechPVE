@@ -2208,6 +2208,72 @@
     picker, +/-, přepínač útok/nasazeno) - potřebuje reálného
     připojeného hráče, stejně jako u každé předchozí GUI funkce.
 
+- **Jméno + ikonka damage typu přesunuté do lang, dvě varianty jména
+  podle viditelnosti nadpisu (2026-09-13), na žádost**: "v lang bude
+  možnost změnit design toho... tupé poškození... dvě možnosti že
+  půjde vypnout header a použije se druhá varianta... Poškození při
+  útoku: [+5] Tupé... když se header vypne... [+5] Tupé poškození...
+  možnost změnit ikonku."
+  - **Jméno i ikonka (Unicode symbol) každého damage typu byly dřív
+    napevno v Javě** (`DamageTypeRegistry.seedDefaults()`) - žádná
+    šance je upravit bez rekompilace, a navíc jen v češtině (anglická
+    lokalizace používala stejný český text). Teď žijou v novém
+    `damage-type:` bloku v `cs.yml`/`en.yml` - `name` (krátké, nadpis
+    zobrazen), `name-full` (s nadpisem skrytým, např. "Tupé
+    poškození") a `icon`. Anglická verze teď má konečně i skutečný
+    anglický překlad ("Blunt"/"Blunt damage"), ne jen zrcadlenou
+    češtinu - drobný bonus vedlejší efekt téhle změny.
+  - **Najitý a opravený nesoulad s dokumentací**: `ItemTemplate`'s
+    javadoc k `hiddenHeaders` vždy tvrdil, že "header stays hidden
+    even if its category still has visible stat lines under it", ale
+    `ItemRenderer.lineCandidates` ve skutečnosti schovávalo CELÝ blok
+    (nadpis i řádky) najednou, jakmile byl nadpis vypnutý - žádost teď
+    přesně tohle vyžadovala rozeplíst (řádky zůstávají, jen nadpis
+    zmizí), takže jsem to opravil pro všech 5 nadpisových kategorií
+    (DAMAGE/PASSIVE/RESIST/PENETRATION/ATTRIBUTES), ne jen pro
+    DAMAGE/PASSIVE.
+  - **Dvě varianty jména** (`name`/`name-full`) se týkají jen řádků
+    poškození při útoku a pasivního bonusu (`ItemRenderer.damageLine`)
+    - přesně scénář ze zadání. Odolnosti/slabiny (`resistLine`) vždy
+    používají krátké jméno bez ohledu na svůj vlastní nadpis - "+20%
+    Tupé" je díky zelené/červené barvě srozumitelné i bez nadpisu,
+    takže jsem tam druhou variantu nepřidávala (scope call, klidně
+    řekni, jestli to chceš i tam).
+  - Nové `Messages.damageTypeName(locale, key, full)`/
+    `.damageTypeIcon(locale, key)` - jedno centrální místo pro tenhle
+    lookup, použité v `ItemRenderer` i ve všech GUI místech, co dřív
+    četla `DamageType.displayName()`/`.icon()` (`ItemEditorMenu`
+    DAMAGE/RESIST tab + picker, `ArmorClassMenu`).
+  - **Scope hranice, kterou chci odkomunikovat**: akční-bar bojová
+    zpětná vazba (`DamageFeedback`, to co se ukáže při zásahu, např.
+    "❄ 3  ♨ 1.5") si pořád jede ze starých napevno daných hodnot v
+    `DamageType.java` - NEpřešla na lang. `DamageFeedback` je schválně
+    jediná čistá, jednotkově testovaná třída bez závislosti na živém
+    Bukkitu v celém týhle GUI systému (žádný `Messages`/`Locale`
+    parametr), a přidání lang lookupu by to porušilo. Pokud bys chtěl
+    stejné přizpůsobení i tam, dá se to udělat, ale je to samostatná
+    (o dost riskantnější) změna zasahující do bojové smyčky.
+  - `DamageType`/`DamageTypeRegistry` zůstaly beze změny (`displayName`/
+    `icon` pole tam pořád jsou, pořád je používá jen `DamageFeedback`).
+    `ItemRenderer` už `DamageTypeRegistry` vůbec nepotřebuje (jeho
+    konstruktor ztratil ten parametr - jediné volání v `PurrtechPVE.java`
+    upraveno).
+  - Čistý `compileJava`/`compileTestJava`/`test`/`build`. Ověřeno
+    dočasným scratch JUnit testem (`Messages` postavený přímo z
+    reálných `cs.yml`/`en.yml` souborů, bez potřeby živého Bukkitu) -
+    potvrdil, že `damageTypeName(cs, "blunt", false)` → "Tupé",
+    `(cs, "blunt", true)` → "Tupé poškození", `(en, "blunt", false)` →
+    "Blunt", `(en, "blunt", true)` → "Blunt damage", ikonka → "⚒" -
+    test byl po ověření smazaný, nezůstal v repu.
+  - **Ověřeno živě** (`runServer`, čerstvá DB): založena šablona s
+    reálným `blunt` poškozením (wielded) i `fire` odolností - žádná
+    výjimka v logu. **Nedá se ověřit v sandboxu**: samotné vykreslení
+    itemu (`/pve item give`/GUI preview) vyžaduje reálného
+    připojeného hráče jako cíl - `renderGiveable`/`ItemRenderer.render`
+    se z konzole nedají spustit vůbec, takže vizuální výsledek
+    (skutečný text na itemu, přepnutí nadpisu v GUI) nejde ověřit bez
+    hráče, jen logikou/testem výše.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

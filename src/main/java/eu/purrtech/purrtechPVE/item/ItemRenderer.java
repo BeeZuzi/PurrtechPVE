@@ -1,7 +1,5 @@
 package eu.purrtech.purrtechPVE.item;
 
-import eu.purrtech.purrtechPVE.damage.DamageType;
-import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -40,15 +38,13 @@ public final class ItemRenderer {
     private final Plugin plugin;
     private final Messages messages;
     private final Locale locale;
-    private final DamageTypeRegistry damageTypeRegistry;
     private final NamespacedKey templateKeyPdc;
     private final NamespacedKey templateVersionPdc;
 
-    public ItemRenderer(Plugin plugin, Messages messages, Locale locale, DamageTypeRegistry damageTypeRegistry) {
+    public ItemRenderer(Plugin plugin, Messages messages, Locale locale) {
         this.plugin = plugin;
         this.messages = messages;
         this.locale = locale;
-        this.damageTypeRegistry = damageTypeRegistry;
         this.templateKeyPdc = new NamespacedKey(plugin, "template_key");
         this.templateVersionPdc = new NamespacedKey(plugin, "template_version");
     }
@@ -195,36 +191,51 @@ public final class ItemRenderer {
         // at all - an entry's own `visible` flag hides just that one line, while hiddenHeaders
         // (see LoreHeader) suppresses the header even if visible lines remain under it. A header
         // never shows with nothing under it: if every entry in a category is individually hidden,
-        // the header is skipped too, same as having no entries there at all.
+        // the header is skipped too, same as having no entries there at all. Hiding the header
+        // itself (hiddenHeaders) only ever suppresses that one header line - the stat lines below
+        // it keep rendering regardless (see ItemTemplate's javadoc on hiddenHeaders). DAMAGE/
+        // PASSIVE additionally swap each line's damage-type name to its "no header" variant (see
+        // Messages.damageTypeName) so a bare "Blunt" doesn't lose its context once "Damage on
+        // hit:" is gone - every other category's lines are unaffected by their header's visibility.
         List<DamageContribution> wielded = contributions.stream()
                 .filter(c -> c.context() == ModifierContext.WIELDED && c.visible()).toList();
-        if (!wielded.isEmpty() && !hiddenHeaders.contains(LoreHeader.DAMAGE.key())) {
-            lines.add(new LoreLine("header#damage", messages.render(locale, "item.header.damage")));
+        if (!wielded.isEmpty()) {
+            boolean headerHidden = hiddenHeaders.contains(LoreHeader.DAMAGE.key());
+            if (!headerHidden) {
+                lines.add(new LoreLine("header#damage", messages.render(locale, "item.header.damage")));
+            }
             for (DamageContribution c : wielded) {
-                lines.add(new LoreLine("damage#" + c.damageTypeKey(), damageLine(c)));
+                lines.add(new LoreLine("damage#" + c.damageTypeKey(), damageLine(c, headerHidden)));
             }
         }
 
         List<DamageContribution> worn = contributions.stream()
                 .filter(c -> c.context() == ModifierContext.WORN && c.visible()).toList();
-        if (!worn.isEmpty() && !hiddenHeaders.contains(LoreHeader.PASSIVE.key())) {
-            lines.add(new LoreLine("header#passive", messages.render(locale, "item.header.passive")));
+        if (!worn.isEmpty()) {
+            boolean headerHidden = hiddenHeaders.contains(LoreHeader.PASSIVE.key());
+            if (!headerHidden) {
+                lines.add(new LoreLine("header#passive", messages.render(locale, "item.header.passive")));
+            }
             for (DamageContribution c : worn) {
-                lines.add(new LoreLine("passive#" + c.damageTypeKey(), damageLine(c)));
+                lines.add(new LoreLine("passive#" + c.damageTypeKey(), damageLine(c, headerHidden)));
             }
         }
 
         List<TypeModifier> visibleModifiers = modifiers.stream().filter(TypeModifier::visible).toList();
-        if (!visibleModifiers.isEmpty() && !hiddenHeaders.contains(LoreHeader.RESIST.key())) {
-            lines.add(new LoreLine("header#resist", messages.render(locale, "item.header.resist")));
+        if (!visibleModifiers.isEmpty()) {
+            if (!hiddenHeaders.contains(LoreHeader.RESIST.key())) {
+                lines.add(new LoreLine("header#resist", messages.render(locale, "item.header.resist")));
+            }
             for (TypeModifier m : visibleModifiers) {
                 lines.add(new LoreLine("resist#" + m.damageTypeKey(), resistLine(m)));
             }
         }
 
         List<ArmorPenetration> visiblePenetration = armorPenetration.stream().filter(ArmorPenetration::visible).toList();
-        if (!visiblePenetration.isEmpty() && !hiddenHeaders.contains(LoreHeader.PENETRATION.key())) {
-            lines.add(new LoreLine("header#penetration", messages.render(locale, "item.header.penetration")));
+        if (!visiblePenetration.isEmpty()) {
+            if (!hiddenHeaders.contains(LoreHeader.PENETRATION.key())) {
+                lines.add(new LoreLine("header#penetration", messages.render(locale, "item.header.penetration")));
+            }
             for (ArmorPenetration p : visiblePenetration) {
                 lines.add(new LoreLine("penetration#" + p.armorClass().name(), penetrationLine(p)));
             }
@@ -243,8 +254,10 @@ public final class ItemRenderer {
         }
 
         List<AttributeModifierEntry> visibleAttributes = attributeModifiers.stream().filter(AttributeModifierEntry::visible).toList();
-        if (!visibleAttributes.isEmpty() && !hiddenHeaders.contains(LoreHeader.ATTRIBUTES.key())) {
-            lines.add(new LoreLine("header#attributes", messages.render(locale, "item.header.attributes")));
+        if (!visibleAttributes.isEmpty()) {
+            if (!hiddenHeaders.contains(LoreHeader.ATTRIBUTES.key())) {
+                lines.add(new LoreLine("header#attributes", messages.render(locale, "item.header.attributes")));
+            }
             for (AttributeModifierEntry a : visibleAttributes) {
                 lines.add(new LoreLine("attribute#" + a.attribute().name() + "|" + a.slot(), attributeLine(a)));
             }
@@ -253,18 +266,18 @@ public final class ItemRenderer {
         return lines;
     }
 
-    private Component damageLine(DamageContribution c) {
+    private Component damageLine(DamageContribution c, boolean headerHidden) {
         String key = c.mode() == DamageMode.PERCENT_OF_TOTAL ? "item.line.damage-percent" : "item.line.damage-flat";
         return messages.render(locale, key,
                 Placeholder.unparsed("amount", formatAmount(c.amount())),
-                Placeholder.unparsed("type", displayName(c.damageTypeKey())));
+                Placeholder.component("type", messages.damageTypeName(locale, c.damageTypeKey(), headerHidden)));
     }
 
     private Component resistLine(TypeModifier m) {
         String key = m.percent() >= 0 ? "item.line.resist" : "item.line.weakness";
         return messages.render(locale, key,
                 Placeholder.unparsed("amount", formatAmount(Math.abs(m.percent()))),
-                Placeholder.unparsed("type", displayName(m.damageTypeKey())));
+                Placeholder.component("type", messages.damageTypeName(locale, m.damageTypeKey(), false)));
     }
 
     private Component penetrationLine(ArmorPenetration p) {
@@ -281,12 +294,6 @@ public final class ItemRenderer {
                 Placeholder.unparsed("amount", amount),
                 Placeholder.unparsed("attribute", a.attribute().name()),
                 Placeholder.unparsed("slot", a.slot()));
-    }
-
-    private String displayName(String damageTypeKey) {
-        return damageTypeRegistry.find(damageTypeKey)
-                .map(DamageType::displayName)
-                .orElse(damageTypeKey);
     }
 
     /**

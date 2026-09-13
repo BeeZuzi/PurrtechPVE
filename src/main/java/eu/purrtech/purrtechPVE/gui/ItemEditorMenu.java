@@ -370,7 +370,8 @@ public final class ItemEditorMenu {
             lore.add(messages.render(locale, "gui.item-editor.hint-shift-delete"));
 
             ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.type-icon",
-                    Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
+                    Placeholder.unparsed("icon", messages.damageTypeIcon(locale, type.key())),
+                    Placeholder.component("type", messages.damageTypeName(locale, type.key(), false))));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
@@ -442,7 +443,8 @@ public final class ItemEditorMenu {
         if (shift) {
             plugin.getItemTemplateService().removeDamageContribution(holder.templateKey(), contribution.damageTypeKey(), contribution.context());
             DamageType type = plugin.getDamageTypeRegistry().find(contribution.damageTypeKey()).orElseThrow();
-            player.sendMessage(plugin.getMessages().render(player.locale(), "gui.item-editor.damage.removed", Placeholder.unparsed("type", type.displayName())));
+            player.sendMessage(plugin.getMessages().render(player.locale(), "gui.item-editor.damage.removed",
+                    Placeholder.component("type", plugin.getMessages().damageTypeName(player.locale(), type.key(), false))));
             render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
@@ -499,7 +501,8 @@ public final class ItemEditorMenu {
             lore.add(messages.render(locale, "gui.item-editor.hint-shift-delete"));
 
             ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.type-icon",
-                    Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
+                    Placeholder.unparsed("icon", messages.damageTypeIcon(locale, type.key())),
+                    Placeholder.component("type", messages.damageTypeName(locale, type.key(), false))));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
@@ -552,7 +555,8 @@ public final class ItemEditorMenu {
         DamageType type = configured.get(index);
         if (shift) {
             plugin.getItemTemplateService().removeTypeModifier(holder.templateKey(), type.key());
-            player.sendMessage(plugin.getMessages().render(player.locale(), "gui.item-editor.resist.removed", Placeholder.unparsed("type", type.displayName())));
+            player.sendMessage(plugin.getMessages().render(player.locale(), "gui.item-editor.resist.removed",
+                    Placeholder.component("type", plugin.getMessages().damageTypeName(player.locale(), type.key(), false))));
             render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
@@ -1145,7 +1149,8 @@ public final class ItemEditorMenu {
         for (int i = 0; i < available.size() && CONTENT_START + i < SIZE; i++) {
             DamageType type = available.get(i);
             ItemStack icon = named(iconFor(type.key()), messages.render(locale, "gui.type-icon",
-                    Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.displayName())));
+                    Placeholder.unparsed("icon", messages.damageTypeIcon(locale, type.key())),
+                    Placeholder.component("type", messages.damageTypeName(locale, type.key(), false))));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(List.of(messages.render(locale, "gui.item-editor.picker-hint-add")));
             icon.setItemMeta(meta);

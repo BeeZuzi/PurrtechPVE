@@ -13,6 +13,95 @@ dps:
   enabled: "<green>Zobrazení DPS zapnuto.</green>"
   disabled: "<gray>Zobrazení DPS vypnuto.</gray>"
 
+# Jméno + ikonka (Unicode symbol) každého damage typu, jak se ukazuje v loru itemu a v GUI editoru
+# (NE v action-bar bojové zpětné vazbě - ta pořád jede z pevně daných hodnot v DamageType.java).
+# "name" se použije, když je nadpis dané sekce (Poškození při útoku/Pasivní bonus) zobrazený;
+# "name-full" se použije, když je nadpis skrytý (viz gui.item-editor.*.header-toggle) - bez
+# nadpisu by samotné "Tupé" bylo mimo kontext, takže se místo toho napíše "Tupé poškození".
+# Resist/slabina řádky vždy používají "name" bez ohledu na nadpis - "+20% Tupé" je díky
+# zelené/červené barvě srozumitelné i bez nadpisu.
+damage-type:
+  physical:
+    name: "Fyzické"
+    name-full: "Fyzické poškození"
+    icon: "⚔"
+  blunt:
+    name: "Tupé"
+    name-full: "Tupé poškození"
+    icon: "⚒"
+  piercing:
+    name: "Bodné"
+    name-full: "Bodné poškození"
+    icon: "†"
+  slashing:
+    name: "Sečné"
+    name-full: "Sečné poškození"
+    icon: "‡"
+  fire:
+    name: "Ohnivé"
+    name-full: "Ohnivé poškození"
+    icon: "♨"
+  frozen:
+    name: "Mrazivé"
+    name-full: "Mrazivé poškození"
+    icon: "❄"
+  lightning:
+    name: "Bleskové"
+    name-full: "Bleskové poškození"
+    icon: "⚡"
+  acid:
+    name: "Kyselinové"
+    name-full: "Kyselinové poškození"
+    icon: "☣"
+  shadow:
+    name: "Temné"
+    name-full: "Temné poškození"
+    icon: "☾"
+  spirit:
+    name: "Duchovní"
+    name-full: "Duchovní poškození"
+    icon: "☯"
+  radiant:
+    name: "Zářivé"
+    name-full: "Zářivé poškození"
+    icon: "☀"
+  holy:
+    name: "Svaté"
+    name-full: "Svaté poškození"
+    icon: "✝"
+  magic:
+    name: "Magické"
+    name-full: "Magické poškození"
+    icon: "✦"
+  bleed:
+    name: "Krvácení"
+    name-full: "Krvácení"
+    icon: "⚕"
+  poison:
+    name: "Jed"
+    name-full: "Jedovaté poškození"
+    icon: "☠"
+  explosive:
+    name: "Výbušné"
+    name-full: "Výbušné poškození"
+    icon: "☄"
+  psychic:
+    name: "Psychické"
+    name-full: "Psychické poškození"
+    icon: "Ψ"
+  sonic:
+    name: "Zvukové"
+    name-full: "Zvukové poškození"
+    icon: "♪"
+  gravity:
+    name: "Gravitační"
+    name-full: "Gravitační poškození"
+    icon: "↓"
+  necrotic:
+    name: "Nekrotické"
+    name-full: "Nekrotické poškození"
+    icon: "⚰"
+
 item:
   header:
     damage: "<#7425E9>ᴘᴏškᴏᴢᴇɴí ᴘřɪ útᴏᴋᴜ:</#7425E9>"

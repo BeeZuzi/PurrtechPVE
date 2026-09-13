@@ -115,4 +115,20 @@ public final class Messages {
     public Component render(Locale locale, String key, TagResolver... placeholders) {
         return MINI_MESSAGE.deserialize(template(locale, key), placeholders);
     }
+
+    /**
+     * A damage type's display name, as shown in item lore/the GUI editor (NOT action-bar combat
+     * feedback - see {@code damage-type.*} in {@code lang/*.yml} for why). {@code full} selects
+     * the {@code name-full} variant meant for when that stat's section header is hidden (e.g.
+     * "Blunt damage" instead of just "Blunt") - see {@code ItemRenderer}'s DAMAGE/PASSIVE
+     * handling for the only two callers that ever pass {@code true}.
+     */
+    public Component damageTypeName(Locale locale, String damageTypeKey, boolean full) {
+        return render(locale, "damage-type." + damageTypeKey + (full ? ".name-full" : ".name"));
+    }
+
+    /** The Unicode icon shown next to a damage type's name in item lore/the GUI editor - see {@link #damageTypeName}. */
+    public String damageTypeIcon(Locale locale, String damageTypeKey) {
+        return plain(locale, "damage-type." + damageTypeKey + ".icon");
+    }
 }
