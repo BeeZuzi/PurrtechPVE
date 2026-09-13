@@ -2274,6 +2274,45 @@
     (skutečný text na itemu, přepnutí nadpisu v GUI) nejde ověřit bez
     hráče, jen logikou/testem výše.
 
+- **Rozšíření na odolnosti/slabiny + penetraci armoru (2026-09-13), na
+  žádost**: "Udělal jsi to takhle správně ale ještě udělej odolnosti a
+  další věci co jsou napsané v loru."
+  - **Odolnosti/slabiny** (`resistLine`) teď taky respektují viditelnost
+    svého nadpisu - stejná `name`/`name-full` logika, co dřív dostal
+    jen `damageLine` (poškození/pasivní bonus). Předtím jsem odolnosti
+    záměrně vynechala (zelená/červená barva samotná už dost napovídá i
+    bez nadpisu), ale teď je to sjednocené se vším ostatním, jak jsi
+    chtěl.
+  - **Penetrace armoru** (`penetrationLine`) - `<class>` (LIGHT/MEDIUM/
+    HEAVY) byl dřív úplně mimo lang, ukazoval se doslova jako syrové
+    Java enum jméno ("HEAVY"), nikdy nepřeloženo. Nový top-level
+    `armor-class:` blok v obou lang souborech, stejný `name`/`name-full`
+    tvar - "Těžký" s nadpisem "Penetrace armoru:" zobrazeným, "Těžký
+    armor" s nadpisem skrytým. Statické slovo "armoru typu"/"armor" v
+    `item.line.penetration` šabloně jsem odstranila, protože teď ho
+    nese `name-full` sám (stejný přístup jako u `Tupé` → `Tupé
+    poškození`).
+  - Nové `Messages.armorClassName(locale, armorClassKey, full)` - bere
+    syrové jméno enumu (ne typ `ArmorClass` samotný), ze stejného
+    důvodu jako `damageTypeName` bere klíč místo `DamageType` - `lang`
+    balíček nemá záviset na `item` balíčku.
+  - Čistý `compileJava`/`compileTestJava`/`test`/`build`. Ověřeno
+    dvěma dočasnými scratch testy (`Messages` postavený přímo z
+    reálných lang souborů) - `armorClassName(cs, "HEAVY", false)` →
+    "Těžký", `(cs, "HEAVY", true)` → "Těžký armor", `(en, "HEAVY",
+    false)` → "Heavy", `(en, "HEAVY", true)` → "Heavy armor" - oba
+    testy po ověření smazané.
+  - **Ověřeno živě** (`runServer`, čerstvá DB): založena šablona s
+    reálnou odolností (`blunt`, 20 %) - žádná výjimka. Penetraci
+    armoru se nepovedlo vyzkoušet přes konzoli - nemá vlastní `/pve`
+    příkaz (vždycky to bylo jen přes `ValueEditorMenu` v GUI), takže
+    tahle konkrétní cesta zůstala ověřená jen scratch testem +
+    code review, ne živým příkazem.
+  - **Zatím záměrně bez atributů** (`<attribute>`/`<slot>` na
+    ATTRIBUTES řádcích) - to je úplně jiný, mnohem větší zdroj dat
+    (desítky Bukkit `Attribute` hodnot, ne naše vlastní malé registry),
+    a nezmínila jsi to výslovně. Klidně řekni, jestli chceš i tohle.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

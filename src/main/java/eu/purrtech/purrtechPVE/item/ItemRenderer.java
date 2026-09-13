@@ -194,9 +194,10 @@ public final class ItemRenderer {
         // the header is skipped too, same as having no entries there at all. Hiding the header
         // itself (hiddenHeaders) only ever suppresses that one header line - the stat lines below
         // it keep rendering regardless (see ItemTemplate's javadoc on hiddenHeaders). DAMAGE/
-        // PASSIVE additionally swap each line's damage-type name to its "no header" variant (see
-        // Messages.damageTypeName) so a bare "Blunt" doesn't lose its context once "Damage on
-        // hit:" is gone - every other category's lines are unaffected by their header's visibility.
+        // PASSIVE/RESIST additionally swap each line's damage-type name (and PENETRATION its armor
+        // class name) to its "no header" variant (see Messages.damageTypeName/armorClassName) so a
+        // bare "Blunt"/"Heavy" doesn't lose its context once the section header above it is gone -
+        // BLEED/CRITICAL/ATTRIBUTES have no such variant since their lines carry no type name.
         List<DamageContribution> wielded = contributions.stream()
                 .filter(c -> c.context() == ModifierContext.WIELDED && c.visible()).toList();
         if (!wielded.isEmpty()) {
@@ -223,21 +224,23 @@ public final class ItemRenderer {
 
         List<TypeModifier> visibleModifiers = modifiers.stream().filter(TypeModifier::visible).toList();
         if (!visibleModifiers.isEmpty()) {
-            if (!hiddenHeaders.contains(LoreHeader.RESIST.key())) {
+            boolean headerHidden = hiddenHeaders.contains(LoreHeader.RESIST.key());
+            if (!headerHidden) {
                 lines.add(new LoreLine("header#resist", messages.render(locale, "item.header.resist")));
             }
             for (TypeModifier m : visibleModifiers) {
-                lines.add(new LoreLine("resist#" + m.damageTypeKey(), resistLine(m)));
+                lines.add(new LoreLine("resist#" + m.damageTypeKey(), resistLine(m, headerHidden)));
             }
         }
 
         List<ArmorPenetration> visiblePenetration = armorPenetration.stream().filter(ArmorPenetration::visible).toList();
         if (!visiblePenetration.isEmpty()) {
-            if (!hiddenHeaders.contains(LoreHeader.PENETRATION.key())) {
+            boolean headerHidden = hiddenHeaders.contains(LoreHeader.PENETRATION.key());
+            if (!headerHidden) {
                 lines.add(new LoreLine("header#penetration", messages.render(locale, "item.header.penetration")));
             }
             for (ArmorPenetration p : visiblePenetration) {
-                lines.add(new LoreLine("penetration#" + p.armorClass().name(), penetrationLine(p)));
+                lines.add(new LoreLine("penetration#" + p.armorClass().name(), penetrationLine(p, headerHidden)));
             }
         }
 
@@ -273,17 +276,17 @@ public final class ItemRenderer {
                 Placeholder.component("type", messages.damageTypeName(locale, c.damageTypeKey(), headerHidden)));
     }
 
-    private Component resistLine(TypeModifier m) {
+    private Component resistLine(TypeModifier m, boolean headerHidden) {
         String key = m.percent() >= 0 ? "item.line.resist" : "item.line.weakness";
         return messages.render(locale, key,
                 Placeholder.unparsed("amount", formatAmount(Math.abs(m.percent()))),
-                Placeholder.component("type", messages.damageTypeName(locale, m.damageTypeKey(), false)));
+                Placeholder.component("type", messages.damageTypeName(locale, m.damageTypeKey(), headerHidden)));
     }
 
-    private Component penetrationLine(ArmorPenetration p) {
+    private Component penetrationLine(ArmorPenetration p, boolean headerHidden) {
         return messages.render(locale, "item.line.penetration",
                 Placeholder.unparsed("amount", formatAmount(p.amount())),
-                Placeholder.unparsed("class", p.armorClass().name()));
+                Placeholder.component("class", messages.armorClassName(locale, p.armorClass().name(), headerHidden)));
     }
 
     /** ADD_NUMBER is a flat amount; ADD_SCALAR/MULTIPLY_SCALAR_1 are both percentage-of-base operations - shown with a trailing "%" either way, same simplicity as flat-vs-percent damage contributions. */

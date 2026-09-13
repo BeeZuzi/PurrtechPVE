@@ -131,4 +131,16 @@ public final class Messages {
     public String damageTypeIcon(Locale locale, String damageTypeKey) {
         return plain(locale, "damage-type." + damageTypeKey + ".icon");
     }
+
+    /**
+     * An armor class's display name, shown on a {@code item.line.penetration} lore line - same
+     * {@code name}/{@code name-full} shape and header-hidden reasoning as {@link
+     * #damageTypeName}. Takes the raw enum name (e.g. {@code "HEAVY"}, from {@code
+     * ArmorClass.name()}) rather than the enum type itself so this class doesn't need to depend
+     * on the {@code item} package - same reason {@link #damageTypeName} takes a key, not a
+     * {@code DamageType}.
+     */
+    public Component armorClassName(Locale locale, String armorClass, boolean full) {
+        return render(locale, "armor-class." + armorClass.toLowerCase(Locale.ROOT) + (full ? ".name-full" : ".name"));
+    }
 }
