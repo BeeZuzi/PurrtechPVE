@@ -15,91 +15,134 @@ dps:
 
 # Jméno + ikonka (Unicode symbol) každého damage typu, jak se ukazuje v loru itemu a v GUI editoru
 # (NE v action-bar bojové zpětné vazbě - ta pořád jede z pevně daných hodnot v DamageType.java).
-# "name" se použije, když je nadpis dané sekce (Poškození při útoku/Pasivní bonus) zobrazený;
-# "name-full" se použije, když je nadpis skrytý (viz gui.item-editor.*.header-toggle) - bez
-# nadpisu by samotné "Tupé" bylo mimo kontext, takže se místo toho napíše "Tupé poškození".
-# Resist/slabina řádky vždy používají "name" bez ohledu na nadpis - "+20% Tupé" je díky
-# zelené/červené barvě srozumitelné i bez nadpisu.
+# "name" se použije, když je nadpis dané sekce (Poškození při útoku/Pasivní bonus/Odolnosti a
+# slabiny) zobrazený; "name-full" se použije na řádcích poškození při útoku/pasivního bonusu, když
+# je jejich nadpis skrytý (viz gui.item-editor.*.header-toggle) - bez nadpisu by samotné "Tupé"
+# bylo mimo kontext, takže se místo toho napíše "Tupé poškození". "resist-full"/"weakness-full"
+# je totéž, ale pro řádky odolností/slabin - musí to být vlastní, samostatně napsaná věta (ne jen
+# "name-full" s jinou příponou), protože "Tupé poškození" by na odolnostním řádku bez nadpisu
+# vypadalo jako bonus poškození, ne jako odolnost - a čeština navíc skloňuje přídavné jméno jinak
+# ("proti tupému poškození", ne "tupé").
 damage-type:
   physical:
     name: "Fyzické"
     name-full: "Fyzické poškození"
+    resist-full: "Odolnost proti fyzickému poškození"
+    weakness-full: "Slabina vůči fyzickému poškození"
     icon: "⚔"
   blunt:
     name: "Tupé"
     name-full: "Tupé poškození"
+    resist-full: "Odolnost proti tupému poškození"
+    weakness-full: "Slabina vůči tupému poškození"
     icon: "⚒"
   piercing:
     name: "Bodné"
     name-full: "Bodné poškození"
+    resist-full: "Odolnost proti bodnému poškození"
+    weakness-full: "Slabina vůči bodnému poškození"
     icon: "†"
   slashing:
     name: "Sečné"
     name-full: "Sečné poškození"
+    resist-full: "Odolnost proti sečnému poškození"
+    weakness-full: "Slabina vůči sečnému poškození"
     icon: "‡"
   fire:
     name: "Ohnivé"
     name-full: "Ohnivé poškození"
+    resist-full: "Odolnost proti ohnivému poškození"
+    weakness-full: "Slabina vůči ohnivému poškození"
     icon: "♨"
   frozen:
     name: "Mrazivé"
     name-full: "Mrazivé poškození"
+    resist-full: "Odolnost proti mrazivému poškození"
+    weakness-full: "Slabina vůči mrazivému poškození"
     icon: "❄"
   lightning:
     name: "Bleskové"
     name-full: "Bleskové poškození"
+    resist-full: "Odolnost proti bleskovému poškození"
+    weakness-full: "Slabina vůči bleskovému poškození"
     icon: "⚡"
   acid:
     name: "Kyselinové"
     name-full: "Kyselinové poškození"
+    resist-full: "Odolnost proti kyselinovému poškození"
+    weakness-full: "Slabina vůči kyselinovému poškození"
     icon: "☣"
   shadow:
     name: "Temné"
     name-full: "Temné poškození"
+    resist-full: "Odolnost proti temnému poškození"
+    weakness-full: "Slabina vůči temnému poškození"
     icon: "☾"
   spirit:
     name: "Duchovní"
     name-full: "Duchovní poškození"
+    resist-full: "Odolnost proti duchovnímu poškození"
+    weakness-full: "Slabina vůči duchovnímu poškození"
     icon: "☯"
   radiant:
     name: "Zářivé"
     name-full: "Zářivé poškození"
+    resist-full: "Odolnost proti zářivému poškození"
+    weakness-full: "Slabina vůči zářivému poškození"
     icon: "☀"
   holy:
     name: "Svaté"
     name-full: "Svaté poškození"
+    resist-full: "Odolnost proti svatému poškození"
+    weakness-full: "Slabina vůči svatému poškození"
     icon: "✝"
   magic:
     name: "Magické"
     name-full: "Magické poškození"
+    resist-full: "Odolnost proti magickému poškození"
+    weakness-full: "Slabina vůči magickému poškození"
     icon: "✦"
   bleed:
     name: "Krvácení"
     name-full: "Krvácení"
+    resist-full: "Odolnost proti krvácení"
+    weakness-full: "Slabina vůči krvácení"
     icon: "⚕"
   poison:
     name: "Jed"
     name-full: "Jedovaté poškození"
+    resist-full: "Odolnost proti jedovatému poškození"
+    weakness-full: "Slabina vůči jedovatému poškození"
     icon: "☠"
   explosive:
     name: "Výbušné"
     name-full: "Výbušné poškození"
+    resist-full: "Odolnost proti výbušnému poškození"
+    weakness-full: "Slabina vůči výbušnému poškození"
     icon: "☄"
   psychic:
     name: "Psychické"
     name-full: "Psychické poškození"
+    resist-full: "Odolnost proti psychickému poškození"
+    weakness-full: "Slabina vůči psychickému poškození"
     icon: "Ψ"
   sonic:
     name: "Zvukové"
     name-full: "Zvukové poškození"
+    resist-full: "Odolnost proti zvukovému poškození"
+    weakness-full: "Slabina vůči zvukovému poškození"
     icon: "♪"
   gravity:
     name: "Gravitační"
     name-full: "Gravitační poškození"
+    resist-full: "Odolnost proti gravitačnímu poškození"
+    weakness-full: "Slabina vůči gravitačnímu poškození"
     icon: "↓"
   necrotic:
     name: "Nekrotické"
     name-full: "Nekrotické poškození"
+    resist-full: "Odolnost proti nekrotickému poškození"
+    weakness-full: "Slabina vůči nekrotickému poškození"
     icon: "⚰"
 
 # Stejný "name"/"name-full" vzor jako damage-type výše, jen pro item.line.penetration - "Lehký"

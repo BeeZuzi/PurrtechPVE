@@ -15,91 +15,132 @@ dps:
 
 # Each damage type's name + icon (a Unicode symbol) as shown in item lore and the GUI editor
 # (NOT in action-bar combat feedback - that still runs off the fixed values in DamageType.java).
-# "name" is used when that section's header (Damage on hit/Passive bonus) is shown; "name-full"
-# is used when the header is hidden (see gui.item-editor.*.header-toggle) - without a header,
-# plain "Blunt" loses its context, so it becomes "Blunt damage" instead. Resist/weakness lines
-# always use "name" regardless of the header - "+20% Blunt" already reads fine thanks to the
-# green/red coloring.
+# "name" is used when that section's header (Damage on hit/Passive bonus/Resistances and
+# weaknesses) is shown; "name-full" is used on damage/passive lines when their header is hidden
+# (see gui.item-editor.*.header-toggle) - without a header, plain "Blunt" loses its context, so it
+# becomes "Blunt damage" instead. "resist-full"/"weakness-full" is the same idea for resist/
+# weakness lines - a separate phrase (not just "name-full" reused), since "Blunt damage" on a
+# resistance line with no header would read like a damage bonus, not a resistance.
 damage-type:
   physical:
     name: "Physical"
     name-full: "Physical damage"
+    resist-full: "Resistance to physical damage"
+    weakness-full: "Weakness to physical damage"
     icon: "⚔"
   blunt:
     name: "Blunt"
     name-full: "Blunt damage"
+    resist-full: "Resistance to blunt damage"
+    weakness-full: "Weakness to blunt damage"
     icon: "⚒"
   piercing:
     name: "Piercing"
     name-full: "Piercing damage"
+    resist-full: "Resistance to piercing damage"
+    weakness-full: "Weakness to piercing damage"
     icon: "†"
   slashing:
     name: "Slashing"
     name-full: "Slashing damage"
+    resist-full: "Resistance to slashing damage"
+    weakness-full: "Weakness to slashing damage"
     icon: "‡"
   fire:
     name: "Fire"
     name-full: "Fire damage"
+    resist-full: "Resistance to fire damage"
+    weakness-full: "Weakness to fire damage"
     icon: "♨"
   frozen:
     name: "Frost"
     name-full: "Frost damage"
+    resist-full: "Resistance to frost damage"
+    weakness-full: "Weakness to frost damage"
     icon: "❄"
   lightning:
     name: "Lightning"
     name-full: "Lightning damage"
+    resist-full: "Resistance to lightning damage"
+    weakness-full: "Weakness to lightning damage"
     icon: "⚡"
   acid:
     name: "Acid"
     name-full: "Acid damage"
+    resist-full: "Resistance to acid damage"
+    weakness-full: "Weakness to acid damage"
     icon: "☣"
   shadow:
     name: "Shadow"
     name-full: "Shadow damage"
+    resist-full: "Resistance to shadow damage"
+    weakness-full: "Weakness to shadow damage"
     icon: "☾"
   spirit:
     name: "Spirit"
     name-full: "Spirit damage"
+    resist-full: "Resistance to spirit damage"
+    weakness-full: "Weakness to spirit damage"
     icon: "☯"
   radiant:
     name: "Radiant"
     name-full: "Radiant damage"
+    resist-full: "Resistance to radiant damage"
+    weakness-full: "Weakness to radiant damage"
     icon: "☀"
   holy:
     name: "Holy"
     name-full: "Holy damage"
+    resist-full: "Resistance to holy damage"
+    weakness-full: "Weakness to holy damage"
     icon: "✝"
   magic:
     name: "Magic"
     name-full: "Magic damage"
+    resist-full: "Resistance to magic damage"
+    weakness-full: "Weakness to magic damage"
     icon: "✦"
   bleed:
     name: "Bleed"
     name-full: "Bleed"
+    resist-full: "Resistance to bleed"
+    weakness-full: "Weakness to bleed"
     icon: "⚕"
   poison:
     name: "Poison"
     name-full: "Poison damage"
+    resist-full: "Resistance to poison damage"
+    weakness-full: "Weakness to poison damage"
     icon: "☠"
   explosive:
     name: "Explosive"
     name-full: "Explosive damage"
+    resist-full: "Resistance to explosive damage"
+    weakness-full: "Weakness to explosive damage"
     icon: "☄"
   psychic:
     name: "Psychic"
     name-full: "Psychic damage"
+    resist-full: "Resistance to psychic damage"
+    weakness-full: "Weakness to psychic damage"
     icon: "Ψ"
   sonic:
     name: "Sonic"
     name-full: "Sonic damage"
+    resist-full: "Resistance to sonic damage"
+    weakness-full: "Weakness to sonic damage"
     icon: "♪"
   gravity:
     name: "Gravity"
     name-full: "Gravity damage"
+    resist-full: "Resistance to gravity damage"
+    weakness-full: "Weakness to gravity damage"
     icon: "↓"
   necrotic:
     name: "Necrotic"
     name-full: "Necrotic damage"
+    resist-full: "Resistance to necrotic damage"
+    weakness-full: "Weakness to necrotic damage"
     icon: "⚰"
 
 # Same "name"/"name-full" shape as damage-type above, just for item.line.penetration - "Light"

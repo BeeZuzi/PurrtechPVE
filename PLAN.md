@@ -2313,6 +2313,46 @@
     (desítky Bukkit `Attribute` hodnot, ne naše vlastní malé registry),
     a nezmínila jsi to výslovně. Klidně řekni, jestli chceš i tohle.
 
+- **Odolnosti/slabiny dostaly vlastní "bez nadpisu" text, ne recyklovaný
+  `name-full` (2026-09-15), oprava na žádost**: "Stále tam není ta
+  odolnost... když odeberu ten header tak tam chci mít např. odolnost
+  proti nekrotickému poškození... dej to taky do lang... nebudou tam
+  žádný ikonky."
+  - V minulém kroku jsem odolnostem/slabinám sice zapnula reakci na
+    skrytí nadpisu, ale použila jsem stejný `name-full`, co má
+    poškození při útoku ("Nekrotické poškození") - a to je na
+    odolnostním řádku matoucí, protože to bez nadpisu vypadá jako
+    bonus poškození, ne jako odolnost. Teď mají odolnosti/slabiny
+    **vlastní, samostatně napsaný text**: `resist-full`/`weakness-full`
+    u každého typu v `damage-type:` bloku - "Odolnost proti
+    nekrotickému poškození" / "Slabina vůči nekrotickému poškození"
+    (přesně tvůj příklad). Anglicky "Resistance to necrotic damage" /
+    "Weakness to necrotic damage".
+  - **Proč to nejde poskládat z `name` + kus textu za běhu**: čeština
+    skloňuje přídavné jméno jinak podle pádu - "Nekrotické" (1. pád, u
+    `name-full`) vs. "nekrotickému" (3. pád, po "proti"/"vůči"). Bez
+    ručně napsané věty pro každý typ by to vyšlo gramaticky špatně,
+    proto je `resist-full`/`weakness-full` u každého z 20 typů napsané
+    zvlášť, stejně jako `name-full`.
+  - **Beze ikonek**, jak jsi chtěla - `resist-full`/`weakness-full`
+    jsou čistě textové klíče, žádné pole pro ikonu (ty se stejně na
+    odolnostních řádcích nikdy nezobrazovaly).
+  - Nové `Messages.resistTypeName(locale, key, weakness, headerHidden)`
+    - s nadpisem zobrazeným vrací stejné krátké `name` jako dřív, se
+    skrytým nadpisem sáhne po `resist-full`/`weakness-full` podle toho,
+    jestli je to odolnost nebo slabina.
+  - Čistý `compileJava`/`compileTestJava`/`test`/`build`. Ověřeno
+    dočasným scratch testem (`Messages` z reálných lang souborů) -
+    `resistTypeName(cs, "necrotic", false, true)` → "Odolnost proti
+    nekrotickému poškození", `(cs, "necrotic", true, true)` → "Slabina
+    vůči nekrotickému poškození", anglicky "Resistance to necrotic
+    damage"/"Weakness to necrotic damage" - test po ověření smazaný.
+  - **Ověřeno živě** (`runServer`, čerstvá DB): založena šablona se
+    skutečnou odolností (`necrotic`, +20 %) i slabinou (`fire`, -15 %)
+    - žádná výjimka. **Nedá se ověřit v sandboxu**: skutečný vzhled
+    řádku po vypnutí nadpisu v GUI - potřebuje reálného připojeného
+    hráče, stejně jako celá tahle sada změn.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

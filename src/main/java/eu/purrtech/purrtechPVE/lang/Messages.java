@@ -133,6 +133,24 @@ public final class Messages {
     }
 
     /**
+     * A damage type's name as shown on a resist/weakness lore line - the plain {@link
+     * #damageTypeName} short form when that stat's own header is shown, or a dedicated {@code
+     * resist-full}/{@code weakness-full} phrase (e.g. "Resistance to necrotic damage") when it's
+     * hidden. Deliberately its own lang entry rather than reusing {@code name-full} (which reads
+     * "Necrotic damage") - without the "Resistances / weaknesses:" header, that phrasing would
+     * read like a damage bonus, not a resistance/weakness, and only the green/red color would
+     * still hint otherwise. {@code weakness} picks between the resist and weakness phrasing (Czech
+     * needs a fully separate sentence per case, not just a suffix swap, to keep its grammar - e.g.
+     * "proti nekrotickému poškození" declines the adjective differently than "name-full" does).
+     */
+    public Component resistTypeName(Locale locale, String damageTypeKey, boolean weakness, boolean headerHidden) {
+        if (!headerHidden) {
+            return damageTypeName(locale, damageTypeKey, false);
+        }
+        return render(locale, "damage-type." + damageTypeKey + (weakness ? ".weakness-full" : ".resist-full"));
+    }
+
+    /**
      * An armor class's display name, shown on a {@code item.line.penetration} lore line - same
      * {@code name}/{@code name-full} shape and header-hidden reasoning as {@link
      * #damageTypeName}. Takes the raw enum name (e.g. {@code "HEAVY"}, from {@code

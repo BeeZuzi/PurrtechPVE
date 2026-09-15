@@ -277,10 +277,11 @@ public final class ItemRenderer {
     }
 
     private Component resistLine(TypeModifier m, boolean headerHidden) {
-        String key = m.percent() >= 0 ? "item.line.resist" : "item.line.weakness";
+        boolean weakness = m.percent() < 0;
+        String key = weakness ? "item.line.weakness" : "item.line.resist";
         return messages.render(locale, key,
                 Placeholder.unparsed("amount", formatAmount(Math.abs(m.percent()))),
-                Placeholder.component("type", messages.damageTypeName(locale, m.damageTypeKey(), headerHidden)));
+                Placeholder.component("type", messages.resistTypeName(locale, m.damageTypeKey(), weakness, headerHidden)));
     }
 
     private Component penetrationLine(ArmorPenetration p, boolean headerHidden) {
