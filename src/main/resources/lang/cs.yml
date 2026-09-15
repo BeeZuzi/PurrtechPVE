@@ -8,7 +8,7 @@ error:
   invalid-mode: "<red>Neplatný mode - použij FLAT nebo PERCENT_OF_TOTAL."
 
 system:
-  reloaded: "<green>Konfigurace znovu načtena."
+  reloaded: "<green>Config.yml i lang/*.yml znovu načteny."
 
 dps:
   enabled: "<green>Zobrazení DPS zapnuto.</green>"

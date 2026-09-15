@@ -8,7 +8,7 @@ error:
   invalid-mode: "<red>Invalid mode - use FLAT or PERCENT_OF_TOTAL."
 
 system:
-  reloaded: "<green>Configuration reloaded."
+  reloaded: "<green>config.yml and lang/*.yml reloaded."
 
 dps:
   enabled: "<green>DPS readout enabled.</green>"

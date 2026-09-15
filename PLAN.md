@@ -2408,6 +2408,72 @@
     v boji (potřebuje dva reálné hráče/moby v souboji) a klikání na
     nový přepínač v `ValueEditorMenu`.
 
+- **`/pve reload` + pokus o opravu MythicMobs detekce (2026-09-15), na
+  žádost**: "Udělej reload command pro celý plugin kdy to znovu načte
+  všechny lang.yml a i config aby šlo vypínat a zapínat pvp nebo pve v
+  configu... Také oprav ty mythic mobs stále nefunguje to menu na ně...
+  je tam stejná verze pluginu jako je v dependency."
+  - **`pvp.enabled`/`pve.enabled` v `config.yml` už existovaly** (byly
+    tam od začátku, `ConfigLoader.loadWorldToggles`) - chybělo jen
+    samotné `/pve reload`, které tohle (a `lang/*.yml`) skutečně
+    znovu načte za běhu.
+  - **Skrytý problém, který jsem musela vyřešit nejdřív**: `Messages`/
+    `WorldToggleSettings`/`AccessorySettings`/`CombatFeedbackSettings`
+    byly ve třech dlouhožijících objektech (`ItemRenderer`,
+    `CombatDamageListener`, `TrinketAttributeListener`) zachycené v
+    konstruktoru napevno - i kdybych je jen znovu načetla do polí na
+    `PurrtechPVE`, tyhle tři objekty (zaregistrované jednou při startu)
+    by si dál nesly starou kopii navždy. Všechny tři teď mají veřejnou
+    `refresh(...)` metodu, kterou `PurrtechPVE.reload()` po znovu-
+    načtení configu/langu zavolá - jediná místa, co tohle potřebovala
+    (každé jiné GUI/příkaz už čte `plugin.getXxx()` živě při každém
+    použití).
+  - **Vědomá hranice**: `EquipmentResolver`'s vlastní zachycený
+    `MythicMobsBridge` (používaný přímo ve výpočtu poškození v boji)
+    zůstává beze změny do restartu - jen admin menu/příkazy pro
+    MythicMobs (co vždycky čtou `plugin.getMythicMobsBridge()` živě)
+    tuhle opravu z reloadu vidí hned. Základní locale pro `ItemRenderer`
+    (`defaultLocale`) se sice teď obnovuje, ale hluboko zapletené
+    služby postavené na jednom sdíleném `ItemRenderer` instance (což
+    je většina pluginu) sdílí tu samou instanci, takže tohle funguje
+    správně i pro ně.
+  - **MythicMobs "unavailable"/"špatná verze"**: nemůžu si bohužel
+    ověřit skutečnou příčinu na tvém serveru (nemám k němu přístup),
+    ale prozkoumala jsem MythicMobs 5.10.0 API (`Mythic-Dist` jar) a
+    zjistila jsem, že `MythicReloadedEvent`/`MythicPostReloadedEvent`/
+    `MythicReloadCompleteEvent` se ve skutečnosti volají JEN z `/mm
+    reload` příkazu, ne při startu serveru - takže spoléhat na tyhle
+    eventy pro "MythicMobs je připravený" by nefungovalo a nezkoušela
+    jsem to. Místo toho jsem udělala dvě věci: (1) `/pve reload` teď
+    zkusí znovu navázat `MythicMobsBridge` (a zaregistrovat mob-
+    equipment listener), takže pokud je skutečná příčina časování
+    (MythicMobs se ještě nestihl plně nastartovat, když PurrtechPVE
+    dělal svůj `onEnable`), stačí počkat, až se server plně rozjede, a
+    dát `/pve reload` - **bez restartu**. (2) Chybová hláška v logu
+    teď loguje **celý stack trace** (dřív jen `getClass().getSimpleName()
+    + getMessage()`), takže až se to příště stane, uvidíš přesně,
+    která třída/metoda selhala - to je klíčové pro skutečné dořešení,
+    protože "špatná verze" hláška může krýt úplně jinou příčinu
+    (timing, ne opravdový nesoulad API).
+  - **Upřímně**: tohle nemůžu prohlásit za stoprocentně "opravené",
+    dokud neuvidím ten nový detailní log z tvého serveru - pošli mi ho,
+    až se to příště objeví (nebo zkus `/pve reload` po plném naběhnutí
+    serveru), a dořeším to přesně podle toho, co tam bude.
+  - Čistý `compileJava`/`compileTestJava`/`test`/`build`. Žádné nové
+    testy (`PurrtechPVE`/`CombatDamageListener`/`TrinketAttributeListener`
+    podle zavedené konvence testy nemají - živý Bukkit plugin/listener
+    lifecycle).
+  - **Ověřeno živě** (`runServer`): `/pve reload` třikrát po sobě bez
+    výjimky, včetně přímé úpravy `pvp.enabled`/`pve.enabled` v
+    `config.yml` na disku mezi voláními - log po každém reloadu
+    správně hlásil aktuální "PvP on/off, PvE on/off" podle toho, co
+    bylo zrovna v souboru (bez restartu serveru). MythicMobs nebyl na
+    testovacím serveru nainstalovaný, takže `mythicMobsSetup` v obou
+    případech (`onEnable` i `reload`) korektně jen tiše no-opnul.
+    **Nedá se ověřit v sandboxu**: chování se skutečně nainstalovaným
+    MythicMobs pluginem (nemám ho k dispozici) a skutečný projev
+    v item lore/GUI po reloadu (potřebuje reálného připojeného hráče).
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

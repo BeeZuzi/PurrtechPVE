@@ -36,8 +36,14 @@ public final class ItemRenderer {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final Plugin plugin;
-    private final Messages messages;
-    private final Locale locale;
+    // Not final - see refresh(), called by PurrtechPVE.reload() so an admin editing lang.yml or
+    // the locale in config.yml and running /pve reload doesn't need a server restart to see it in
+    // rendered item lore. Every other consumer of Messages/Locale (GUI menus, commands) already
+    // reads them fresh from PurrtechPVE's own getters each call, so this is the one place that
+    // needed to stop capturing a permanent copy - everything reachable from an ItemRenderer
+    // (ItemTemplateService, ItemSyncService, EquipmentResolver, ...) shares this same instance.
+    private Messages messages;
+    private Locale locale;
     private final NamespacedKey templateKeyPdc;
     private final NamespacedKey templateVersionPdc;
 
@@ -47,6 +53,12 @@ public final class ItemRenderer {
         this.locale = locale;
         this.templateKeyPdc = new NamespacedKey(plugin, "template_key");
         this.templateVersionPdc = new NamespacedKey(plugin, "template_version");
+    }
+
+    /** See the {@code messages}/{@code locale} field comment - called by {@code PurrtechPVE.reload()}. */
+    public void refresh(Messages messages, Locale locale) {
+        this.messages = messages;
+        this.locale = locale;
     }
 
     public NamespacedKey templateKeyPdc() {

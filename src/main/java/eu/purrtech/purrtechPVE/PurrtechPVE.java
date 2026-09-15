@@ -44,6 +44,7 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Locale;
+import java.util.logging.Level;
 
 public final class PurrtechPVE extends JavaPlugin {
 
@@ -64,6 +65,15 @@ public final class PurrtechPVE extends JavaPlugin {
     private ArmorClassProfileRepository armorClassProfileRepository;
     private CombatFeedbackSettings combatFeedbackSettings;
     private DpsTracker dpsTracker;
+    private ItemRenderer itemRenderer;
+    private CombatDamageListener combatDamageListener;
+    private TrinketAttributeListener trinketAttributeListener;
+    // Captures every repository MythicMobsBridge/MythicMobEquipmentListener setup needs - built
+    // once in onEnable (where those repositories are local variables) and re-run by reload(), so
+    // an admin who installs/updates MythicMobs or fixes whatever broke its API detection can pick
+    // that up with /pve reload instead of a full server restart. A no-op if the bridge is already
+    // up (see trySetupMythicMobs) or MythicMobs still isn't enabled.
+    private Runnable mythicMobsSetup;
 
     @Override
     public void onEnable() {
@@ -98,7 +108,7 @@ public final class PurrtechPVE extends JavaPlugin {
         ItemSetMemberRepository itemSetMemberRepository = new ItemSetMemberRepository(database);
         ItemSetDamageThresholdRepository itemSetDamageThresholdRepository = new ItemSetDamageThresholdRepository(database);
         ItemSetModifierThresholdRepository itemSetModifierThresholdRepository = new ItemSetModifierThresholdRepository(database);
-        ItemRenderer itemRenderer = new ItemRenderer(this, messages, defaultLocale);
+        itemRenderer = new ItemRenderer(this, messages, defaultLocale);
         itemTemplateService = new ItemTemplateService(
                 itemTemplateRepository,
                 damageContributionRepository,
@@ -120,37 +130,10 @@ public final class PurrtechPVE extends JavaPlugin {
                 itemTemplateRepository,
                 damageTypeRegistry);
 
-        boolean mythicMobsPresent = getServer().getPluginManager().isPluginEnabled("MythicMobs");
-        // A plugin literally named "MythicMobs" being enabled doesn't guarantee its classes match
-        // the API this was built against (older/forked/incompatible builds still pass the name
-        // check) - probe() forces that class resolution right now, where a mismatch is loud and
-        // diagnosable, rather than crashing every single damage event later. See MythicMobsBridge's javadoc.
-        if (mythicMobsPresent) {
-            try {
-                MythicMobsBridge bridge = new MythicMobsBridge();
-                bridge.probe();
-                mythicMobsBridge = bridge;
-            } catch (Throwable t) {
-                getLogger().warning("A plugin named MythicMobs is enabled, but its API doesn't match what "
-                        + "PurrtechPVE was built against (" + t.getClass().getSimpleName()
-                        + (t.getMessage() != null ? ": " + t.getMessage() : "") + ") - running without MythicMobs integration.");
-            }
-        }
-        if (mythicMobsBridge != null) {
-            // Same defensive posture as the probe() above: this listener's @EventHandler method
-            // signature references a MythicMobs event class, so registering it also risks
-            // NoClassDefFoundError on a name-matches-but-API-differs build.
-            try {
-                getServer().getPluginManager().registerEvents(new MythicMobEquipmentListener(
-                        mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
-                        typeModifierRepository, enchantmentRepository, armorPenetrationRepository,
-                        bleedEffectRepository, criticalEffectRepository, attributeModifierRepository, itemRenderer), this);
-            } catch (Throwable t) {
-                getLogger().warning("Failed to register the MythicMobs mob-equipment listener ("
-                        + t.getClass().getSimpleName()
-                        + (t.getMessage() != null ? ": " + t.getMessage() : "") + ") - mobs won't spawn with assigned equipment.");
-            }
-        }
+        mythicMobsSetup = () -> trySetupMythicMobs(mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
+                typeModifierRepository, enchantmentRepository, armorPenetrationRepository, bleedEffectRepository,
+                criticalEffectRepository, attributeModifierRepository, itemRenderer);
+        mythicMobsSetup.run();
         EquipmentResolver equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
                 mobDamageProfileRepository, armorClassProfileRepository, accessoryRepository, itemSetMemberRepository,
                 itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, mythicMobsBridge);
@@ -167,13 +150,14 @@ public final class PurrtechPVE extends JavaPlugin {
         int bleedPeriodTicks = damageTypeRegistry.find("bleed").map(DamageType::dotPeriodTicks).orElse(20);
         getServer().getScheduler().runTaskTimer(this, () -> bleedManager.tick(equipmentResolver), bleedPeriodTicks, bleedPeriodTicks);
 
-        getServer().getPluginManager().registerEvents(
-                new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager,
-                        combatFeedbackSettings, dpsTracker), this);
+        combatDamageListener = new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager,
+                combatFeedbackSettings, dpsTracker);
+        getServer().getPluginManager().registerEvents(combatDamageListener, this);
         getServer().getPluginManager().registerEvents(new ItemSyncJoinListener(itemSyncService), this);
         getServer().getPluginManager().registerEvents(new AccessoryMenuListener(accessoryRepository), this);
-        getServer().getPluginManager().registerEvents(new TrinketAttributeListener(this, accessoryRepository,
-                accessorySettings, itemTemplateRepository, snapshotRepository, itemRenderer), this);
+        trinketAttributeListener = new TrinketAttributeListener(this, accessoryRepository,
+                accessorySettings, itemTemplateRepository, snapshotRepository, itemRenderer);
+        getServer().getPluginManager().registerEvents(trinketAttributeListener, this);
         itemEditorListener = new ItemEditorListener(this);
         getServer().getPluginManager().registerEvents(itemEditorListener, this);
 
@@ -185,6 +169,91 @@ public final class PurrtechPVE extends JavaPlugin {
     public void onDisable() {
         if (database != null) {
             database.close();
+        }
+    }
+
+    /**
+     * Re-reads {@code config.yml} and every {@code lang/*.yml} from disk, without a server
+     * restart - {@code /pve reload}. Updates everything derived from them ({@code messages},
+     * {@code defaultLocale}, {@code worldToggles}, {@code accessorySettings}, {@code
+     * combatFeedbackSettings}) and pushes the fresh values into the few long-lived objects that
+     * captured a copy at {@code onEnable} time ({@link #itemRenderer}, {@link
+     * #combatDamageListener}, {@link #trinketAttributeListener}) - everything else (GUI menus,
+     * commands) already reads these fresh via this class's own getters on every use, so nothing
+     * else needs touching. Also retries {@link #trySetupMythicMobs}, so fixing whatever made
+     * MythicMobs detection fail (installing it, updating it, restarting it) can be picked up here
+     * too instead of needing a restart - see that method's javadoc for why detection can fail even
+     * when the installed version looks right.
+     *
+     * <p>Deliberately NOT reconstructed here: {@code EquipmentResolver}'s own captured {@code
+     * MythicMobsBridge} reference (combat resolution keeps whatever MythicMobs state it started
+     * with until a restart) - only the admin-facing MythicMobs menus/commands (which always read
+     * {@link #getMythicMobsBridge()} live) pick up a reload-time fix.
+     */
+    public void reload() {
+        reloadConfig();
+        messages = Messages.load(this);
+        defaultLocale = Locale.forLanguageTag(ConfigLoader.loadLocale(getConfig()));
+        worldToggles = ConfigLoader.loadWorldToggles(getConfig());
+        accessorySettings = ConfigLoader.loadAccessorySettings(getConfig());
+        combatFeedbackSettings = ConfigLoader.loadCombatFeedbackSettings(getConfig());
+
+        itemRenderer.refresh(messages, defaultLocale);
+        combatDamageListener.refresh(worldToggles, combatFeedbackSettings);
+        trinketAttributeListener.refresh(accessorySettings);
+        mythicMobsSetup.run();
+
+        getLogger().info("Reloaded config.yml + lang/*.yml. World toggles: " + worldToggles.disabledWorlds().size()
+                + " disabled world(s), PvP " + (worldToggles.pvpEnabled() ? "on" : "off")
+                + ", PvE " + (worldToggles.pveEnabled() ? "on" : "off") + ". MythicMobs integration: "
+                + (mythicMobsBridge != null ? "enabled" : "not found, running standalone"));
+    }
+
+    /**
+     * A plugin literally named "MythicMobs" being enabled doesn't guarantee its classes match the
+     * API this was built against - an older/forked/incompatible build, or a "MythicMobs" that's
+     * technically enabled but hasn't finished its own (async) startup loading yet, can still throw
+     * {@link NoClassDefFoundError}/{@link NoSuchMethodError} the first time its classes are
+     * actually touched. {@code probe()} forces that resolution right now, where a failure is loud
+     * (full stack trace logged) and diagnosable, rather than crashing every single damage event or
+     * mob spawn later. A no-op if the bridge is already established (nothing to redo) or MythicMobs
+     * isn't enabled at all - safe to call repeatedly from both {@code onEnable} and {@link
+     * #reload()}.
+     */
+    private void trySetupMythicMobs(MobEquipmentRepository mobEquipmentRepository, ItemTemplateRepository itemTemplateRepository,
+                                     DamageContributionRepository damageContributionRepository, TypeModifierRepository typeModifierRepository,
+                                     TemplateEnchantmentRepository enchantmentRepository, ArmorPenetrationRepository armorPenetrationRepository,
+                                     BleedEffectRepository bleedEffectRepository, CriticalEffectRepository criticalEffectRepository,
+                                     AttributeModifierRepository attributeModifierRepository, ItemRenderer itemRenderer) {
+        if (mythicMobsBridge != null || !getServer().getPluginManager().isPluginEnabled("MythicMobs")) {
+            return;
+        }
+        try {
+            MythicMobsBridge bridge = new MythicMobsBridge();
+            bridge.probe();
+            mythicMobsBridge = bridge;
+        } catch (Throwable t) {
+            getLogger().log(Level.WARNING,
+                    "A plugin named MythicMobs is enabled, but its API doesn't match what PurrtechPVE was built "
+                            + "against - running without MythicMobs integration until the next /pve reload. If the "
+                            + "installed version looks correct, this is most likely MythicMobs not having finished "
+                            + "its own startup yet when this ran - try /pve reload once the server has fully started.",
+                    t);
+            return;
+        }
+        // Same defensive posture as probe() above: this listener's @EventHandler method signature
+        // references a MythicMobs event class, so registering it also risks NoClassDefFoundError
+        // on a name-matches-but-API-differs build. Only ever reached once per successful bridge
+        // establishment (the early return above skips this whole method once mythicMobsBridge is
+        // set), so this can't double-register across repeated reload() calls.
+        try {
+            getServer().getPluginManager().registerEvents(new MythicMobEquipmentListener(
+                    mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
+                    typeModifierRepository, enchantmentRepository, armorPenetrationRepository,
+                    bleedEffectRepository, criticalEffectRepository, attributeModifierRepository, itemRenderer), this);
+        } catch (Throwable t) {
+            getLogger().log(Level.WARNING,
+                    "Failed to register the MythicMobs mob-equipment listener - mobs won't spawn with assigned equipment.", t);
         }
     }
 

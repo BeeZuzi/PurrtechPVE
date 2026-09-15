@@ -492,6 +492,9 @@ public final class PveCommand {
                                                                 .then(Commands.argument("damageType", StringArgumentType.word())
                                                                         .suggests(damageTypes)
                                                                         .executes(ctx -> removeSetModifierThreshold(plugin, ctx)))))))))
+                .then(Commands.literal("reload")
+                        .requires(source -> source.getSender().hasPermission(PERMISSION))
+                        .executes(ctx -> reloadPlugin(plugin, ctx)))
                 .build();
     }
 
@@ -1311,6 +1314,20 @@ public final class PveCommand {
     }
 
     /** Self-toggle for the executing player only - see {@code DpsTracker}'s javadoc for why this is in-memory, not persisted. */
+    /**
+     * Re-reads {@code config.yml} + every {@code lang/*.yml} from disk, without a server restart -
+     * see {@code PurrtechPVE.reload()} for exactly what does and doesn't pick up the change (in
+     * particular: PvP/PvE/world toggles, accessory slots, combat feedback settings and all lore/
+     * GUI text take effect immediately; a few things baked in at server start, like the base
+     * locale used by {@code ItemRenderer} internals, still need a restart).
+     */
+    private static int reloadPlugin(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        plugin.reload();
+        sender.sendMessage(plugin.getMessages().render(localeOf(plugin, sender), "system.reloaded"));
+        return Command.SINGLE_SUCCESS;
+    }
+
     private static int toggleDps(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         if (!(sender instanceof Player player)) {

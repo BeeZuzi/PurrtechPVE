@@ -61,7 +61,11 @@ public final class TrinketAttributeListener implements Listener {
 
     private final Plugin plugin;
     private final AccessoryRepository accessoryRepository;
-    private final AccessorySettings accessorySettings;
+    // Not final - see refresh(), called by PurrtechPVE.reload() so an admin editing
+    // accessory-slots in config.yml and running /pve reload takes effect immediately, instead of
+    // needing a server restart (this listener is registered once at onEnable and would otherwise
+    // keep whatever it was constructed with forever).
+    private AccessorySettings accessorySettings;
     private final ItemTemplateRepository templateRepository;
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final ItemRenderer renderer;
@@ -75,6 +79,11 @@ public final class TrinketAttributeListener implements Listener {
         this.templateRepository = templateRepository;
         this.snapshotRepository = snapshotRepository;
         this.renderer = renderer;
+    }
+
+    /** See the {@code accessorySettings} field comment. */
+    public void refresh(AccessorySettings accessorySettings) {
+        this.accessorySettings = accessorySettings;
     }
 
     @EventHandler

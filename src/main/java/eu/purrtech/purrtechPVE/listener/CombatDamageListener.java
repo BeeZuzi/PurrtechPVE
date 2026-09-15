@@ -64,11 +64,15 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class CombatDamageListener implements Listener {
 
-    private final WorldToggleSettings worldToggles;
+    // Not final - see refresh(), called by PurrtechPVE.reload() so an admin flipping pvp.enabled/
+    // pve.enabled/combat.show-effectiveness-colors in config.yml and running /pve reload takes
+    // effect immediately, instead of needing a server restart (this listener is registered once
+    // at onEnable and would otherwise keep whatever it was constructed with forever).
+    private WorldToggleSettings worldToggles;
     private final EquipmentResolver equipmentResolver;
     private final DamageTypeRegistry damageTypeRegistry;
     private final BleedManager bleedManager;
-    private final CombatFeedbackSettings combatFeedbackSettings;
+    private CombatFeedbackSettings combatFeedbackSettings;
     private final DpsTracker dpsTracker;
 
     public CombatDamageListener(WorldToggleSettings worldToggles, EquipmentResolver equipmentResolver,
@@ -80,6 +84,12 @@ public final class CombatDamageListener implements Listener {
         this.bleedManager = bleedManager;
         this.combatFeedbackSettings = combatFeedbackSettings;
         this.dpsTracker = dpsTracker;
+    }
+
+    /** See the {@code worldToggles}/{@code combatFeedbackSettings} field comment. */
+    public void refresh(WorldToggleSettings worldToggles, CombatFeedbackSettings combatFeedbackSettings) {
+        this.worldToggles = worldToggles;
+        this.combatFeedbackSettings = combatFeedbackSettings;
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
