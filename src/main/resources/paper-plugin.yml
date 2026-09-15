@@ -6,7 +6,20 @@ authors: [ Purrtech ]
 main: eu.purrtech.purrtechPVE.PurrtechPVE
 api-version: '1.21'
 load: POSTWORLD
-softdepend: [ MythicMobs ]
+
+# The old flat `softdepend: [ MythicMobs ]` key is the LEGACY plugin.yml schema - paper-plugin.yml
+# silently ignores it, which both loses the load-order guarantee AND (more importantly) never
+# grants this plugin's classloader access to MythicMobs' classes. Without `join-classpath: true`
+# here, io.lumine.mythic.* resolves to NoClassDefFoundError/ClassNotFoundException even when
+# MythicMobs is installed, enabled, and the exact version this was built against - which looks
+# identical to a real API mismatch in the log, but isn't one. See MythicMobsBridge's javadoc and
+# PLAN.md's 2026-09-1x entries for the debugging trail that found this.
+dependencies:
+  server:
+    MythicMobs:
+      load: BEFORE
+      required: false
+      join-classpath: true
 
 permissions:
   purrtechpve.admin:

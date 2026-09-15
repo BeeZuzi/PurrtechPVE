@@ -15,15 +15,25 @@ import java.util.Optional;
  * {@code PurrtechPVE.onEnable} - only constructed at all when that check
  * passes) before touching an instance of this class, so the plugin still
  * loads and runs fine on a server that doesn't have MythicMobs installed
- * (declared as {@code softdepend} in paper-plugin.yml, {@code compileOnly}
- * in the build).
+ * (declared as an optional {@code dependencies.server.MythicMobs} in
+ * paper-plugin.yml - {@code required: false} - with {@code compileOnly} in
+ * the build).
  *
  * <p>A plugin literally named "MythicMobs" being enabled does NOT guarantee
  * its classes match this API - an older/forked/incompatible build can still
  * satisfy {@code isPluginEnabled} while missing the exact classes compiled
  * against here, which throws {@link NoClassDefFoundError} the first time
- * they're touched (seen in production - see {@code probe()}). Both {@code
- * PurrtechPVE.onEnable} (via {@link #probe()}) and every call site in {@code
+ * they're touched (seen in production - see {@code probe()}). The SAME
+ * exception also shows up for a reason that has nothing to do with API
+ * compatibility: paper-plugin.yml's dependency entry needs {@code
+ * join-classpath: true} for this plugin's classloader to see MythicMobs'
+ * classes at all - the legacy {@code softdepend: [MythicMobs]} key (still
+ * valid syntax, silently ignored by paper-plugin.yml) only ever set load
+ * order, never classpath visibility, so a server correctly running the
+ * exact version this was built against could still fail here (this was an
+ * actual bug in this plugin, not a real version mismatch - see PLAN.md's
+ * 2026-09 MythicMobs entries). Both {@code PurrtechPVE.onEnable} (via
+ * {@link #probe()}) and every call site in {@code
  * EquipmentResolver}/{@code MythicMobEquipmentListener} additionally guard
  * with a {@code catch (Throwable)} so a mismatch degrades to "no MythicMobs
  * integration" instead of breaking every single damage event or mob spawn.

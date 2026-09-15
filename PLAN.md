@@ -2474,6 +2474,55 @@
     MythicMobs pluginem (nemám ho k dispozici) a skutečný projev
     v item lore/GUI po reloadu (potřebuje reálného připojeného hráče).
 
+- **MythicMobs: skutečná příčina nalezena a opravena (2026-09-15)** -
+  poslal jsi mi log z `/pve reload`, který ukázal přesnou výjimku:
+  `java.lang.NoClassDefFoundError: io/lumine/mythic/bukkit/MythicBukkit`,
+  `Caused by: ClassNotFoundException`. To je úplně jiná chyba, než na
+  co ukazovala předchozí (moje) hláška "API neodpovídá verzi" - třída
+  se vůbec nedala najít, což u hlavní API třídy MythicMobs nikdy
+  neznamená nesoulad verzí (to by hodilo `NoSuchMethodError` na
+  konkrétní metodě, ne "třída neexistuje").
+  - **Skutečná příčina**: `paper-plugin.yml` používal starý/legacy
+    zápis `softdepend: [ MythicMobs ]`. Tenhle klíč je z PŮVODNÍHO
+    (Bukkit) `plugin.yml` formátu - v novém `paper-plugin.yml` formátu
+    ho Paper potichu ignoruje. Bez správně rozpoznané závislosti
+    nikdy nedostaneš přístup k classloaderu druhého pluginu - `import
+    io.lumine.mythic.*` pak spadne na `NoClassDefFoundError` úplně
+    vždycky, i když je MythicMobs 100% správná verze nainstalovaná a
+    zapnutá. Potvrdila jsem si tohle proti oficiálnímu Paper GitHub
+    issue (#9277 - "New paper-plugin.yml dependency format does not
+    join-classpath by default") přesně se stejným příznakem.
+  - **Oprava**: `paper-plugin.yml` teď má moderní zápis:
+    ```yaml
+    dependencies:
+      server:
+        MythicMobs:
+          load: BEFORE
+          required: false
+          join-classpath: true
+    ```
+    `join-classpath: true` je ten klíčový řádek, co chyběl - dovolí
+    PurrtechPVE classloaderu vidět MythicMobs třídy vůbec.
+    `MythicMobsBridge`'s javadoc přepsán, aby na tohle upozorňoval
+    (ta samá výjimka může znamenat buď skutečný nesoulad verzí, nebo
+    tenhle úplně jiný, čistě konfigurační bug).
+  - Reload-retry a detailní stack-trace logování z minulého kroku
+    zůstávají - i s touhle opravou jsou to rozumné pojistky pro
+    budoucí timing/verzní problémy, jen už (doufám) nejsou potřeba pro
+    tenhle konkrétní bug.
+  - Čistý `compileJava`/`compileTestJava`/`test`/`build`.
+  - **Ověřeno živě** (`runServer`): plugin se s novým `dependencies`
+    blokem v `paper-plugin.yml` pořád normálně načte a zapne (žádná
+    chyba při parsování YAML/startu) - `/version PurrtechPVE` prošel.
+    **Nedá se ověřit v sandboxu, upřímně přiznávám**: nemám k
+    dispozici žádný MythicMobs jar, takže si nemůžu sama ověřit, že
+    `join-classpath: true` na TVÉM serveru skutečně vyřeší
+    `NoClassDefFoundError` - jsem si tím ale hodně jistá, protože jde
+    o přesně zdokumentovaný, veřejně nahlášený Paper bug/chování se
+    stejným přesným symptomem, ne o hádání. Dej vědět, jestli po
+    tomhle `/pve reload` (nebo po restartu) MythicMobs menu konečně
+    najede.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
