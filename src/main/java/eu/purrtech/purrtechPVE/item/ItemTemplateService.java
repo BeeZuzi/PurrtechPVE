@@ -225,24 +225,24 @@ public final class ItemTemplateService {
      * javadoc for exactly what it does at combat time (only ever reduces the defender's {@code
      * armor_class_profile}-sourced resistance for that one hit, nothing persisted).
      */
-    public ItemTemplate setArmorPenetration(String key, ArmorClass armorClass, double amount) {
-        return setArmorPenetration(key, armorClass, amount, true);
+    public ItemTemplate setArmorPenetration(String key, ArmorClass armorClass, double amount, DamageMode mode) {
+        return setArmorPenetration(key, armorClass, amount, mode, true);
     }
 
-    /** Same as the 3-arg overload, but also sets whether this entry shows its own lore line - see {@link ArmorPenetration#visible()}. */
-    public ItemTemplate setArmorPenetration(String key, ArmorClass armorClass, double amount, boolean visible) {
+    /** Same as the 4-arg overload, but also sets whether this entry shows its own lore line - see {@link ArmorPenetration#visible()}. */
+    public ItemTemplate setArmorPenetration(String key, ArmorClass armorClass, double amount, DamageMode mode, boolean visible) {
         ItemTemplate template = requireTemplate(key);
-        armorPenetrationRepository.upsert(template.id(), new ArmorPenetration(armorClass, amount, visible));
+        armorPenetrationRepository.upsert(template.id(), new ArmorPenetration(armorClass, amount, mode, visible));
         return bumpVersion(template);
     }
 
-    /** Flips an existing entry's lore visibility without touching its amount. */
+    /** Flips an existing entry's lore visibility without touching its amount/mode. */
     public ItemTemplate toggleArmorPenetrationVisibility(String key, ArmorClass armorClass) {
         ItemTemplate template = requireTemplate(key);
         ArmorPenetration current = armorPenetrationRepository.findByTemplate(template.id()).stream()
                 .filter(p -> p.armorClass() == armorClass)
                 .findFirst().orElseThrow(() -> new IllegalStateException("No armor penetration " + armorClass + " on " + key));
-        armorPenetrationRepository.upsert(template.id(), new ArmorPenetration(armorClass, current.amount(), !current.visible()));
+        armorPenetrationRepository.upsert(template.id(), new ArmorPenetration(armorClass, current.amount(), current.mode(), !current.visible()));
         return bumpVersion(template);
     }
 

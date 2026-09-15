@@ -9,7 +9,8 @@ package eu.purrtech.purrtechPVE.gui;
  */
 public enum ValueEditorKind {
     RESIST(ItemEditorTab.RESIST, false, false),
-    ARMOR_PENETRATION(ItemEditorTab.ARMOR_PENETRATION, false, false),
+    /** See {@code ArmorPenetration}'s javadoc for what FLAT vs PERCENT_OF_TOTAL actually do differently here. */
+    ARMOR_PENETRATION(ItemEditorTab.ARMOR_PENETRATION, true, false),
     ATTRIBUTE(ItemEditorTab.BASE, false, false),
     /**
      * The only kind with a context toggle (wielded/worn) - {@link ValueEditorHolder#entryId()} is

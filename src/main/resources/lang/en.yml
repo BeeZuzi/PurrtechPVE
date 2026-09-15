@@ -5,6 +5,7 @@ error:
   no-permission: "<red>You don't have permission to do that."
   invalid-material: "<red>Unknown item: <white><material></white>"
   invalid-mode-or-context: "<red>Invalid mode/context - use FLAT/PERCENT_OF_TOTAL and WIELDED/WORN."
+  invalid-mode: "<red>Invalid mode - use FLAT or PERCENT_OF_TOTAL."
 
 system:
   reloaded: "<green>Configuration reloaded."
@@ -168,7 +169,8 @@ item:
     damage-percent: "<#7425E9> <gray>[</gray>+<amount>%<gray>]</gray> <type></#7425E9>"
     resist: "<#7425E9> <gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9>"
     weakness: "<#7425E9> <gray>[</gray><red>-<amount>%</red><gray>]</gray> <type></#7425E9>"
-    penetration: "<#7425E9> <gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
+    penetration-flat: "<#7425E9> <gray>[</gray>-<amount><gray>]</gray> <class></#7425E9>"
+    penetration-percent: "<#7425E9> <gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
     bleed: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> ᴄʜᴀɴᴄᴇ ᴛᴏ ʙʟᴇᴇᴅ ꜰᴏʀ <gray>[</gray><duration>s<gray>]</gray></#7425E9>"
     critical: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> ᴄʀɪᴛ ᴄʜᴀɴᴄᴇ, <gray>[</gray>+<bonus>%<gray>]</gray> ᴅᴀᴍᴀɢᴇ</#7425E9>"
     attribute: "<#7425E9> <gray>[</gray><amount><gray>]</gray> <attribute></#7425E9> <gray>(<slot>)</gray>"
@@ -396,14 +398,14 @@ gui:
       option-unselected: "<gray><label></gray>"
       hint-set: "<yellow>Click: set</yellow>"
     penetration:
-      value: "<green>Penetration: <amount>%</green>"
+      value-flat: "<green>Penetration: <amount></green>"
+      value-percent: "<green>Penetration: <amount>%</green>"
       class-icon: "<aqua><class></aqua>"
       info-title: "<gray>Before damage is calculated, reduces</gray>"
       info-1: "<gray>the target's resistance from the given</gray>"
-      info-2: "<gray>armor class's benefit by this many</gray>"
-      info-3: "<gray>percentage points. Nothing is removed from the inventory.</gray>"
+      info-2: "<gray>armor class's benefit - flat or % based</gray>"
+      info-3: "<gray>on mode. Nothing is removed from the inventory.</gray>"
       removed: "<green>Armor penetration <class> deleted.</green>"
-      prompt: "<yellow>Type the penetration percentage in chat, e.g. 10</yellow>"
     effects:
       bleed-chance: "<aqua>Bleed chance</aqua>"
       bleed-duration: "<aqua>Bleed duration</aqua>"

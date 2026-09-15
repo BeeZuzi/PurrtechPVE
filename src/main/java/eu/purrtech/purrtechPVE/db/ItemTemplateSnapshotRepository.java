@@ -194,7 +194,7 @@ public final class ItemTemplateSnapshotRepository {
 
     private static String encodeArmorPenetration(List<ArmorPenetration> armorPenetration) {
         return armorPenetration.stream()
-                .map(p -> p.armorClass().name() + "|" + p.amount() + "|" + p.visible())
+                .map(p -> p.armorClass().name() + "|" + p.amount() + "|" + p.mode() + "|" + p.visible())
                 .collect(Collectors.joining(";"));
     }
 
@@ -205,7 +205,13 @@ public final class ItemTemplateSnapshotRepository {
         List<ArmorPenetration> out = new ArrayList<>();
         for (String entry : raw.split(";")) {
             String[] fields = entry.split("\\|");
-            out.add(new ArmorPenetration(ArmorClass.valueOf(fields[0]), Double.parseDouble(fields[1]), parseVisible(fields, 2)));
+            // A snapshot encoded before mode existed only has armorClass/amount(/visible) -
+            // default to FLAT, preserving that snapshot's original point-subtraction behavior
+            // (see ArmorPenetration's javadoc and the item_armor_penetration migration).
+            boolean hasMode = fields.length >= 4;
+            DamageMode mode = hasMode ? DamageMode.valueOf(fields[2]) : DamageMode.FLAT;
+            boolean visible = hasMode ? parseVisible(fields, 3) : parseVisible(fields, 2);
+            out.add(new ArmorPenetration(ArmorClass.valueOf(fields[0]), Double.parseDouble(fields[1]), mode, visible));
         }
         return out;
     }

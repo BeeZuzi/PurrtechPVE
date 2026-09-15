@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE.db;
 
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
+import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import org.bukkit.Material;
 import org.junit.jupiter.api.AfterEach;
@@ -47,7 +48,7 @@ class ArmorPenetrationRepositoryTest {
 
     @Test
     void upsertThenFindRoundTrips() {
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0, DamageMode.FLAT, true));
 
         List<ArmorPenetration> found = repository.findByTemplate(templateId);
         assertEquals(1, found.size());
@@ -57,8 +58,8 @@ class ArmorPenetrationRepositoryTest {
 
     @Test
     void differentArmorClassesCoexist() {
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0, true));
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.HEAVY, 25.0, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0, DamageMode.FLAT, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.HEAVY, 25.0, DamageMode.FLAT, true));
 
         List<ArmorPenetration> found = repository.findByTemplate(templateId);
         assertEquals(2, found.size());
@@ -66,8 +67,8 @@ class ArmorPenetrationRepositoryTest {
 
     @Test
     void upsertOnSameClassReplaces() {
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.MEDIUM, 5.0, true));
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.MEDIUM, 20.0, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.MEDIUM, 5.0, DamageMode.FLAT, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.MEDIUM, 20.0, DamageMode.FLAT, true));
 
         List<ArmorPenetration> found = repository.findByTemplate(templateId);
         assertEquals(1, found.size());
@@ -76,8 +77,8 @@ class ArmorPenetrationRepositoryTest {
 
     @Test
     void removeDeletesJustThatClass() {
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0, true));
-        repository.upsert(templateId, new ArmorPenetration(ArmorClass.HEAVY, 25.0, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.LIGHT, 10.0, DamageMode.FLAT, true));
+        repository.upsert(templateId, new ArmorPenetration(ArmorClass.HEAVY, 25.0, DamageMode.FLAT, true));
 
         assertTrue(repository.remove(templateId, ArmorClass.LIGHT));
         assertFalse(repository.remove(templateId, ArmorClass.LIGHT));

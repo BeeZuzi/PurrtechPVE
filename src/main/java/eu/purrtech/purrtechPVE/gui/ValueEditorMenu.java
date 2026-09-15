@@ -31,8 +31,9 @@ import java.util.Locale;
  * ATTRIBUTES entry - one shared layout for every purely-numeric field this GUI edits, so an
  * admin doesn't have to drop into chat just to bump one number or hide one stat line. See {@link
  * ValueEditorKind} for what each kind reads/writes and which tab "Back" returns to.
- * {@link ValueEditorKind#BLEED_DAMAGE}/{@link ValueEditorKind#DAMAGE} additionally get a flat/
- * percent mode toggle (see {@code BleedEffect}'s javadoc for the former); {@link
+ * {@link ValueEditorKind#BLEED_DAMAGE}/{@link ValueEditorKind#DAMAGE}/{@link
+ * ValueEditorKind#ARMOR_PENETRATION} additionally get a flat/percent mode toggle (see {@code
+ * BleedEffect}'s javadoc for the first, {@code ArmorPenetration}'s for the last); {@link
  * ValueEditorKind#DAMAGE} alone also gets a wielded/worn context toggle - flipping it moves the
  * contribution to the other context (a "move", not a plain field edit, since context is part of
  * a contribution's identity - see {@link #handleClick}), silently refusing if that would collide
@@ -225,7 +226,7 @@ public final class ValueEditorMenu {
                     .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
             case ARMOR_PENETRATION -> service.armorPenetration(key).stream()
                     .filter(p -> p.armorClass() == ArmorClass.valueOf(holder.entryId())).findFirst()
-                    .map(p -> new CurrentState(p.amount(), p.visible(), DamageMode.FLAT, ModifierContext.WIELDED))
+                    .map(p -> new CurrentState(p.amount(), p.visible(), p.mode(), ModifierContext.WIELDED))
                     .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
             case ATTRIBUTE -> {
                 String[] parts = holder.entryId().split("\\|", 2);
@@ -269,7 +270,7 @@ public final class ValueEditorMenu {
         String key = holder.templateKey();
         switch (holder.kind()) {
             case RESIST -> service.setTypeModifier(key, holder.entryId(), newValue, visible);
-            case ARMOR_PENETRATION -> service.setArmorPenetration(key, ArmorClass.valueOf(holder.entryId()), newValue, visible);
+            case ARMOR_PENETRATION -> service.setArmorPenetration(key, ArmorClass.valueOf(holder.entryId()), newValue, mode, visible);
             case ATTRIBUTE -> {
                 String[] parts = holder.entryId().split("\\|", 2);
                 Attribute attribute = Attribute.valueOf(parts[0]);

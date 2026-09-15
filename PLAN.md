@@ -2353,6 +2353,61 @@
     řádku po vypnutí nadpisu v GUI - potřebuje reálného připojeného
     hráče, stejně jako celá tahle sada změn.
 
+- **Penetrace armoru: flat i procentuální mód (2026-09-15), na
+  žádost**: "Udělej také tu penetraci nejen jako je teďka na procenta
+  ale i na číselnou hodnotu že se místo procentuální hodnoty bude
+  odečítat pevná hodnota."
+  - **Upřesnění mechaniky přes otázku**: zeptala jsem se, co přesně má
+    "pevná hodnota" dělat, protože odolnost je tu čistě procentuální
+    stat. Odpověď: "20 jednotek těžkého brnění, 10 penetrace = jako by
+    měl jen 10 těžkého brnění" - přesně to, co penetrace už DNES dělá
+    (odečte pevný počet bodů od odolnosti bez ohledu na její
+    velikost). Takže **současné chování zůstává jako `FLAT` mód beze
+    změny** a nový `PERCENT_OF_TOTAL` mód je navíc - odečte `amount`
+    procent z AKTUÁLNÍ hodnoty odolnosti (ne pevný počet bodů), takže
+    škáluje podle toho, kolik odolnosti cíl vůbec má (např. 50 %
+    penetrace na 20% odolnost = výsledných 10 %, ne 20-50=-30%).
+  - `ArmorPenetration` dostal nové pole `mode` (sdílený `DamageMode`
+    enum, stejný jako `DamageContribution`/`BleedEffect`) - nový
+    sloupec `mode` (`Schema.addColumnIfMissing`, default `'FLAT'` -
+    zachovává přesné chování všech starých řádků).
+    `EquipmentResolver.applyArmorPenetration` teď větví matematiku
+    podle módu.
+  - `/pve item penetration set <key> <armorClass> <amount> <mode>` -
+    `mode` je teď POVINNÝ 4. argument (`flat`/`percent_of_total`),
+    stejně jako `/pve item damage set` už mode vyžaduje. Nová hláška
+    `error.invalid-mode` (bez zavádějící zmínky o "WIELDED/WORN" kontextu,
+    který penetrace vůbec nemá).
+  - `ValueEditorKind.ARMOR_PENETRATION` dostal `hasMode() = true` -
+    přepínač flat/procenta je teď v `ValueEditorMenu` vedle
+    +/- tlačítek a přepínače viditelnosti, žádný chat.
+  - Lore řádek (`item.line.penetration-flat`/`-percent`) i GUI editor
+    (`gui.item-editor.penetration.value-flat`/`-percent`) teď zobrazují
+    "%" jen v procentuálním módu - u flatu je to čisté číslo bez
+    znaménka procenta.
+  - **Mimochodem uklizeno**: `gui.item-editor.penetration.prompt` byl
+    už dřív mrtvý lang klíč (armor penetration se vždycky editovala
+    jen přes `ValueEditorMenu`, nikdy přes chat) - smazaný spolu s
+    tímhle úklidem.
+  - Mechanická oprava pozičních konstruktorů `ArmorPenetration`(nové
+    pole `mode`) v `ArmorPenetrationRepositoryTest`/
+    `ItemTemplateSnapshotRepositoryTest`/`ItemTemplateServiceTest` -
+    stejný opakovaný vzor jako u každého předchozího přidání pole.
+    Zpětná kompatibilita starých snapshotů (`ItemTemplateSnapshotRepository.decodeArmorPenetration`)
+    - chybějící `mode` pole → default `FLAT`, stejný vzor jako
+    `BleedEffect`'s `damageAmount`/`mode` backfill dřív v týhle session.
+  - Čistý `compileJava`/`compileTestJava`/`test`/`build`. Žádný nový
+    permanentní test (`EquipmentResolver` podle zavedené konvence testy
+    nemá - živý `LivingEntity`/`EntityEquipment`).
+  - **Ověřeno živě** (`runServer`, čerstvá DB): `/pve item penetration
+    set penetest heavy 10 flat` a `set penetest light 30
+    percent_of_total` na STEJNÉ šabloně oba prošly - v DB
+    `HEAVY|10.0|FLAT` a `LIGHT|30.0|PERCENT_OF_TOTAL`, přesně jak má.
+    Neplatný mode (`bogus`) se správně odmítl s novou hláškou.
+    **Nedá se ověřit v sandboxu**: skutečný dopad na výpočet poškození
+    v boji (potřebuje dva reálné hráče/moby v souboji) a klikání na
+    nový přepínač v `ValueEditorMenu`.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

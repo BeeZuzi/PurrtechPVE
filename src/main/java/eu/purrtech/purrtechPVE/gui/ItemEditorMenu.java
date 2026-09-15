@@ -712,7 +712,9 @@ public final class ItemEditorMenu {
 
             List<Component> lore = new ArrayList<>();
             if (current.isPresent()) {
-                lore.add(messages.render(locale, "gui.item-editor.penetration.value", Placeholder.unparsed("amount", formatAmount(current.get().amount()))));
+                String valueKey = current.get().mode() == DamageMode.PERCENT_OF_TOTAL
+                        ? "gui.item-editor.penetration.value-percent" : "gui.item-editor.penetration.value-flat";
+                lore.add(messages.render(locale, valueKey, Placeholder.unparsed("amount", formatAmount(current.get().amount()))));
             } else {
                 lore.add(messages.render(locale, "gui.armor-class.lore.not-set"));
             }

@@ -57,7 +57,7 @@ class ItemTemplateSnapshotRepositoryTest {
                 List.of(new DamageContribution("fire", 4.0, DamageMode.FLAT, ModifierContext.WIELDED, true)),
                 List.of(new TypeModifier("frozen", -25.0, true)),
                 List.of(new TemplateEnchantment("minecraft:sharpness", 5)),
-                List.of(new ArmorPenetration(ArmorClass.HEAVY, 15.0, true)),
+                List.of(new ArmorPenetration(ArmorClass.HEAVY, 15.0, DamageMode.FLAT, true)),
                 new BleedEffect(25.0, 5.0, 3.0, DamageMode.FLAT, true),
                 new CriticalEffect(15.0, 50.0, true),
                 // NOT covered here: attributeModifiers round-tripping. Unlike every other list on

@@ -247,7 +247,7 @@ class ItemTemplateServiceTest {
     @Test
     void setArmorPenetrationIsAWeaponStatAndBumpsVersion() {
         service.create("war-axe", Material.IRON_AXE, "War Axe", "console");
-        ItemTemplate withPenetration = service.setArmorPenetration("war-axe", ArmorClass.LIGHT, 10.0);
+        ItemTemplate withPenetration = service.setArmorPenetration("war-axe", ArmorClass.LIGHT, 10.0, DamageMode.FLAT);
 
         assertEquals(2, withPenetration.version(), "armor penetration is a stat like damage contributions - bumps version");
         assertEquals(1, service.armorPenetration("war-axe").size());
@@ -258,7 +258,7 @@ class ItemTemplateServiceTest {
     @Test
     void removeArmorPenetration() {
         service.create("war-axe", Material.IRON_AXE, "War Axe", "console");
-        service.setArmorPenetration("war-axe", ArmorClass.LIGHT, 10.0);
+        service.setArmorPenetration("war-axe", ArmorClass.LIGHT, 10.0, DamageMode.FLAT);
         ItemTemplate afterRemove = service.removeArmorPenetration("war-axe", ArmorClass.LIGHT);
 
         assertEquals(3, afterRemove.version());

@@ -285,7 +285,8 @@ public final class ItemRenderer {
     }
 
     private Component penetrationLine(ArmorPenetration p, boolean headerHidden) {
-        return messages.render(locale, "item.line.penetration",
+        String key = p.mode() == DamageMode.PERCENT_OF_TOTAL ? "item.line.penetration-percent" : "item.line.penetration-flat";
+        return messages.render(locale, key,
                 Placeholder.unparsed("amount", formatAmount(p.amount())),
                 Placeholder.component("class", messages.armorClassName(locale, p.armorClass().name(), headerHidden)));
     }

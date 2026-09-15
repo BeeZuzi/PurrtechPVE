@@ -281,6 +281,10 @@ final class Schema {
             statement.execute("CREATE INDEX IF NOT EXISTS idx_item_armor_penetration_template "
                     + "ON item_armor_penetration(template_id)");
             addColumnIfMissing(connection, "item_armor_penetration", "visible", "INTEGER NOT NULL DEFAULT 1");
+            // Default FLAT preserves every pre-existing row's exact old behavior (a straight
+            // point subtraction from resist) - see ArmorPenetration's javadoc for what FLAT vs
+            // PERCENT_OF_TOTAL actually do differently.
+            addColumnIfMissing(connection, "item_armor_penetration", "mode", "TEXT NOT NULL DEFAULT 'FLAT'");
 
             // A weapon's chance to inflict bleeding on a hit + how long it lasts - see the
             // BleedEffect record's javadoc. At most one row per template.

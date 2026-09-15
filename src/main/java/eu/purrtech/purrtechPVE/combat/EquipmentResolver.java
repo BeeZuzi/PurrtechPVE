@@ -240,9 +240,14 @@ public final class EquipmentResolver {
 
     /**
      * Reduces {@code resist} by the attacker's wielded weapon's {@link ArmorPenetration}, per damage type the
-     * matching armor class's profile touched - purely this hit's math, nothing persisted. Deliberately not
-     * clamped to the class's own contribution size (so over-penetrating can push a type into net weakness),
-     * matching how "penetration exceeding total armor deals bonus damage" conventionally works.
+     * matching armor class's profile touched - purely this hit's math, nothing persisted. {@link
+     * DamageMode#FLAT} subtracts {@code amount} points straight off {@code resist} regardless of its size (a
+     * weapon that "punches through 10 units of armor" always removes exactly 10, whether the target has 20 or
+     * 200); {@link DamageMode#PERCENT_OF_TOTAL} instead subtracts {@code amount} percent OF {@code resist}'s
+     * own current value (a weapon that "cuts through 50% of their armor" scales with however much the target
+     * actually has). Neither is clamped to the class's own contribution size (so over-penetrating can push a
+     * type into net weakness), matching how "penetration exceeding total armor deals bonus damage"
+     * conventionally works.
      */
     private void applyArmorPenetration(LivingEntity attacker, Map<ArmorClass, Map<String, Double>> classProfileContribution,
                                         Map<String, Double> resist) {
@@ -262,7 +267,10 @@ public final class EquipmentResolver {
                 continue;
             }
             for (String type : byType.keySet()) {
-                resist.merge(type, -p.amount(), Double::sum);
+                double reduction = p.mode() == DamageMode.PERCENT_OF_TOTAL
+                        ? resist.getOrDefault(type, 0.0) * (p.amount() / 100.0)
+                        : p.amount();
+                resist.merge(type, -reduction, Double::sum);
             }
         }
     }

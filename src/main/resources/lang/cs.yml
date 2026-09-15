@@ -5,6 +5,7 @@ error:
   no-permission: "<red>Na tohle nemáš oprávnění."
   invalid-material: "<red>Neznámý item: <white><material></white>"
   invalid-mode-or-context: "<red>Neplatný mode/context - použij FLAT/PERCENT_OF_TOTAL a WIELDED/WORN."
+  invalid-mode: "<red>Neplatný mode - použij FLAT nebo PERCENT_OF_TOTAL."
 
 system:
   reloaded: "<green>Konfigurace znovu načtena."
@@ -170,7 +171,8 @@ item:
     damage-percent: "<#7425E9> <gray>[</gray>+<amount>%<gray>]</gray> <type></#7425E9>"
     resist: "<#7425E9> <gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9>"
     weakness: "<#7425E9> <gray>[</gray><red>-<amount>%</red><gray>]</gray> <type></#7425E9>"
-    penetration: "<#7425E9> <gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
+    penetration-flat: "<#7425E9> <gray>[</gray>-<amount><gray>]</gray> <class></#7425E9>"
+    penetration-percent: "<#7425E9> <gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
     bleed: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><duration>s<gray>]</gray></#7425E9>"
     critical: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀɪᴛ, <gray>[</gray>+<bonus>%<gray>]</gray> ᴘᴏškᴏᴢᴇɴí</#7425E9>"
     attribute: "<#7425E9> <gray>[</gray><amount><gray>]</gray> <attribute></#7425E9> <gray>(<slot>)</gray>"
@@ -398,14 +400,14 @@ gui:
       option-unselected: "<gray><label></gray>"
       hint-set: "<yellow>Klik: nastavit</yellow>"
     penetration:
-      value: "<green>Penetrace: <amount>%</green>"
+      value-flat: "<green>Penetrace: <amount></green>"
+      value-percent: "<green>Penetrace: <amount>%</green>"
       class-icon: "<aqua><class></aqua>"
       info-title: "<gray>Před výpočtem poškození sníží</gray>"
       info-1: "<gray>cílovu odolnost z benefitu daného</gray>"
-      info-2: "<gray>typu armoru o tolik procentních</gray>"
-      info-3: "<gray>bodů. Nic se přitom nemaže z invu.</gray>"
+      info-2: "<gray>typu armoru - pevně nebo % podle</gray>"
+      info-3: "<gray>módu. Nic se přitom nemaže z invu.</gray>"
       removed: "<green>Penetrace armoru <class> smazána.</green>"
-      prompt: "<yellow>Napiš do chatu procenta penetrace, např. 10</yellow>"
     effects:
       bleed-chance: "<aqua>Šance krvácení</aqua>"
       bleed-duration: "<aqua>Doba krvácení</aqua>"

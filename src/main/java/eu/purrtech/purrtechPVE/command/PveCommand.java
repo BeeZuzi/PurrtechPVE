@@ -336,7 +336,9 @@ public final class PveCommand {
                                                 .then(Commands.argument("armorClass", StringArgumentType.word())
                                                         .suggests(ARMOR_CLASS_SUGGESTIONS)
                                                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
-                                                                .executes(ctx -> setItemArmorPenetration(plugin, ctx))))))
+                                                                .then(Commands.argument("mode", StringArgumentType.word())
+                                                                        .suggests(DAMAGE_MODE_SUGGESTIONS)
+                                                                        .executes(ctx -> setItemArmorPenetration(plugin, ctx)))))))
                                 .then(Commands.literal("remove")
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .suggests(templateKeys)
@@ -1049,8 +1051,13 @@ public final class PveCommand {
                     Placeholder.unparsed("class", armorClassArg)));
             return 0;
         }
+        DamageMode mode = parseEnum(DamageMode.class, StringArgumentType.getString(ctx, "mode"));
+        if (mode == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "error.invalid-mode"));
+            return 0;
+        }
         try {
-            plugin.getItemTemplateService().setArmorPenetration(key, armorClass, amount);
+            plugin.getItemTemplateService().setArmorPenetration(key, armorClass, amount, mode);
         } catch (TemplateNotFoundException e) {
             sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
             return 0;
