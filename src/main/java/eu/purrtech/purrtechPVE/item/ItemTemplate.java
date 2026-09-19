@@ -34,6 +34,16 @@ import java.util.UUID;
  * armor_class_profile} (see {@code ArmorClassProfileRepository}) and applies
  * immediately to every piece of that class, already-issued ones included.
  *
+ * <p>{@code armorAmount} is how many flat, vanilla-style armor points this one piece grants
+ * of its {@code armorClass} (meaningless while {@code armorClass} is {@code null}) - same
+ * live, unversioned treatment as {@code armorClass} itself, since it's really just that
+ * classification's own magnitude. Unlike {@code armor_class_profile}'s percent-based
+ * resist/weakness, these points are pooled per class across a defender's whole equipped set
+ * and fed through vanilla's own classic armor formula (see {@code DamagePipeline.armorMultiplier})
+ * as a separate, purely multiplicative reduction layered on top of the percent system - not
+ * shown in this item's own rendered lore, for the same reason {@code armor_class_profile}'s
+ * bonus isn't either (see {@code EquipmentResolver}).
+ *
  * <p>{@code customLore} is extra, admin-authored lore shown above whatever
  * stat lines get auto-generated - each line is a raw MiniMessage string (see
  * {@code ItemRenderer}), same as {@code displayName} itself, which is also
@@ -73,6 +83,7 @@ public record ItemTemplate(
         boolean trinket,
         List<String> allowedSlots,
         ArmorClass armorClass,
+        double armorAmount,
         int version,
         int syncedVersion,
         long createdAt,
@@ -82,12 +93,12 @@ public record ItemTemplate(
 
     public ItemTemplate withBumpedVersion(long updatedAt) {
         return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
-                trinket, allowedSlots, armorClass, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
+                trinket, allowedSlots, armorClass, armorAmount, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public ItemTemplate withSyncedVersion(int syncedVersion, long updatedAt) {
         return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
-                trinket, allowedSlots, armorClass, version, syncedVersion, createdAt, updatedAt, createdBy);
+                trinket, allowedSlots, armorClass, armorAmount, version, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public boolean isFullySynced() {

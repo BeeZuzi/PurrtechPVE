@@ -2523,6 +2523,160 @@
     tomhle `/pve reload` (nebo po restartu) MythicMobs menu konečně
     najede.
 
+- **MOBS tab: stránkování + `LoreOrderMenu`: přidávání/mazání řádků
+  (2026-09-19), na žádost**: "Udělej tu sekci s těmi moby tak že tam
+  půjdou listovat další stránky. Těch mobů je tak moc že jsou jakoby
+  na první stránce ale není tam tlačítko na posunutí od další stránky.
+  Ještě udělej to tam kde se upravuje pořadí loru že tam můžeš přidat
+  nebo odebrat řádek. Bude tam tlačítko přidat kdy to napíšeš do chatu
+  a bude to brát i Componenty a vloží se to úplně dolu a když chceš
+  odebrat nějaký ten řádek loru tak dáš na ten papírek shift click a
+  odstraní se"
+  - **MOBS tab stránkování** (`ItemEditorMenu`, `ItemEditorHolder`):
+    seznam mobů i picker (nepřiřazené moby) teď mají vlastní stránku
+    (`mobsPage`/`mobsPickerPage` v holderu, reset na 0 při přepnutí
+    tabu nebo otevření pickeru) - obsahová plocha obětuje první 3
+    sloty na Prev/Info/Next řádek (`MOBS_PREV_SLOT`/`MOBS_INFO_SLOT`/
+    `MOBS_NEXT_SLOT`), stejný tvar jako už existující stránkování v
+    `ItemListMenu`. Info slot ukazuje "Strana X/Y" a celkový počet.
+    "+ Přidat" tlačítko v seznamu přiřazených mobů se posouvá spolu se
+    stránkou (zobrazí se jen na té stránce, kam by nový řádek reálně
+    patřil).
+  - **`LoreOrderMenu`: přidání řádku** - nové LIME_DYE tlačítko
+    (`ADD_SLOT`) vedle Zpět/Zavřít. Klik zavře inventář a otevře chat
+    prompt (`ItemEditorListener.awaitInput`), napsaný text (surové
+    MiniMessage, stejně jako `/pve item lore set`) se přidá přes novou
+    `ItemTemplateService.addCustomLoreLine` na konec `customLore` -
+    protože nový `custom#<index>` klíč ještě není v `loreOrder`,
+    `LoreLine.canonicalize` ho sama přirozeně umístí až za všechny
+    stávající řádky, žádné speciální řazení navíc není potřeba. Napsání
+    "zrusit"/"zrušit"/"cancel" zruší přidání a jen znovu otevře menu.
+  - **`LoreOrderMenu`: mazání řádku** - shift-klik na papírek zavolá
+    novou `ItemTemplateService.removeCustomLoreLine`, ale **jen** pro
+    `custom#<index>` řádky - každý jiný typ řádku (damage, resist,
+    atribut, bleed/crit, header, ...) má svoje vlastní shift-klik-smazat
+    tlačítko už ve svém vlastním tabu, takže mazání odsud by bylo jen
+    druhá, matoucí cesta ke stejné věci; klik na takový řádek pošle
+    hráči zprávu, že se dá smazat jen ve svém tabu. Zdokumentovaná
+    "index je identita" caveat z `LoreLine`'s javadoc platí i tady -
+    smazání řádku uprostřed posune indexy (tedy identity) všech
+    pozdějších custom řádků, takže se při dalším otevření budou tvářit
+    jako nové/nezařazené - to je předem známý, přijatý kompromis
+    existujícího datového modelu (`customLore` je prostý `List<String>`),
+    ne něco, co jsem tímhle zavedla nově.
+  - Nové lang klíče v `cs.yml`/`en.yml`:
+    `gui.item-editor.mobs.page/count/prev-page/next-page` a
+    `gui.lore-order.hint-shift-delete/add/add-hint-1/add-hint-2/
+    add-prompt-1/add-prompt-2/added/removed/cannot-remove-here`.
+  - Čistý `compileJava` (`--offline`, síť v sandboxu nešla dotáhnout
+    `leaf-api` z Maven repa - nesouvisí s touhle změnou; s cache to
+    prošlo bez chyby).
+  - **Nedá se ověřit v sandboxu**: skutečné proklikání obou GUI
+    (stránkování MOBS tabu s dostatečně dlouhým seznamem mobů, chat
+    prompt přidání řádku, shift-klik smazání) - potřebuje reálně
+    připojeného hráče a nainstalovaný MythicMobs s dost mob typy, abych
+    stránkování reálně vyzkoušela.
+
+- **Display name podporuje Componenty při importu/vytváření + `/pve
+  item rename` (2026-09-19), na žádost**: "Udělej to že když se bude
+  importovat item nebo obecně vytvářet nový item/template tak že
+  display name bude podporovat Componenty. Přidej také i cmd na
+  přejmenování displayname určitého itemu"
+  - **Skutečná příčina**: `ItemTemplate.displayName` je odjakživa
+    surový MiniMessage string, parsovaný zpět přes `ItemRenderer.
+    parseMiniMessage` (stejně jako `customLore`) - `/pve item create`
+    už tedy Componenty podporoval. Chyba byla jen v odvozování jména
+    ze skutečného itemu: `BaseItemSnapshots.ownDisplayName` ho
+    serializovalo přes `PlainTextComponentSerializer` (barvy/formát
+    zahozené), zatímco `captureLore` o pár řádků níž správně
+    serializuje přes MiniMessage. Týkalo se všech 3 cest, co z reálného
+    itemu jméno odvozují: `/pve item import valhalla` (bez zadaného
+    displayName), hromadný `valhallaall` import, a itemlist menu "drž
+    item, klikni + Vytvořit item".
+  - **Oprava**: `ownDisplayName` teď serializuje přes `MiniMessage.
+    miniMessage().serialize(...)` (kontrola prázdnosti pořád přes
+    plain-text serializer, aby čistě neviditelné/mezerové jméno pořád
+    počítalo jako "žádné"). Žádná změna v `ItemRenderer`/DB schématu -
+    `displayName` sloupec byl vždycky jen text.
+  - **Nový příkaz** `/pve item rename <key> <displayName>` -
+    `displayName` je greedy string, stejně jako u `create`, takže
+    Componenty/MiniMessage tagy fungují stejně. Nová `ItemTemplateService.
+    setDisplayName` (stejný vzor jako `setCustomLore`/`toggleHeader` -
+    stat jako každý jiný, bumpuje verzi). Nová hláška `item.renamed`
+    v `cs.yml`/`en.yml`.
+  - Čistý `compileJava --offline`.
+  - **Nedá se ověřit v sandboxu**: skutečné anvil-přejmenování reálného
+    itemu s barvami/MiniMessage tagy a jeho import/vytvoření přes menu
+    - potřebuje reálně připojeného hráče.
+
+- **Krvácení: lore řádek teď ukazuje i celkový damage (2026-09-19), na
+  žádost**: "Udělej u krvácení to že to bude ukazovat i to jak moc
+  velký damage to dává."
+  - `BleedEffect.damageAmount`/`mode` už existovaly (nastavitelné přes
+    `/pve item bleed set` i `ValueEditorMenu`), jen se nikdy nedostaly
+    do vyrenderovaného lore řádku - ten ukazoval jen chance/duration.
+  - `ItemRenderer.lineCandidates` teď pro bleed volá novou `bleedLine`
+    metodu (stejný vzor jako `damageLine`/`penetrationLine`): podle
+    `mode` (`DamageMode.PERCENT_OF_TOTAL` vs. flat) vybere
+    `item.line.bleed-percent`/`item.line.bleed-flat`, s novým
+    placeholderem `<damage>`.
+  - Nahradil původní jediný `item.line.bleed` klíč v `cs.yml`/`en.yml`
+    za dvojici `bleed-flat`/`bleed-percent`, oba s `<damage>`
+    placeholderem navíc vedle `<chance>`/`<duration>`.
+  - Čistý `compileJava --offline`.
+  - **Nedá se ověřit v sandboxu**: skutečné zobrazení v lore reálného
+    itemu s nastaveným krvácením - potřebuje reálně připojeného hráče.
+
+- **Body brnění + konverze mezi penetracemi (2026-09-19), na žádost**:
+  "Udělej to že když se vybere typ brnění tak bude se moct dát hodnota
+  kolik toho brnění mu to dá toho daného typu... V configu bude to že
+  když se dá jeden damage lehké penetrace tak kolik to má být ve
+  střední penetraci damage a kolik v těžké." a následně "udělej
+  varinatu B kdy to bude jako ve vanille jelikož medium se chová jako
+  vanilla armor."
+  - **Nová flat vrstva brnění** (varianta B) - samostatná od stávajícího
+    procentuálního `armor_class_profile`, chová se jako vanilla armor
+    formule (`1 - min(20, body) * 0.04`, tzn. 20 bodů = strop 80 %
+    redukce). Nové `ItemTemplate.armorAmount` (double, live/needverzovaná
+    hodnota jako `armorClass` sám, není v `TemplateSnapshot` ani v lore -
+    stejně jako `armorClass`). Nová `ItemTemplateService.setArmorAmount`.
+    `EquipmentResolver.resolveArmorPoints` sečte body ze všech nasazených
+    kusů podle `armorClass`, aplikuje penetraci útočníka a vrátí
+    výsledné body; `DamagePipeline.armorMultiplier` z nich spočítá
+    multiplikátor, kterým `CombatDamageListener` vynásobí celkový i
+    per-type damage před critem.
+  - **Konverze mezi třídami penetrace** - nová
+    `ArmorPenetrationConversionSettings` (mapa `ArmorClass -> ArmorClass
+    -> Double`, default 1.0 pro všechny kombinace = plně účinné napříč
+    třídami) načítaná z nové sekce `armor-penetration-conversion` v
+    `config.yml` (`light`/`medium`/`heavy`, každá s koeficientem vůči
+    zbylým dvěma třídám). Přepsaná `EquipmentResolver.
+    applyArmorPenetration` teď prochází všechny třídy (ne jen přesnou
+    shodu) a násobí redukci `conversionSettings.factor(...)`; stejný
+    princip použit i v `resolveArmorPoints`. `EquipmentResolver` má
+    nové `refresh(settings)` a `/pve reload` ho volá po znovunačtení
+    configu (`equipmentResolver` povýšen z lokální proměnné na pole v
+    `PurrtechPVE`).
+  - **GUI**: klik na už vybranou třídu brnění v `ItemEditorMenu`
+    (dřív no-op) teď otevře `ValueEditorMenu` pro editaci bodů - nový
+    `ValueEditorKind.ARMOR_CLASS_AMOUNT` bez visibility-toggle (přidáno
+    `hasVisibility` do enumu, aby se nerozbily ostatní kindy). Nové
+    lore řádky `gui.item-editor.armor-class.amount`/`hint-set-amount`
+    v `cs.yml`/`en.yml`.
+  - **Příkaz**: `/pve item armor <key> <armorClass> [<amount>]` -
+    volitelný trailing double argument, nový handler
+    `setItemArmorClassWithAmount` volá `setArmorClass` i
+    `setArmorAmount`, recykluje hlášku `item.armor-set`.
+  - Opraveno 13 testovacích souborů, které stavěly `ItemTemplate`
+    přímo (obešly `ItemTemplateService`) a měly starou 17-argumentovou
+    signaturu konstruktoru - doplněn `armorAmount` (0.0) hned za
+    `armorClass`.
+  - Čistý `compileJava`/`compileTestJava --offline` i `test --offline`
+    (celá sada testů prošla).
+  - **Nedá se ověřit v sandboxu**: skutečné PvE/PvP chování redukce
+    poškození podle bodů brnění a mezitřídní konverze penetrace -
+    potřebuje reálně připojeného hráče.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

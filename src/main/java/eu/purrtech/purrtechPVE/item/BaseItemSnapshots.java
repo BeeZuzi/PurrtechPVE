@@ -86,19 +86,20 @@ public final class BaseItemSnapshots {
     }
 
     /**
-     * The item's own display name, plain-text (colors/formatting stripped), if it has a real one
-     * set (e.g. anvil-renamed) - empty otherwise. Shared by every "derive this template's display
-     * name from a real item" flow: ValhallaMMO import (single-item and bulk), and the item
-     * list menu's "hold an item, click + Create item" flow.
+     * The item's own display name, re-serialized to a MiniMessage string (same treatment as
+     * {@link #captureLore}), if it has a real one set (e.g. anvil-renamed) - empty otherwise. Its
+     * original colors/formatting are preserved rather than stripped, since {@link
+     * ItemTemplate#displayName()} is itself stored as MiniMessage and parsed back into a real
+     * {@link Component} at render time (see {@code ItemRenderer}) - the same reasoning that already
+     * applied to {@code customLore}. Shared by every "derive this template's display name from a
+     * real item" flow: ValhallaMMO import (single-item and bulk), and the item list menu's "hold an
+     * item, click + Create item" flow.
      */
     public static Optional<String> ownDisplayName(ItemStack stack) {
         if (stack != null && stack.hasItemMeta()) {
             Component name = stack.getItemMeta().displayName();
-            if (name != null) {
-                String plain = PlainTextComponentSerializer.plainText().serialize(name);
-                if (!plain.isBlank()) {
-                    return Optional.of(plain);
-                }
+            if (name != null && !PlainTextComponentSerializer.plainText().serialize(name).isBlank()) {
+                return Optional.of(MiniMessage.miniMessage().serialize(name));
             }
         }
         return Optional.empty();

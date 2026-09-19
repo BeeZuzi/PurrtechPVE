@@ -9,6 +9,7 @@ import eu.purrtech.purrtechPVE.db.ItemSetModifierThresholdRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
+import eu.purrtech.purrtechPVE.config.ArmorPenetrationConversionSettings;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
@@ -30,6 +31,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +102,7 @@ public final class EquipmentResolver {
     private final ItemSetModifierThresholdRepository setModifierThresholdRepository;
     private final ItemRenderer renderer;
     private final MythicMobsBridge mythicMobsBridge;
+    private ArmorPenetrationConversionSettings conversionSettings;
 
     public EquipmentResolver(ItemTemplateRepository templateRepository,
                               ItemTemplateSnapshotRepository snapshotRepository,
@@ -110,7 +113,8 @@ public final class EquipmentResolver {
                               ItemSetDamageThresholdRepository setDamageThresholdRepository,
                               ItemSetModifierThresholdRepository setModifierThresholdRepository,
                               ItemRenderer renderer,
-                              MythicMobsBridge mythicMobsBridge) {
+                              MythicMobsBridge mythicMobsBridge,
+                              ArmorPenetrationConversionSettings conversionSettings) {
         this.templateRepository = templateRepository;
         this.snapshotRepository = snapshotRepository;
         this.mobDamageProfileRepository = mobDamageProfileRepository;
@@ -121,6 +125,12 @@ public final class EquipmentResolver {
         this.setModifierThresholdRepository = setModifierThresholdRepository;
         this.renderer = renderer;
         this.mythicMobsBridge = mythicMobsBridge;
+        this.conversionSettings = conversionSettings;
+    }
+
+    /** Re-reads {@code armor-penetration-conversion} on {@code /pve reload} - see {@code PurrtechPVE.reload}. */
+    public void refresh(ArmorPenetrationConversionSettings conversionSettings) {
+        this.conversionSettings = conversionSettings;
     }
 
     /**
@@ -239,15 +249,18 @@ public final class EquipmentResolver {
     }
 
     /**
-     * Reduces {@code resist} by the attacker's wielded weapon's {@link ArmorPenetration}, per damage type the
-     * matching armor class's profile touched - purely this hit's math, nothing persisted. {@link
-     * DamageMode#FLAT} subtracts {@code amount} points straight off {@code resist} regardless of its size (a
-     * weapon that "punches through 10 units of armor" always removes exactly 10, whether the target has 20 or
-     * 200); {@link DamageMode#PERCENT_OF_TOTAL} instead subtracts {@code amount} percent OF {@code resist}'s
-     * own current value (a weapon that "cuts through 50% of their armor" scales with however much the target
-     * actually has). Neither is clamped to the class's own contribution size (so over-penetrating can push a
-     * type into net weakness), matching how "penetration exceeding total armor deals bonus damage"
-     * conventionally works.
+     * Reduces {@code resist} by the attacker's wielded weapon's {@link ArmorPenetration}, per damage type any
+     * armor class's profile touched - purely this hit's math, nothing persisted. A penetration's own class
+     * always applies at full strength against a defender's SAME class; against a DIFFERENT class it's scaled by
+     * {@code conversionSettings.factor(p.armorClass(), defenderClass)} (1.0 default - see {@code
+     * ArmorPenetrationConversionSettings}), so e.g. a light-only weapon still has some (or, at default settings,
+     * full) effect against medium/heavy armor instead of doing nothing at all. {@link DamageMode#FLAT} subtracts
+     * {@code amount * factor} points straight off {@code resist} regardless of its size (a weapon that "punches
+     * through 10 units of armor" always removes exactly 10 against its own class, whether the target has 20 or
+     * 200); {@link DamageMode#PERCENT_OF_TOTAL} instead subtracts {@code amount} percent OF {@code resist}'s own
+     * current value, then scaled by {@code factor}. Neither is clamped to the class's own contribution size (so
+     * over-penetrating can push a type into net weakness), matching how "penetration exceeding total armor deals
+     * bonus damage" conventionally works.
      */
     private void applyArmorPenetration(LivingEntity attacker, Map<ArmorClass, Map<String, Double>> classProfileContribution,
                                         Map<String, Double> resist) {
@@ -262,17 +275,72 @@ public final class EquipmentResolver {
                 .map(item -> item.snapshot().armorPenetration())
                 .orElse(List.of());
         for (ArmorPenetration p : penetration) {
-            Map<String, Double> byType = classProfileContribution.get(p.armorClass());
-            if (byType == null) {
-                continue;
-            }
-            for (String type : byType.keySet()) {
-                double reduction = p.mode() == DamageMode.PERCENT_OF_TOTAL
-                        ? resist.getOrDefault(type, 0.0) * (p.amount() / 100.0)
-                        : p.amount();
-                resist.merge(type, -reduction, Double::sum);
+            for (Map.Entry<ArmorClass, Map<String, Double>> classEntry : classProfileContribution.entrySet()) {
+                double factor = conversionSettings.factor(p.armorClass(), classEntry.getKey());
+                if (factor == 0) {
+                    continue;
+                }
+                for (String type : classEntry.getValue().keySet()) {
+                    double reduction = p.mode() == DamageMode.PERCENT_OF_TOTAL
+                            ? resist.getOrDefault(type, 0.0) * (p.amount() / 100.0) * factor
+                            : p.amount() * factor;
+                    resist.merge(type, -reduction, Double::sum);
+                }
             }
         }
+    }
+
+    /**
+     * Sum of flat, vanilla-style armor points ({@link ItemTemplate#armorAmount}) across the defender's whole
+     * equipped set, pooled per {@link ArmorClass} - fed through {@code DamagePipeline.armorMultiplier} as a
+     * separate multiplicative layer on top of the percent-based {@link #resolveResistance}, mirroring vanilla's
+     * own armor {@code DamageModifier}. The attacker's wielded {@link ArmorPenetration} reduces each class's
+     * pooled points the same way it reduces {@code armor_class_profile} percent above (same-class at full
+     * strength, other classes scaled by {@code conversionSettings}), before the classes are summed.
+     *
+     * @param attacker {@code null} when there's no specific attacking weapon to consider (e.g. a
+     *                 {@code BleedManager} DOT tick) - armor penetration is simply skipped in that case.
+     */
+    public double resolveArmorPoints(LivingEntity attacker, LivingEntity defender) {
+        EntityEquipment equipment = defender.getEquipment();
+        if (equipment == null) {
+            return 0;
+        }
+        Map<ArmorClass, Double> pointsByClass = new EnumMap<>(ArmorClass.class);
+        for (Map.Entry<String, ItemStack> entry : allEquippedPieces(defender, equipment).entrySet()) {
+            resolvedItemOf(entry.getValue())
+                    .filter(item -> isAllowedInSlot(item.template(), entry.getKey()))
+                    .ifPresent(item -> {
+                        ArmorClass armorClass = item.template().armorClass();
+                        if (armorClass != null && item.template().armorAmount() != 0) {
+                            pointsByClass.merge(armorClass, item.template().armorAmount(), Double::sum);
+                        }
+                    });
+        }
+        if (pointsByClass.isEmpty()) {
+            return 0;
+        }
+
+        if (attacker != null) {
+            EntityEquipment attackerEquipment = attacker.getEquipment();
+            List<ArmorPenetration> penetration = attackerEquipment == null ? List.of()
+                    : resolvedItemOf(attackerEquipment.getItemInMainHand())
+                            .map(item -> item.snapshot().armorPenetration())
+                            .orElse(List.of());
+            for (ArmorPenetration p : penetration) {
+                for (Map.Entry<ArmorClass, Double> classEntry : pointsByClass.entrySet()) {
+                    double factor = conversionSettings.factor(p.armorClass(), classEntry.getKey());
+                    if (factor == 0) {
+                        continue;
+                    }
+                    double reduction = p.mode() == DamageMode.PERCENT_OF_TOTAL
+                            ? classEntry.getValue() * (p.amount() / 100.0) * factor
+                            : p.amount() * factor;
+                    classEntry.setValue(Math.max(0, classEntry.getValue() - reduction));
+                }
+            }
+        }
+        return pointsByClass.values().stream().mapToDouble(Double::doubleValue).sum();
     }
 
     /** Just the armor-class-profile share of a piece's resistance (see {@link #modifiersAllowedIn}), grouped by class, for {@link #applyArmorPenetration}. */

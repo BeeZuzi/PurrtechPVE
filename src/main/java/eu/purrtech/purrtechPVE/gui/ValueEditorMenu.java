@@ -96,13 +96,15 @@ public final class ValueEditorMenu {
         valueIcon.setItemMeta(valueMeta);
         inventory.setItem(VALUE_SLOT, valueIcon);
 
-        Material toggleMaterial = state.visible() ? Material.LIME_DYE : Material.GRAY_DYE;
-        String toggleKey = state.visible() ? "gui.value-editor.visible-on" : "gui.value-editor.visible-off";
-        ItemStack toggle = named(toggleMaterial, messages.render(locale, toggleKey));
-        ItemMeta toggleMeta = toggle.getItemMeta();
-        toggleMeta.lore(List.of(messages.render(locale, "gui.value-editor.hint-toggle-visible")));
-        toggle.setItemMeta(toggleMeta);
-        inventory.setItem(VISIBLE_TOGGLE_SLOT, toggle);
+        if (holder.kind().hasVisibility()) {
+            Material toggleMaterial = state.visible() ? Material.LIME_DYE : Material.GRAY_DYE;
+            String toggleKey = state.visible() ? "gui.value-editor.visible-on" : "gui.value-editor.visible-off";
+            ItemStack toggle = named(toggleMaterial, messages.render(locale, toggleKey));
+            ItemMeta toggleMeta = toggle.getItemMeta();
+            toggleMeta.lore(List.of(messages.render(locale, "gui.value-editor.hint-toggle-visible")));
+            toggle.setItemMeta(toggleMeta);
+            inventory.setItem(VISIBLE_TOGGLE_SLOT, toggle);
+        }
 
         if (holder.kind().hasMode()) {
             boolean percent = state.mode() == DamageMode.PERCENT_OF_TOTAL;
@@ -152,6 +154,9 @@ public final class ValueEditorMenu {
         }
         switch (slot) {
             case VISIBLE_TOGGLE_SLOT -> {
+                if (!holder.kind().hasVisibility()) {
+                    return;
+                }
                 CurrentState state = currentState(plugin, holder);
                 applyValue(plugin, holder, state.value(), !state.visible(), state.mode());
                 render(plugin, holder.getInventory(), holder, locale);
@@ -261,6 +266,8 @@ public final class ValueEditorMenu {
             case CRIT_BONUS -> service.criticalEffect(key)
                     .map(c -> new CurrentState(c.bonusDamagePercent(), c.visible(), DamageMode.FLAT, ModifierContext.WIELDED))
                     .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
+            case ARMOR_CLASS_AMOUNT -> new CurrentState(
+                    service.findByKey(key).orElseThrow().armorAmount(), true, DamageMode.FLAT, ModifierContext.WIELDED);
         };
     }
 
@@ -305,6 +312,7 @@ public final class ValueEditorMenu {
                 CriticalEffect current = service.criticalEffect(key).orElse(new CriticalEffect(0, 0, true));
                 service.setCriticalEffect(key, current.chancePercent(), newValue, visible);
             }
+            case ARMOR_CLASS_AMOUNT -> service.setArmorAmount(key, newValue);
         }
     }
 

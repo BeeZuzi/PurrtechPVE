@@ -257,9 +257,7 @@ public final class ItemRenderer {
         }
 
         if (bleedEffect != null && bleedEffect.visible()) {
-            lines.add(new LoreLine("bleed", messages.render(locale, "item.line.bleed",
-                    Placeholder.unparsed("chance", formatAmount(bleedEffect.chancePercent())),
-                    Placeholder.unparsed("duration", formatAmount(bleedEffect.durationSeconds())))));
+            lines.add(new LoreLine("bleed", bleedLine(bleedEffect)));
         }
 
         if (criticalEffect != null && criticalEffect.visible()) {
@@ -301,6 +299,15 @@ public final class ItemRenderer {
         return messages.render(locale, key,
                 Placeholder.unparsed("amount", formatAmount(p.amount())),
                 Placeholder.component("class", messages.armorClassName(locale, p.armorClass().name(), headerHidden)));
+    }
+
+    /** {@code damageAmount}/{@code mode} work exactly like a {@link DamageContribution}'s own amount/mode - see {@link BleedEffect}'s javadoc - hence the same flat-vs-percent lang key split as {@link #damageLine}/{@link #penetrationLine}. */
+    private Component bleedLine(BleedEffect bleedEffect) {
+        String key = bleedEffect.mode() == DamageMode.PERCENT_OF_TOTAL ? "item.line.bleed-percent" : "item.line.bleed-flat";
+        return messages.render(locale, key,
+                Placeholder.unparsed("chance", formatAmount(bleedEffect.chancePercent())),
+                Placeholder.unparsed("duration", formatAmount(bleedEffect.durationSeconds())),
+                Placeholder.unparsed("damage", formatAmount(bleedEffect.damageAmount())));
     }
 
     /** ADD_NUMBER is a flat amount; ADD_SCALAR/MULTIPLY_SCALAR_1 are both percentage-of-base operations - shown with a trailing "%" either way, same simplicity as flat-vs-percent damage contributions. */

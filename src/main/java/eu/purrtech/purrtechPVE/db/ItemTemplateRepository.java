@@ -28,8 +28,8 @@ public final class ItemTemplateRepository {
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT INTO item_templates
                          (id, key, display_name, custom_lore, hidden_headers, lore_order, base_material, base_item_snapshot, custom_model_data,
-                          is_trinket, allowed_slots, armor_class, version, synced_version, created_at, updated_at, created_by)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                          is_trinket, allowed_slots, armor_class, armor_amount, version, synced_version, created_at, updated_at, created_by)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             bind(statement, template);
             statement.executeUpdate();
@@ -43,7 +43,7 @@ public final class ItemTemplateRepository {
              PreparedStatement statement = connection.prepareStatement("""
                      UPDATE item_templates
                      SET key = ?, display_name = ?, custom_lore = ?, hidden_headers = ?, lore_order = ?, base_material = ?, base_item_snapshot = ?,
-                         custom_model_data = ?, is_trinket = ?, allowed_slots = ?, armor_class = ?, version = ?, synced_version = ?, updated_at = ?
+                         custom_model_data = ?, is_trinket = ?, allowed_slots = ?, armor_class = ?, armor_amount = ?, version = ?, synced_version = ?, updated_at = ?
                      WHERE id = ?
                      """)) {
             statement.setString(1, template.key());
@@ -65,10 +65,11 @@ public final class ItemTemplateRepository {
             statement.setInt(9, template.trinket() ? 1 : 0);
             statement.setString(10, String.join(",", template.allowedSlots()));
             statement.setString(11, template.armorClass() != null ? template.armorClass().name() : null);
-            statement.setInt(12, template.version());
-            statement.setInt(13, template.syncedVersion());
-            statement.setLong(14, template.updatedAt());
-            statement.setString(15, template.id().toString());
+            statement.setDouble(12, template.armorAmount());
+            statement.setInt(13, template.version());
+            statement.setInt(14, template.syncedVersion());
+            statement.setLong(15, template.updatedAt());
+            statement.setString(16, template.id().toString());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to update item template " + template.key(), e);
@@ -141,11 +142,12 @@ public final class ItemTemplateRepository {
         statement.setInt(10, template.trinket() ? 1 : 0);
         statement.setString(11, String.join(",", template.allowedSlots()));
         statement.setString(12, template.armorClass() != null ? template.armorClass().name() : null);
-        statement.setInt(13, template.version());
-        statement.setInt(14, template.syncedVersion());
-        statement.setLong(15, template.createdAt());
-        statement.setLong(16, template.updatedAt());
-        statement.setString(17, template.createdBy());
+        statement.setDouble(13, template.armorAmount());
+        statement.setInt(14, template.version());
+        statement.setInt(15, template.syncedVersion());
+        statement.setLong(16, template.createdAt());
+        statement.setLong(17, template.updatedAt());
+        statement.setString(18, template.createdBy());
     }
 
     private ItemTemplate map(ResultSet rs) throws SQLException {
@@ -159,6 +161,7 @@ public final class ItemTemplateRepository {
 
         String armorClassRaw = rs.getString("armor_class");
         ArmorClass armorClass = armorClassRaw == null ? null : ArmorClass.valueOf(armorClassRaw);
+        double armorAmount = rs.getDouble("armor_amount");
 
         String hiddenHeadersRaw = rs.getString("hidden_headers");
         List<String> hiddenHeaders = hiddenHeadersRaw == null || hiddenHeadersRaw.isBlank()
@@ -183,6 +186,7 @@ public final class ItemTemplateRepository {
                 rs.getInt("is_trinket") != 0,
                 allowedSlots,
                 armorClass,
+                armorAmount,
                 rs.getInt("version"),
                 rs.getInt("synced_version"),
                 rs.getLong("created_at"),

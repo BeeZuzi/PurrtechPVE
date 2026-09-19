@@ -34,3 +34,19 @@ accessory-slots:
 # messages in their own client language if a translation exists, English
 # otherwise, regardless of this setting
 locale: cs
+
+# How much of a weapon's armor-penetration against one armor class ALSO counts against a
+# differently-classed defender - see ArmorPenetration's javadoc. 1.0 means fully effective
+# cross-class (default - a light-penetration hit against medium/heavy armor still removes just
+# as much as it would against light); lower it toward 0 to make penetration only work well
+# against its own matching class.
+armor-penetration-conversion:
+  light:
+    medium: 1.0
+    heavy: 1.0
+  medium:
+    light: 1.0
+    heavy: 1.0
+  heavy:
+    light: 1.0
+    medium: 1.0

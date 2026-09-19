@@ -8,10 +8,10 @@ package eu.purrtech.purrtechPVE.gui;
  * slot within that kind) - {@code null} for the two singleton-per-template kinds (BLEED/CRIT).
  */
 public enum ValueEditorKind {
-    RESIST(ItemEditorTab.RESIST, false, false),
+    RESIST(ItemEditorTab.RESIST, false, false, true),
     /** See {@code ArmorPenetration}'s javadoc for what FLAT vs PERCENT_OF_TOTAL actually do differently here. */
-    ARMOR_PENETRATION(ItemEditorTab.ARMOR_PENETRATION, true, false),
-    ATTRIBUTE(ItemEditorTab.BASE, false, false),
+    ARMOR_PENETRATION(ItemEditorTab.ARMOR_PENETRATION, true, false, true),
+    ATTRIBUTE(ItemEditorTab.BASE, false, false, true),
     /**
      * The only kind with a context toggle (wielded/worn) - {@link ValueEditorHolder#entryId()} is
      * {@code "<damageTypeKey>|<ModifierContext>"}, same shape as {@link #ATTRIBUTE}'s
@@ -19,22 +19,32 @@ public enum ValueEditorKind {
      * contributions (one wielded, one worn) - see {@code ItemEditorMenu}'s DAMAGE tab for how
      * both get their own entry instead of being merged into one.
      */
-    DAMAGE(ItemEditorTab.DAMAGE, true, true),
-    BLEED_CHANCE(ItemEditorTab.SPECIAL_EFFECTS, false, false),
-    BLEED_DURATION(ItemEditorTab.SPECIAL_EFFECTS, false, false),
+    DAMAGE(ItemEditorTab.DAMAGE, true, true, true),
+    BLEED_CHANCE(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
+    BLEED_DURATION(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
     /** See {@code BleedEffect}'s javadoc for why bleed damage works like a normal {@code DamageContribution} now. */
-    BLEED_DAMAGE(ItemEditorTab.SPECIAL_EFFECTS, true, false),
-    CRIT_CHANCE(ItemEditorTab.SPECIAL_EFFECTS, false, false),
-    CRIT_BONUS(ItemEditorTab.SPECIAL_EFFECTS, false, false);
+    BLEED_DAMAGE(ItemEditorTab.SPECIAL_EFFECTS, true, false, true),
+    CRIT_CHANCE(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
+    CRIT_BONUS(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
+    /**
+     * How many flat, vanilla-style armor points ({@code ItemTemplate.armorAmount}) the currently
+     * selected {@code ArmorClass} grants - unlike every other kind, there's no {@code visible}
+     * flag backing it (it's never shown in this item's own lore, same as {@code
+     * armor_class_profile}'s own bonus - see {@code ItemTemplate}'s javadoc), so {@code
+     * hasVisibility} is {@code false} here.
+     */
+    ARMOR_CLASS_AMOUNT(ItemEditorTab.ARMOR_CLASS, false, false, false);
 
     private final ItemEditorTab returnTab;
     private final boolean hasMode;
     private final boolean hasContext;
+    private final boolean hasVisibility;
 
-    ValueEditorKind(ItemEditorTab returnTab, boolean hasMode, boolean hasContext) {
+    ValueEditorKind(ItemEditorTab returnTab, boolean hasMode, boolean hasContext, boolean hasVisibility) {
         this.returnTab = returnTab;
         this.hasMode = hasMode;
         this.hasContext = hasContext;
+        this.hasVisibility = hasVisibility;
     }
 
     public ItemEditorTab returnTab() {
@@ -47,5 +57,9 @@ public enum ValueEditorKind {
 
     public boolean hasContext() {
         return hasContext;
+    }
+
+    public boolean hasVisibility() {
+        return hasVisibility;
     }
 }

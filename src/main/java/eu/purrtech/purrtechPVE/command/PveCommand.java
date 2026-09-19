@@ -236,6 +236,12 @@ public final class PveCommand {
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .suggests(templateKeys)
                                         .executes(ctx -> deleteTemplate(plugin, ctx))))
+                        .then(Commands.literal("rename")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
+                                        // displayName: MiniMessage text, same as "create" - Components, colors, etc. all work.
+                                        .then(Commands.argument("displayName", StringArgumentType.greedyString())
+                                                .executes(ctx -> renameTemplate(plugin, ctx)))))
                         .then(Commands.literal("list")
                                 .executes(ctx -> listTemplates(plugin, ctx)))
                         .then(Commands.literal("menu")
@@ -328,7 +334,9 @@ public final class PveCommand {
                                         .suggests(templateKeys)
                                         .then(Commands.argument("armorClass", StringArgumentType.word())
                                                 .suggests(ARMOR_CLASS_OR_NONE_SUGGESTIONS)
-                                                .executes(ctx -> setItemArmorClass(plugin, ctx)))))
+                                                .executes(ctx -> setItemArmorClass(plugin, ctx))
+                                                .then(Commands.argument("amount", DoubleArgumentType.doubleArg())
+                                                        .executes(ctx -> setItemArmorClassWithAmount(plugin, ctx))))))
                         .then(Commands.literal("penetration")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
@@ -531,6 +539,20 @@ public final class PveCommand {
         String messageKey = deleted ? "item.deleted" : "item.not-found";
         sender.sendMessage(plugin.getMessages().render(localeOf(plugin, sender), messageKey, Placeholder.unparsed("key", key)));
         return deleted ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    private static int renameTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String displayName = StringArgumentType.getString(ctx, "displayName");
+        if (plugin.getItemTemplateService().findByKey(key).isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        plugin.getItemTemplateService().setDisplayName(key, displayName);
+        sender.sendMessage(plugin.getMessages().render(locale, "item.renamed", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int listTemplates(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
@@ -1032,6 +1054,32 @@ public final class PveCommand {
         }
         try {
             plugin.getItemTemplateService().setArmorClass(key, armorClass);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.armor-set",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("class", armorClass.name())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Same as {@link #setItemArmorClass}, but also sets how many flat armor points that class grants - see {@code ItemTemplate.armorAmount}. */
+    private static int setItemArmorClassWithAmount(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String armorClassArg = StringArgumentType.getString(ctx, "armorClass");
+        double amount = DoubleArgumentType.getDouble(ctx, "amount");
+
+        ArmorClass armorClass = parseArmorClass(armorClassArg);
+        if (armorClass == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-armor-class",
+                    Placeholder.unparsed("class", armorClassArg)));
+            return 0;
+        }
+        try {
+            plugin.getItemTemplateService().setArmorClass(key, armorClass);
+            plugin.getItemTemplateService().setArmorAmount(key, amount);
         } catch (TemplateNotFoundException e) {
             sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
             return 0;

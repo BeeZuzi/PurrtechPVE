@@ -118,19 +118,27 @@ public final class CombatDamageListener implements Listener {
         Map<String, Double> resistance = equipmentResolver.resolveResistance(attacker, defender);
         DamagePipeline.Result result = DamagePipeline.applyDetailed(rawDamage, typedDamage, resistance);
 
+        // Flat, vanilla-style armor points (ItemTemplate.armorAmount) - a separate multiplicative
+        // layer applied to the fully-resolved total, mirroring vanilla's own armor DamageModifier
+        // rather than folding into the percent-based resistance map above.
+        double armorMultiplier = DamagePipeline.armorMultiplier(equipmentResolver.resolveArmorPoints(attacker, defender));
+        double armored = result.total() * armorMultiplier;
+        Map<String, Double> perTypeArmored = new HashMap<>();
+        result.perType().forEach((type, amount) -> perTypeArmored.put(type, amount * armorMultiplier));
+
         // Critical hits multiply the fully-resolved total - same convention as vanilla's own sword
         // crit - not any one typed bucket, so the per-type action bar breakdown below is scaled by
         // the same factor to keep the numbers shown adding up to what's actually dealt.
         Optional<CriticalEffect> critical = equipmentResolver.resolveCriticalEffect(attacker);
         boolean isCritical = critical.isPresent() && critical.get().isComplete()
                 && ThreadLocalRandom.current().nextDouble(100) < critical.get().chancePercent();
-        double total = result.total();
-        Map<String, Double> perTypeForDisplay = result.perType();
+        double total = armored;
+        Map<String, Double> perTypeForDisplay = perTypeArmored;
         if (isCritical) {
             double critFactor = 1 + critical.get().bonusDamagePercent() / 100.0;
             total *= critFactor;
             Map<String, Double> scaled = new HashMap<>();
-            result.perType().forEach((type, amount) -> scaled.put(type, amount * critFactor));
+            perTypeArmored.forEach((type, amount) -> scaled.put(type, amount * critFactor));
             perTypeForDisplay = scaled;
         }
         event.setDamage(total);

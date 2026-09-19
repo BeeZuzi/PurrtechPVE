@@ -79,6 +79,15 @@ public final class ItemEditorMenu {
     private static final int LORE_ORDER_SLOT = 12;
     private static final int PUBLISH_BUTTON_SLOT = 22;
     private static final int CONTENT_START = 18;
+    // MOBS tab pagination - unlike every other tab's content list, MythicMobs mob type lists can
+    // comfortably exceed the remaining content slots, so its content area sacrifices its first 3
+    // slots for a Prev/Info/Next control strip (same shape as ItemListMenu's own row), shared by
+    // both the assigned-mobs list and the picker.
+    private static final int MOBS_PREV_SLOT = CONTENT_START;
+    private static final int MOBS_INFO_SLOT = CONTENT_START + 1;
+    private static final int MOBS_NEXT_SLOT = CONTENT_START + 2;
+    private static final int MOBS_LIST_START = CONTENT_START + 3;
+    private static final int MOBS_PAGE_SIZE = SIZE - MOBS_LIST_START;
 
     private ItemEditorMenu() {
     }
@@ -105,6 +114,8 @@ public final class ItemEditorMenu {
     private static void switchTab(PurrtechPVE plugin, Player player, ItemEditorHolder holder, ItemEditorTab tab) {
         holder.setTab(tab);
         holder.setPickerOpen(false);
+        holder.setMobsPage(0);
+        holder.setMobsPickerPage(0);
         render(plugin, holder.getInventory(), holder, player.locale());
     }
 
@@ -649,10 +660,11 @@ public final class ItemEditorMenu {
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
         ArmorClass current = template.armorClass();
 
-        armorClassOption(messages, locale, inventory, CONTENT_START, null, "gui.item-editor.armor-class.none", Material.BARRIER, current);
-        armorClassOption(messages, locale, inventory, CONTENT_START + 1, ArmorClass.LIGHT, "gui.armor-class.tab.light", Material.LEATHER_CHESTPLATE, current);
-        armorClassOption(messages, locale, inventory, CONTENT_START + 2, ArmorClass.MEDIUM, "gui.armor-class.tab.medium", Material.IRON_CHESTPLATE, current);
-        armorClassOption(messages, locale, inventory, CONTENT_START + 3, ArmorClass.HEAVY, "gui.armor-class.tab.heavy", Material.NETHERITE_CHESTPLATE, current);
+        double amount = template.armorAmount();
+        armorClassOption(messages, locale, inventory, CONTENT_START, null, "gui.item-editor.armor-class.none", Material.BARRIER, current, amount);
+        armorClassOption(messages, locale, inventory, CONTENT_START + 1, ArmorClass.LIGHT, "gui.armor-class.tab.light", Material.LEATHER_CHESTPLATE, current, amount);
+        armorClassOption(messages, locale, inventory, CONTENT_START + 2, ArmorClass.MEDIUM, "gui.armor-class.tab.medium", Material.IRON_CHESTPLATE, current, amount);
+        armorClassOption(messages, locale, inventory, CONTENT_START + 3, ArmorClass.HEAVY, "gui.armor-class.tab.heavy", Material.NETHERITE_CHESTPLATE, current, amount);
 
         List<Component> infoLore = new ArrayList<>();
         infoLore.add(messages.render(locale, "gui.item-editor.armor-class.info-1"));
@@ -668,12 +680,21 @@ public final class ItemEditorMenu {
     }
 
     private static void armorClassOption(Messages messages, Locale locale, Inventory inventory, int slot, ArmorClass value,
-                                          String labelKey, Material material, ArmorClass current) {
+                                          String labelKey, Material material, ArmorClass current, double amount) {
         boolean selected = value == current;
         String key = selected ? "gui.item-editor.armor-class.option-selected" : "gui.item-editor.armor-class.option-unselected";
         ItemStack icon = named(material, messages.render(locale, key, Placeholder.unparsed("label", messages.plain(locale, labelKey))));
         ItemMeta meta = icon.getItemMeta();
-        meta.lore(List.of(messages.render(locale, "gui.item-editor.armor-class.hint-set")));
+        List<Component> lore = new ArrayList<>();
+        // Only a real, already-selected armor class has a meaningful amount to show/edit - "none"
+        // and any not-currently-selected class just get the plain "click to select" hint.
+        if (selected && value != null) {
+            lore.add(messages.render(locale, "gui.item-editor.armor-class.amount", Placeholder.unparsed("amount", formatAmount(amount))));
+            lore.add(messages.render(locale, "gui.item-editor.armor-class.hint-set-amount"));
+        } else {
+            lore.add(messages.render(locale, "gui.item-editor.armor-class.hint-set"));
+        }
+        meta.lore(lore);
         icon.setItemMeta(meta);
         inventory.setItem(slot, icon);
     }
@@ -694,6 +715,13 @@ public final class ItemEditorMenu {
             case 3 -> ArmorClass.HEAVY;
             default -> null;
         };
+        ArmorClass current = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow().armorClass();
+        if (newValue != null && newValue == current) {
+            // Already selected - a second click edits how many armor points it grants, instead of
+            // being a no-op re-selection.
+            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.ARMOR_CLASS_AMOUNT, newValue.name());
+            return;
+        }
         plugin.getItemTemplateService().setArmorClass(holder.templateKey(), newValue);
         render(plugin, holder.getInventory(), holder, player.locale());
     }
@@ -890,13 +918,18 @@ public final class ItemEditorMenu {
 
         String templateKey = holder.templateKey();
         if (holder.isPickerOpen()) {
-            renderMobPicker(plugin, inventory, templateKey, locale);
+            renderMobPicker(plugin, inventory, holder, locale);
             return;
         }
         ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
         List<String> assigned = assignedMobTypes(plugin, template.id());
-        for (int i = 0; i < assigned.size() && CONTENT_START + i < SIZE; i++) {
-            String mobType = assigned.get(i);
+        int page = clampMobsPage(holder.mobsPage(), assigned.size());
+        holder.setMobsPage(page);
+        renderMobsPageControls(messages, inventory, locale, page, assigned.size());
+
+        int start = page * MOBS_PAGE_SIZE;
+        for (int i = 0; i < MOBS_PAGE_SIZE && start + i < assigned.size(); i++) {
+            String mobType = assigned.get(start + i);
             String assignedSlot = mobEquipmentSlot(plugin, mobType, template.id()).orElseThrow();
 
             List<Component> lore = new ArrayList<>();
@@ -909,36 +942,70 @@ public final class ItemEditorMenu {
             ItemMeta meta = icon.getItemMeta();
             meta.lore(lore);
             icon.setItemMeta(meta);
-            inventory.setItem(CONTENT_START + i, icon);
+            inventory.setItem(MOBS_LIST_START + i, icon);
         }
-        int addSlot = CONTENT_START + assigned.size();
-        if (addSlot < SIZE) {
-            inventory.setItem(addSlot, addButton(messages, locale, "gui.item-editor.mobs.add"));
+        // The "+ Add" button (equip this item onto another mob) only belongs right after the very
+        // last assigned mob, wherever that lands - on every earlier page that index falls outside
+        // MOBS_PAGE_SIZE and simply doesn't render.
+        int addIndexOnPage = assigned.size() - start;
+        if (addIndexOnPage >= 0 && addIndexOnPage < MOBS_PAGE_SIZE) {
+            inventory.setItem(MOBS_LIST_START + addIndexOnPage, addButton(messages, locale, "gui.item-editor.mobs.add"));
         }
     }
 
-    private static void renderMobPicker(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
+    private static void renderMobPicker(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
         Messages messages = plugin.getMessages();
-        ItemTemplate template = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow();
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
         List<String> available = unassignedMobTypes(plugin, template.id());
-        for (int i = 0; i < available.size() && CONTENT_START + i < SIZE; i++) {
-            String mobType = available.get(i);
+        int page = clampMobsPage(holder.mobsPickerPage(), available.size());
+        holder.setMobsPickerPage(page);
+        renderMobsPageControls(messages, inventory, locale, page, available.size());
+
+        int start = page * MOBS_PAGE_SIZE;
+        for (int i = 0; i < MOBS_PAGE_SIZE && start + i < available.size(); i++) {
+            String mobType = available.get(start + i);
             ItemStack icon = named(Material.ZOMBIE_HEAD, messages.render(locale, "gui.item-editor.mobs.icon", Placeholder.unparsed("mob", mobType)));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(List.of(
                     messages.render(locale, "gui.item-editor.mobs.hint-equip-1"),
                     messages.render(locale, "gui.item-editor.mobs.hint-equip-2")));
             icon.setItemMeta(meta);
-            inventory.setItem(CONTENT_START + i, icon);
+            inventory.setItem(MOBS_LIST_START + i, icon);
         }
         if (available.isEmpty()) {
-            inventory.setItem(CONTENT_START, named(Material.PAPER, messages.render(locale, "gui.item-editor.mobs.all-equipped")));
+            inventory.setItem(MOBS_LIST_START, named(Material.PAPER, messages.render(locale, "gui.item-editor.mobs.all-equipped")));
         }
         ItemStack back = named(Material.ARROW, messages.render(locale, "gui.item-editor.back-red"));
         ItemMeta backMeta = back.getItemMeta();
         backMeta.lore(List.of(messages.render(locale, "gui.item-editor.mobs.hint-back")));
         back.setItemMeta(backMeta);
         inventory.setItem(PREVIEW_SLOT, back);
+    }
+
+    /** Shared Prev/Info/Next control strip for both the assigned-mobs list and the picker - same relative layout as {@link ItemListMenu}'s own row, just offset into MOBS's content area. */
+    private static void renderMobsPageControls(Messages messages, Inventory inventory, Locale locale, int page, int totalCount) {
+        int totalPages = lastMobsPage(totalCount) + 1;
+        ItemStack info = named(Material.BOOK, messages.render(locale, "gui.item-editor.mobs.page",
+                Placeholder.unparsed("page", String.valueOf(page + 1)), Placeholder.unparsed("total", String.valueOf(totalPages))));
+        ItemMeta infoMeta = info.getItemMeta();
+        infoMeta.lore(List.of(messages.render(locale, "gui.item-editor.mobs.count", Placeholder.unparsed("count", String.valueOf(totalCount)))));
+        info.setItemMeta(infoMeta);
+        inventory.setItem(MOBS_INFO_SLOT, info);
+
+        if (page > 0) {
+            inventory.setItem(MOBS_PREV_SLOT, named(Material.ARROW, messages.render(locale, "gui.item-editor.mobs.prev-page")));
+        }
+        if (page < totalPages - 1) {
+            inventory.setItem(MOBS_NEXT_SLOT, named(Material.ARROW, messages.render(locale, "gui.item-editor.mobs.next-page")));
+        }
+    }
+
+    private static int lastMobsPage(int count) {
+        return count <= 0 ? 0 : (count - 1) / MOBS_PAGE_SIZE;
+    }
+
+    private static int clampMobsPage(int page, int count) {
+        return Math.max(0, Math.min(page, lastMobsPage(count)));
     }
 
     private static Optional<String> mobEquipmentSlot(PurrtechPVE plugin, String mobType, UUID templateId) {
@@ -965,9 +1032,28 @@ public final class ItemEditorMenu {
         }
         ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
         List<String> assigned = assignedMobTypes(plugin, template.id());
-        int index = slot - CONTENT_START;
+        int page = clampMobsPage(holder.mobsPage(), assigned.size());
+        if (slot == MOBS_PREV_SLOT) {
+            if (page > 0) {
+                holder.setMobsPage(page - 1);
+                render(plugin, holder.getInventory(), holder, locale);
+            }
+            return;
+        }
+        if (slot == MOBS_NEXT_SLOT) {
+            if (page < lastMobsPage(assigned.size())) {
+                holder.setMobsPage(page + 1);
+                render(plugin, holder.getInventory(), holder, locale);
+            }
+            return;
+        }
+        if (slot < MOBS_LIST_START) {
+            return;
+        }
+        int index = page * MOBS_PAGE_SIZE + (slot - MOBS_LIST_START);
         if (index == assigned.size()) {
             holder.setPickerOpen(true);
+            holder.setMobsPickerPage(0);
             render(plugin, holder.getInventory(), holder, locale);
             return;
         }
@@ -995,7 +1081,25 @@ public final class ItemEditorMenu {
         }
         ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
         List<String> available = unassignedMobTypes(plugin, template.id());
-        int index = slot - CONTENT_START;
+        int page = clampMobsPage(holder.mobsPickerPage(), available.size());
+        if (slot == MOBS_PREV_SLOT) {
+            if (page > 0) {
+                holder.setMobsPickerPage(page - 1);
+                render(plugin, holder.getInventory(), holder, locale);
+            }
+            return;
+        }
+        if (slot == MOBS_NEXT_SLOT) {
+            if (page < lastMobsPage(available.size())) {
+                holder.setMobsPickerPage(page + 1);
+                render(plugin, holder.getInventory(), holder, locale);
+            }
+            return;
+        }
+        if (slot < MOBS_LIST_START) {
+            return;
+        }
+        int index = page * MOBS_PAGE_SIZE + (slot - MOBS_LIST_START);
         if (index < 0 || index >= available.size()) {
             return;
         }

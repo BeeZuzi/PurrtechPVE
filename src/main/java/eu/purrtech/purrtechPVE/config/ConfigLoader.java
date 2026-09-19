@@ -1,10 +1,14 @@
 package eu.purrtech.purrtechPVE.config;
 
+import eu.purrtech.purrtechPVE.item.ArmorClass;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
+import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -50,6 +54,24 @@ public final class ConfigLoader {
 
     public static String loadLocale(FileConfiguration config) {
         return config.getString("locale", "cs");
+    }
+
+    public static ArmorPenetrationConversionSettings loadArmorPenetrationConversion(FileConfiguration config) {
+        Map<ArmorClass, Map<ArmorClass, Double>> factors = new EnumMap<>(ArmorClass.class);
+        ConfigurationSection root = config.getConfigurationSection("armor-penetration-conversion");
+        for (ArmorClass from : ArmorClass.values()) {
+            Map<ArmorClass, Double> row = new EnumMap<>(ArmorClass.class);
+            ConfigurationSection fromSection = root != null ? root.getConfigurationSection(from.name().toLowerCase(Locale.ROOT)) : null;
+            for (ArmorClass to : ArmorClass.values()) {
+                if (from == to) {
+                    continue;
+                }
+                double value = fromSection != null ? fromSection.getDouble(to.name().toLowerCase(Locale.ROOT), 1.0) : 1.0;
+                row.put(to, value);
+            }
+            factors.put(from, row);
+        }
+        return new ArmorPenetrationConversionSettings(factors);
     }
 
     private static Set<String> toSet(List<String> values) {

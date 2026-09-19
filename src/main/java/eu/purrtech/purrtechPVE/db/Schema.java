@@ -51,6 +51,10 @@ final class Schema {
             // armor_class existed - see the enchantments migration below for why CREATE TABLE IF
             // NOT EXISTS alone isn't enough there.
             addColumnIfMissing(connection, "item_templates", "armor_class", "TEXT");
+            // Flat, vanilla-style armor points this one piece grants of its own armor_class - see
+            // ItemTemplate's javadoc. Live/unversioned just like armor_class itself, so it's a
+            // plain column here, never in item_template_snapshot.
+            addColumnIfMissing(connection, "item_templates", "armor_amount", "REAL NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, "item_templates", "custom_lore", "TEXT");
             addColumnIfMissing(connection, "item_templates", "hidden_headers", "TEXT");
             addColumnIfMissing(connection, "item_templates", "lore_order", "TEXT");

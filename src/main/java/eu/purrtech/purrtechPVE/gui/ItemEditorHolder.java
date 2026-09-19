@@ -16,6 +16,11 @@ public final class ItemEditorHolder implements InventoryHolder {
     // picker of the not-yet-configured options instead. One flag is enough since only one tab is
     // ever visible at a time and switchTab() always resets it.
     private boolean pickerOpen;
+    // MOBS tab pagination - separate pages for the assigned-mobs list and the picker, since they're
+    // different-length lists and switching between them (or tabs) shouldn't carry a stale page
+    // number over onto the other list. Reset to 0 by switchTab()/entering the picker.
+    private int mobsPage;
+    private int mobsPickerPage;
 
     public ItemEditorHolder(String templateKey, ItemEditorTab tab) {
         this.templateKey = templateKey;
@@ -49,5 +54,21 @@ public final class ItemEditorHolder implements InventoryHolder {
 
     public void setPickerOpen(boolean pickerOpen) {
         this.pickerOpen = pickerOpen;
+    }
+
+    public int mobsPage() {
+        return mobsPage;
+    }
+
+    public void setMobsPage(int mobsPage) {
+        this.mobsPage = mobsPage;
+    }
+
+    public int mobsPickerPage() {
+        return mobsPickerPage;
+    }
+
+    public void setMobsPickerPage(int mobsPickerPage) {
+        this.mobsPickerPage = mobsPickerPage;
     }
 }

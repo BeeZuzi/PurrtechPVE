@@ -30,12 +30,18 @@ import java.util.Locale;
 public final class LoreOrderMenu {
 
     private static final int SIZE = 54;
-    // Bottom-right corner for Back/Close, same relative feel as every other menu in this GUI -
-    // everything before them (slots 0-48) is available for line icons, comfortably more than any
+    // Bottom-right corner for Add/Back/Close, same relative feel as every other menu in this GUI -
+    // everything before them (slots 0-47) is available for line icons, comfortably more than any
     // realistic item's lore will ever need.
+    private static final int ADD_SLOT = 48;
     private static final int BACK_SLOT = 49;
     private static final int CLOSE_SLOT = 53;
-    private static final int CONTENT_CAPACITY = BACK_SLOT;
+    private static final int CONTENT_CAPACITY = ADD_SLOT;
+    // Only custom#<index> lines (see LoreLine's javadoc) can be removed here - every other line is
+    // auto-generated from its own tab's data (a damage entry, an attribute, bleed/crit, ...), which
+    // already has its own dedicated shift-click-delete affordance there; deleting it from this
+    // reordering screen instead would just be a second, redundant way to do the same thing.
+    private static final String CUSTOM_LINE_PREFIX = "custom#";
 
     private LoreOrderMenu() {
     }
@@ -68,16 +74,31 @@ public final class LoreOrderMenu {
                     Placeholder.unparsed("position", String.valueOf(i + 1)), Placeholder.unparsed("total", String.valueOf(lines.size()))));
             lore.add(messages.render(locale, "gui.lore-order.hint-left"));
             lore.add(messages.render(locale, "gui.lore-order.hint-right"));
+            if (line.key().startsWith(CUSTOM_LINE_PREFIX)) {
+                lore.add(messages.render(locale, "gui.lore-order.hint-shift-delete"));
+            }
             meta.lore(lore);
             icon.setItemMeta(meta);
             inventory.setItem(i, icon);
         }
+
+        ItemStack addButton = named(Material.LIME_DYE, messages.render(locale, "gui.lore-order.add"));
+        ItemMeta addMeta = addButton.getItemMeta();
+        addMeta.lore(List.of(
+                messages.render(locale, "gui.lore-order.add-hint-1"),
+                messages.render(locale, "gui.lore-order.add-hint-2")));
+        addButton.setItemMeta(addMeta);
+        inventory.setItem(ADD_SLOT, addButton);
 
         inventory.setItem(BACK_SLOT, named(Material.ARROW, messages.render(locale, "gui.back")));
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
     }
 
     public static void handleClick(PurrtechPVE plugin, Player player, LoreOrderHolder holder, int slot, ClickType click) {
+        if (slot == ADD_SLOT) {
+            promptAddLine(plugin, player, holder);
+            return;
+        }
         if (slot == BACK_SLOT) {
             ItemEditorMenu.open(plugin, player, holder.templateKey(), holder.returnTab());
             return;
@@ -86,7 +107,7 @@ public final class LoreOrderMenu {
             player.closeInventory();
             return;
         }
-        if (slot < 0 || slot >= CONTENT_CAPACITY || (click != ClickType.LEFT && click != ClickType.RIGHT)) {
+        if (slot < 0 || slot >= CONTENT_CAPACITY) {
             return;
         }
         List<LoreLine> lines = plugin.getItemTemplateService().loreLines(holder.templateKey());
@@ -94,8 +115,52 @@ public final class LoreOrderMenu {
             return;
         }
         LoreLine line = lines.get(slot);
+        if (click.isShiftClick()) {
+            removeLine(plugin, player, holder, line);
+            return;
+        }
+        if (click != ClickType.LEFT && click != ClickType.RIGHT) {
+            return;
+        }
         plugin.getItemTemplateService().moveLoreLine(holder.templateKey(), line.key(), click == ClickType.LEFT);
         render(plugin, holder.getInventory(), holder.templateKey(), player.locale());
+    }
+
+    private static void removeLine(PurrtechPVE plugin, Player player, LoreOrderHolder holder, LoreLine line) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
+        if (!line.key().startsWith(CUSTOM_LINE_PREFIX)) {
+            player.sendMessage(messages.render(locale, "gui.lore-order.cannot-remove-here"));
+            return;
+        }
+        int index = Integer.parseInt(line.key().substring(CUSTOM_LINE_PREFIX.length()));
+        plugin.getItemTemplateService().removeCustomLoreLine(holder.templateKey(), index);
+        player.sendMessage(messages.render(locale, "gui.lore-order.removed"));
+        render(plugin, holder.getInventory(), holder.templateKey(), locale);
+    }
+
+    /** Typed text is stored as-is (raw MiniMessage, same as {@code /pve item lore set}) - see {@code ItemRenderer.parseMiniMessage}, which is what turns it back into a real {@link Component} at render time, tags included. */
+    private static void promptAddLine(PurrtechPVE plugin, Player player, LoreOrderHolder holder) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
+        player.closeInventory();
+        player.sendMessage(messages.render(locale, "gui.lore-order.add-prompt-1"));
+        player.sendMessage(messages.render(locale, "gui.lore-order.add-prompt-2"));
+        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
+            if (isCancel(rawInput)) {
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
+                open(plugin, p, holder.templateKey(), holder.returnTab());
+                return;
+            }
+            plugin.getItemTemplateService().addCustomLoreLine(holder.templateKey(), rawInput);
+            p.sendMessage(messages.render(locale, "gui.lore-order.added"));
+            open(plugin, p, holder.templateKey(), holder.returnTab());
+        });
+    }
+
+    private static boolean isCancel(String rawInput) {
+        String normalized = rawInput.trim().toLowerCase(Locale.ROOT);
+        return normalized.equals("zrusit") || normalized.equals("zrušit") || normalized.equals("cancel");
     }
 
     private static ItemStack named(Material material, Component name) {

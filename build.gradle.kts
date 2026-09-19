@@ -26,7 +26,7 @@ dependencies {
     // MythicMobs integration is soft-depend - guarded at runtime behind an
     // isPluginEnabled("MythicMobs") check in mythicmobs/MythicMobsBridge, the
     // only class allowed to import this API.
-    compileOnly("io.lumine:Mythic-Dist:5.10.0")
+    compileOnly("io.lumine:Mythic-Dist:5.12.1")
 
     // Bundled with the Paper/Leaf server runtime and used by ValhallaMmoBulkImporter to
     // read their items.json - not shaded. Version pinned to whatever 1.21.11 actually

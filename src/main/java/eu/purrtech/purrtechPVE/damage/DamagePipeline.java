@@ -20,6 +20,10 @@ public final class DamagePipeline {
     public static final double MIN_RESIST_PERCENT = -200.0;
     public static final double MAX_RESIST_PERCENT = 95.0;
 
+    /** Vanilla's own classic (pre-1.9, non-toughness) armor formula: each point is a flat 4% reduction, capped at 20 points (80%). */
+    private static final double ARMOR_POINTS_CAP = 20.0;
+    private static final double ARMOR_REDUCTION_PER_POINT = 0.04;
+
     private DamagePipeline() {
     }
 
@@ -64,6 +68,17 @@ public final class DamagePipeline {
 
     public static double clamp(double resistPercent) {
         return Math.max(MIN_RESIST_PERCENT, Math.min(MAX_RESIST_PERCENT, resistPercent));
+    }
+
+    /**
+     * The flat, vanilla-style "armor points" multiplier ({@code eu.purrtech.purrtechPVE.item.ItemTemplate.armorAmount},
+     * pooled per class by {@code EquipmentResolver.resolveArmorPoints}) - applied to the fully-resolved total as
+     * a separate multiplicative layer on top of {@link #apply}'s percent-based reduction, mirroring vanilla's own
+     * armor {@code DamageModifier} rather than folding into the per-type resist map.
+     */
+    public static double armorMultiplier(double armorPoints) {
+        double clamped = Math.min(ARMOR_POINTS_CAP, Math.max(0, armorPoints));
+        return 1 - clamped * ARMOR_REDUCTION_PER_POINT;
     }
 
     /** @param perType post-resist damage amount per damage type key - sums to {@code total} (barring the floor-at-0 on total). */

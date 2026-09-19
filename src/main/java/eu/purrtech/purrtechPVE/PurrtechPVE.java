@@ -5,6 +5,7 @@ import eu.purrtech.purrtechPVE.combat.DpsTracker;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
 import eu.purrtech.purrtechPVE.command.PveCommand;
 import eu.purrtech.purrtechPVE.config.AccessorySettings;
+import eu.purrtech.purrtechPVE.config.ArmorPenetrationConversionSettings;
 import eu.purrtech.purrtechPVE.config.CombatFeedbackSettings;
 import eu.purrtech.purrtechPVE.config.ConfigLoader;
 import eu.purrtech.purrtechPVE.config.WorldToggleSettings;
@@ -64,8 +65,10 @@ public final class PurrtechPVE extends JavaPlugin {
     private MobEquipmentRepository mobEquipmentRepository;
     private ArmorClassProfileRepository armorClassProfileRepository;
     private CombatFeedbackSettings combatFeedbackSettings;
+    private ArmorPenetrationConversionSettings armorPenetrationConversionSettings;
     private DpsTracker dpsTracker;
     private ItemRenderer itemRenderer;
+    private EquipmentResolver equipmentResolver;
     private CombatDamageListener combatDamageListener;
     private TrinketAttributeListener trinketAttributeListener;
     // Captures every repository MythicMobsBridge/MythicMobEquipmentListener setup needs - built
@@ -87,6 +90,7 @@ public final class PurrtechPVE extends JavaPlugin {
         worldToggles = ConfigLoader.loadWorldToggles(getConfig());
         accessorySettings = ConfigLoader.loadAccessorySettings(getConfig());
         combatFeedbackSettings = ConfigLoader.loadCombatFeedbackSettings(getConfig());
+        armorPenetrationConversionSettings = ConfigLoader.loadArmorPenetrationConversion(getConfig());
         dpsTracker = new DpsTracker();
 
         damageTypeRegistry = new DamageTypeRegistry();
@@ -134,9 +138,10 @@ public final class PurrtechPVE extends JavaPlugin {
                 typeModifierRepository, enchantmentRepository, armorPenetrationRepository, bleedEffectRepository,
                 criticalEffectRepository, attributeModifierRepository, itemRenderer);
         mythicMobsSetup.run();
-        EquipmentResolver equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
+        equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
                 mobDamageProfileRepository, armorClassProfileRepository, accessoryRepository, itemSetMemberRepository,
-                itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, mythicMobsBridge);
+                itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, mythicMobsBridge,
+                armorPenetrationConversionSettings);
 
         getLogger().info("MythicMobs integration: " + (mythicMobsBridge != null ? "enabled" : "not found, running standalone"));
         getLogger().info("World toggles: " + worldToggles.disabledWorlds().size() + " disabled world(s), "
@@ -197,10 +202,12 @@ public final class PurrtechPVE extends JavaPlugin {
         worldToggles = ConfigLoader.loadWorldToggles(getConfig());
         accessorySettings = ConfigLoader.loadAccessorySettings(getConfig());
         combatFeedbackSettings = ConfigLoader.loadCombatFeedbackSettings(getConfig());
+        armorPenetrationConversionSettings = ConfigLoader.loadArmorPenetrationConversion(getConfig());
 
         itemRenderer.refresh(messages, defaultLocale);
         combatDamageListener.refresh(worldToggles, combatFeedbackSettings);
         trinketAttributeListener.refresh(accessorySettings);
+        equipmentResolver.refresh(armorPenetrationConversionSettings);
         mythicMobsSetup.run();
 
         getLogger().info("Reloaded config.yml + lang/*.yml. World toggles: " + worldToggles.disabledWorlds().size()
@@ -320,6 +327,10 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public CombatFeedbackSettings getCombatFeedbackSettings() {
         return combatFeedbackSettings;
+    }
+
+    public ArmorPenetrationConversionSettings getArmorPenetrationConversionSettings() {
+        return armorPenetrationConversionSettings;
     }
 
     public DpsTracker getDpsTracker() {

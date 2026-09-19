@@ -92,7 +92,7 @@ public final class ItemTemplateService {
         }
         long now = System.currentTimeMillis();
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, List.of(), List.of(),
-                baseMaterial, baseItemSnapshot, customModelData, false, List.of(), null, 1, 1, now, now, createdBy);
+                baseMaterial, baseItemSnapshot, customModelData, false, List.of(), null, 0, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
         snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, List.of()));
         return template;
@@ -370,6 +370,20 @@ public final class ItemTemplateService {
     }
 
     /**
+     * Renames the template - {@code /pve item rename}. {@code displayName} is raw MiniMessage, same
+     * as on {@link #create}, parsed back into a real {@link net.kyori.adventure.text.Component} at
+     * render time (see {@code ItemRenderer}). A stat like any other, so it bumps version.
+     */
+    public ItemTemplate setDisplayName(String key, String displayName) {
+        ItemTemplate template = requireTemplate(key);
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), displayName, template.customLore(),
+                template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
+                template.createdAt(), template.updatedAt(), template.createdBy());
+        return bumpVersion(updated);
+    }
+
+    /**
      * Extra, admin-authored lore lines (each a raw MiniMessage string) shown above whatever stat
      * lines get auto-generated - a stat like any other, so it bumps version. See {@link
      * ItemTemplate}'s javadoc for why this exists (imported items would otherwise lose their
@@ -379,9 +393,38 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), List.copyOf(lines),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
                 template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
+    }
+
+    /**
+     * Appends one raw-MiniMessage line to the end of {@code customLore} - {@code LoreOrderMenu}'s
+     * "add" button. A brand-new {@code custom#<index>} key is never in {@code loreOrder} yet, so
+     * {@link LoreLine#canonicalize} naturally places it last on its own, without touching the
+     * stored order of any existing line.
+     */
+    public ItemTemplate addCustomLoreLine(String key, String line) {
+        ItemTemplate template = requireTemplate(key);
+        List<String> lines = new ArrayList<>(template.customLore());
+        lines.add(line);
+        return setCustomLore(key, lines);
+    }
+
+    /**
+     * Removes the {@code customLore} line at {@code index} - {@code LoreOrderMenu}'s shift-click
+     * delete. Same index-is-identity caveat as {@link LoreLine}'s javadoc: every custom line after
+     * {@code index} shifts down and is treated as a new, unpositioned line on the next render. A
+     * no-op if {@code index} is already out of range (the line vanished between render and click).
+     */
+    public ItemTemplate removeCustomLoreLine(String key, int index) {
+        ItemTemplate template = requireTemplate(key);
+        List<String> lines = new ArrayList<>(template.customLore());
+        if (index < 0 || index >= lines.size()) {
+            return template;
+        }
+        lines.remove(index);
+        return setCustomLore(key, lines);
     }
 
     /**
@@ -397,7 +440,7 @@ public final class ItemTemplateService {
         }
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 List.copyOf(hidden), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
                 template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
@@ -428,7 +471,7 @@ public final class ItemTemplateService {
         }
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), order, template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
                 template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
@@ -451,7 +494,7 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(), template.version(), template.syncedVersion(),
+                !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
                 template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
@@ -469,8 +512,24 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), armorClass, template.version(), template.syncedVersion(), template.createdAt(),
-                System.currentTimeMillis(), template.createdBy());
+                template.trinket(), template.allowedSlots(), armorClass, template.armorAmount(), template.version(), template.syncedVersion(),
+                template.createdAt(), System.currentTimeMillis(), template.createdBy());
+        templateRepository.update(updated);
+        return updated;
+    }
+
+    /**
+     * How many flat, vanilla-style armor points this template's {@code armorClass} grants - see
+     * {@link ItemTemplate}'s javadoc. Same live/unversioned treatment as {@link #setArmorClass}
+     * itself; meaningless while {@code armorClass} is {@code null}, but not rejected in that case
+     * since an admin may set the amount before picking the class in {@code ItemEditorMenu}.
+     */
+    public ItemTemplate setArmorAmount(String key, double amount) {
+        ItemTemplate template = requireTemplate(key);
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
+                template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), amount, template.version(), template.syncedVersion(),
+                template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -486,7 +545,7 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate withNewBase = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), newBaseMaterial, newBaseItemSnapshot, newCustomModelData, template.trinket(),
-                template.allowedSlots(), template.armorClass(), template.version(), template.syncedVersion(), template.createdAt(),
+                template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(), template.createdAt(),
                 template.updatedAt(), template.createdBy());
         return bumpVersion(withNewBase);
     }
