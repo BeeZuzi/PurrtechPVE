@@ -16,7 +16,9 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,6 +45,37 @@ public final class ItemTemplateService {
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final DamageTypeRegistry damageTypeRegistry;
     private final ItemRenderer renderer;
+
+    /**
+     * {@code renderGiveable}'s last result per template key, valid as long as {@link
+     * RenderFingerprint#of} still matches. Exists because {@code ItemListMenu}/{@code
+     * SetEditorMenu} each call {@code renderGiveable} once per visible icon on every page
+     * open/reopen - without this, deleting one template from a full page re-triggers up to 7
+     * sequential DB queries for every OTHER still-unchanged template just to redraw the grid,
+     * which is exactly the main-thread stall reported as "lag when deleting an item".
+     */
+    private final Map<String, RenderCacheEntry> renderCache = new HashMap<>();
+
+    private record RenderCacheEntry(RenderFingerprint fingerprint, ItemStack rendered) {
+    }
+
+    /**
+     * Everything {@code renderGiveable} depends on that DOESN'T bump {@code version} - see
+     * {@link #setAllowedSlots}/{@link #setArmorClass}/{@link #setArmorAmount}'s javadoc - plus
+     * {@code version} itself as a stand-in for every other field, since those only ever change via
+     * a {@code bumpVersion()} call. Deliberately NOT "the whole {@code ItemTemplate}": its {@code
+     * baseItemSnapshot} is a {@code byte[]}, and record-generated {@code equals} compares array
+     * components by reference, not content - a fresh {@code templateRepository.findByKey} read
+     * always deserializes a new array instance, so comparing whole records would never match and
+     * silently defeat this cache for any template with a captured snapshot.
+     */
+    private record RenderFingerprint(int version, boolean trinket, ArmorClass armorClass, double armorAmount,
+                                      List<String> allowedSlots) {
+        static RenderFingerprint of(ItemTemplate template) {
+            return new RenderFingerprint(template.version(), template.trinket(), template.armorClass(),
+                    template.armorAmount(), template.allowedSlots());
+        }
+    }
 
     public ItemTemplateService(ItemTemplateRepository templateRepository,
                                 DamageContributionRepository damageContributionRepository,
@@ -99,6 +132,7 @@ public final class ItemTemplateService {
     }
 
     public boolean delete(String key) {
+        renderCache.remove(key);
         return templateRepository.delete(key);
     }
 
@@ -552,6 +586,11 @@ public final class ItemTemplateService {
 
     public ItemStack renderGiveable(String key) {
         ItemTemplate template = requireTemplate(key);
+        RenderFingerprint fingerprint = RenderFingerprint.of(template);
+        RenderCacheEntry cached = renderCache.get(key);
+        if (cached != null && cached.fingerprint().equals(fingerprint)) {
+            return cached.rendered().clone();
+        }
         List<DamageContribution> contributions = damageContributionRepository.findByTemplate(template.id());
         List<TypeModifier> modifiers = typeModifierRepository.findByTemplate(template.id());
         List<TemplateEnchantment> enchantments = enchantmentRepository.findByTemplate(template.id());
@@ -559,7 +598,9 @@ public final class ItemTemplateService {
         BleedEffect bleed = bleedEffectRepository.findByTemplate(template.id()).orElse(null);
         CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
         List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
-        return renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical, attributeModifiers);
+        ItemStack rendered = renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical, attributeModifiers);
+        renderCache.put(key, new RenderCacheEntry(fingerprint, rendered));
+        return rendered.clone();
     }
 
     /** Real, fully-rendered, correctly-ordered lore lines - what {@code LoreOrderMenu} previews and reorders one at a time. */

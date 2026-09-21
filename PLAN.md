@@ -2790,6 +2790,39 @@
   - Ověřeno offline: čistý `compileJava`, `compileTestJava`, `test` i celý
     `build` task.
 
+- **Cache pro renderGiveable proti lagu při mazání itemu (2026-09-20), na žádost**: "Zkontroluj to
+  že když se maže item zdali to laguje protože u nás na serveru se tak děje, když takj to uprav
+  tak aby se ne nedělo."
+  - Diagnóza: `ItemListMenu.handleClick`'s shift+right-click delete zavolá `delete()` a hned nato
+    `reopen()`, což celou stránku znovu vykreslí - a `render()` volá `renderGiveable(key)` pro
+    KAŽDOU viditelnou ikonu (až 45 na stránku). `ItemTemplateService.renderGiveable` přitom dělalo
+    7 samostatných synchronních DB dotazů (damage contributions, type modifiers, enchantments,
+    armor penetration, bleed, critical, attribute modifiers) na jeden template - bez jakéhokoli
+    cache. Jedno smazání tak mohlo main threadu vynutit až 315 sekvenčních blokujících DB
+    round-tripů jen kvůli překreslení zbylých, přitom nezměněných itemů. To samé (v menší míře,
+    podle velikosti stránky) platí i pro obyčejné otevření/přepnutí stránky nebo `SetEditorMenu`.
+  - Žádný listener na fyzické vyhazování/despawn itemů v projektu není (ověřeno grepem) - "mazání
+    itemu" tedy znamená mazání šablony (`/pve item delete`, nebo shift+right-click v
+    `ItemListMenu`), ne pád/zmizení předmětu ve světě.
+  - Oprava: `ItemTemplateService` teď má `renderCache` (`Map<String, RenderCacheEntry>`
+    klíčovaný template key), který si pamatuje poslední vykreslený `ItemStack` spolu s
+    `RenderFingerprint` (verze + přesně ta pole, co NEBUMPUJÍ verzi - `trinket`, `armorClass`,
+    `armorAmount`, `allowedSlots`, viz `setAllowedSlots`/`setArmorClass`/`setArmorAmount`'s
+    javadoc). Při shodě fingerprintu vrátí `renderGiveable` jen `cached.rendered().clone()` bez
+    jediného DB dotazu; `delete()` cache pro smazaný klíč rovnou zahazuje.
+  - Záměrně NEporovnáváno přes celý `ItemTemplate` record - jeho `baseItemSnapshot` je `byte[]` a
+    generovaný `equals()` u recordů srovnává pole typu pole podle reference, ne obsahu, takže
+    čerstvě načtený řádek z DB by nikdy neodpovídal cachované instanci a cache by byla k ničemu u
+    každého template s uloženým snapshotem. `RenderFingerprint` se tomu vyhýbá tím, že
+    `baseItemSnapshot`/`displayName`/lore/atd. vůbec neporovnává přímo - ty se mění jen přes
+    metody co bumpují `version`, takže samotné `version` je za ně spolehlivá náhrada.
+  - Benefit je stejný i pro `SetEditorMenu`, `ItemEditorMenu` a `/pve item give`, protože všechny
+    volají stejný `renderGiveable` - nešlo o úpravu specifickou jen pro `ItemListMenu`.
+  - Testování `renderGiveable` samo o sobě vyžaduje živý Bukkit server (viz
+    `ItemTemplateServiceTest`'s javadoc - "no MockBukkit in this project"), takže nová
+    jednotková logika je ověřená jen offline buildem/testy (`compileJava`, `compileTestJava`,
+    `test`, celý `build` - vše prošlo čistě); reálné ověření na živém serveru je na uživateli.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,
