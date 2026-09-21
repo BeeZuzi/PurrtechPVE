@@ -80,6 +80,7 @@ public final class ItemEditorMenu {
     private static final int LORE_ORDER_SLOT = 12;
     private static final int PUBLISH_BUTTON_SLOT = 22;
     private static final int CONTENT_START = 18;
+    private static final int PUBLISH_HOLOGRAM_TOGGLE_SLOT = CONTENT_START;
     // MOBS tab pagination - unlike every other tab's content list, MythicMobs mob type lists can
     // comfortably exceed the remaining content slots, so its content area sacrifices its first 3
     // slots for a Prev/Info/Next control strip (same shape as ItemListMenu's own row), shared by
@@ -1343,13 +1344,29 @@ public final class ItemEditorMenu {
         buttonMeta.lore(buttonLore);
         button.setItemMeta(buttonMeta);
         inventory.setItem(PUBLISH_BUTTON_SLOT, button);
+
+        boolean hologramDisabled = plugin.getItemHologramRepository().isDisabled(template.id());
+        Material hologramMaterial = hologramDisabled ? Material.GRAY_DYE : Material.LIME_DYE;
+        String hologramKey = hologramDisabled ? "gui.item-editor.publish.hologram-off" : "gui.item-editor.publish.hologram-on";
+        ItemStack hologramIcon = named(hologramMaterial, messages.render(locale, hologramKey));
+        ItemMeta hologramMeta = hologramIcon.getItemMeta();
+        hologramMeta.lore(List.of(messages.render(locale, "gui.item-editor.publish.hologram-hint")));
+        hologramIcon.setItemMeta(hologramMeta);
+        inventory.setItem(PUBLISH_HOLOGRAM_TOGGLE_SLOT, hologramIcon);
     }
 
     private static void handlePublishClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
+        Locale locale = player.locale();
+        if (slot == PUBLISH_HOLOGRAM_TOGGLE_SLOT) {
+            ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
+            boolean currentlyDisabled = plugin.getItemHologramRepository().isDisabled(template.id());
+            plugin.getItemHologramRepository().setDisabled(template.id(), !currentlyDisabled);
+            render(plugin, holder.getInventory(), holder, locale);
+            return;
+        }
         if (slot != PUBLISH_BUTTON_SLOT) {
             return;
         }
-        Locale locale = player.locale();
         plugin.getItemTemplateService().propagate(holder.templateKey());
         int touched = plugin.getItemSyncService().resyncAllOnlinePlayers();
         player.sendMessage(plugin.getMessages().render(locale, "gui.item-editor.publish.done", Placeholder.unparsed("count", String.valueOf(touched))));

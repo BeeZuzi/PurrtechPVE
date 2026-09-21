@@ -56,6 +56,13 @@ public final class ConfigLoader {
         return config.getString("locale", "cs");
     }
 
+    public static DropHologramSettings loadDropHologramSettings(FileConfiguration config) {
+        DropHologramSettings defaults = DropHologramSettings.defaults();
+        ConfigurationSection dropHologram = config.getConfigurationSection("drop-hologram");
+        boolean enabled = dropHologram != null ? dropHologram.getBoolean("enabled", defaults.enabled()) : defaults.enabled();
+        return new DropHologramSettings(enabled);
+    }
+
     public static ArmorPenetrationConversionSettings loadArmorPenetrationConversion(FileConfiguration config) {
         Map<ArmorClass, Map<ArmorClass, Double>> factors = new EnumMap<>(ArmorClass.class);
         ConfigurationSection root = config.getConfigurationSection("armor-penetration-conversion");

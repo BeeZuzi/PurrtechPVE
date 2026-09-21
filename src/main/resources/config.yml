@@ -16,6 +16,12 @@ pve:
   enabled: true
   disabled-worlds: []
 
+drop-hologram:
+  # Server-wide switch for the floating name hologram above items dropped in the world by this
+  # plugin (mob drops, /pve item give, etc). Off here overrides every per-item toggle - turn it
+  # off here instead of having to disable it on each item individually.
+  enabled: true
+
 combat:
   # Colors each damage-type number in the action-bar hit feedback by how effective it was
   # against the target instead of a flat attacker/defender color: yellow = target is weak to

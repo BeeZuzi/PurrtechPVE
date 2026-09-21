@@ -8,6 +8,7 @@ import eu.purrtech.purrtechPVE.config.AccessorySettings;
 import eu.purrtech.purrtechPVE.config.ArmorPenetrationConversionSettings;
 import eu.purrtech.purrtechPVE.config.CombatFeedbackSettings;
 import eu.purrtech.purrtechPVE.config.ConfigLoader;
+import eu.purrtech.purrtechPVE.config.DropHologramSettings;
 import eu.purrtech.purrtechPVE.config.WorldToggleSettings;
 import eu.purrtech.purrtechPVE.damage.DamageType;
 import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
@@ -19,6 +20,7 @@ import eu.purrtech.purrtechPVE.db.BleedEffectRepository;
 import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.Database;
+import eu.purrtech.purrtechPVE.db.ItemHologramRepository;
 import eu.purrtech.purrtechPVE.db.ItemSetDamageThresholdRepository;
 import eu.purrtech.purrtechPVE.db.ItemSetMemberRepository;
 import eu.purrtech.purrtechPVE.db.ItemSetModifierThresholdRepository;
@@ -31,6 +33,7 @@ import eu.purrtech.purrtechPVE.db.MobEquipmentRepository;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
 import eu.purrtech.purrtechPVE.gui.ItemEditorListener;
+import eu.purrtech.purrtechPVE.hologram.DropHologramListener;
 import eu.purrtech.purrtechPVE.item.ItemRenderer;
 import eu.purrtech.purrtechPVE.item.ItemSyncService;
 import eu.purrtech.purrtechPVE.item.ItemTemplateService;
@@ -74,6 +77,9 @@ public final class PurrtechPVE extends JavaPlugin {
     private EquipmentResolver equipmentResolver;
     private CombatDamageListener combatDamageListener;
     private TrinketAttributeListener trinketAttributeListener;
+    private DropHologramSettings dropHologramSettings;
+    private ItemHologramRepository itemHologramRepository;
+    private DropHologramListener dropHologramListener;
     // Captures every repository MythicMobsBridge/MythicMobEquipmentListener setup needs - built
     // once in onEnable (where those repositories are local variables) and re-run by reload(), so
     // an admin who installs/updates MythicMobs or fixes whatever broke its API detection can pick
@@ -94,6 +100,7 @@ public final class PurrtechPVE extends JavaPlugin {
         accessorySettings = ConfigLoader.loadAccessorySettings(getConfig());
         combatFeedbackSettings = ConfigLoader.loadCombatFeedbackSettings(getConfig());
         armorPenetrationConversionSettings = ConfigLoader.loadArmorPenetrationConversion(getConfig());
+        dropHologramSettings = ConfigLoader.loadDropHologramSettings(getConfig());
         dpsTracker = new DpsTracker();
 
         damageTypeRegistry = new DamageTypeRegistry();
@@ -112,6 +119,7 @@ public final class PurrtechPVE extends JavaPlugin {
         accessoryRepository = new AccessoryRepository(database);
         mobEquipmentRepository = new MobEquipmentRepository(database);
         mobDropRepository = new MobDropRepository(database);
+        itemHologramRepository = new ItemHologramRepository(database);
         ItemSetRepository itemSetRepository = new ItemSetRepository(database);
         ItemSetMemberRepository itemSetMemberRepository = new ItemSetMemberRepository(database);
         ItemSetDamageThresholdRepository itemSetDamageThresholdRepository = new ItemSetDamageThresholdRepository(database);
@@ -169,6 +177,8 @@ public final class PurrtechPVE extends JavaPlugin {
         getServer().getPluginManager().registerEvents(trinketAttributeListener, this);
         itemEditorListener = new ItemEditorListener(this);
         getServer().getPluginManager().registerEvents(itemEditorListener, this);
+        dropHologramListener = new DropHologramListener(this, dropHologramSettings.enabled());
+        getServer().getPluginManager().registerEvents(dropHologramListener, this);
 
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(PveCommand.create(this), "PurrtechPVE admin commands"));
@@ -209,11 +219,13 @@ public final class PurrtechPVE extends JavaPlugin {
         accessorySettings = ConfigLoader.loadAccessorySettings(getConfig());
         combatFeedbackSettings = ConfigLoader.loadCombatFeedbackSettings(getConfig());
         armorPenetrationConversionSettings = ConfigLoader.loadArmorPenetrationConversion(getConfig());
+        dropHologramSettings = ConfigLoader.loadDropHologramSettings(getConfig());
 
         itemRenderer.refresh(messages, defaultLocale);
         combatDamageListener.refresh(worldToggles, combatFeedbackSettings);
         trinketAttributeListener.refresh(accessorySettings);
         equipmentResolver.refresh(armorPenetrationConversionSettings);
+        dropHologramListener.refresh(dropHologramSettings.enabled());
         mythicMobsSetup.run();
         // Lang text is global, not per-template, so it never bumps any template's version - the
         // normal syncedVersion-gated resync would never pick this up. Force every stamped stack
@@ -358,5 +370,17 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public DpsTracker getDpsTracker() {
         return dpsTracker;
+    }
+
+    public ItemRenderer getItemRenderer() {
+        return itemRenderer;
+    }
+
+    public DropHologramSettings getDropHologramSettings() {
+        return dropHologramSettings;
+    }
+
+    public ItemHologramRepository getItemHologramRepository() {
+        return itemHologramRepository;
     }
 }

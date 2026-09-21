@@ -2858,6 +2858,37 @@
     na řádek moba pro úpravu druhého pole (přijatelný kompromis, stejně jako u ostatních
     picker-based tabů).
   - Ověřeno `compileJava`, `compileTestJava`, `test`, celý `build` - vše prošlo čistě.
+- **Hologram nad dropnutými itemy (2026-09-21), na žádost**: "Poté co doděláš předešlý úkol udělej
+  také to že se bude zobrazovat hologram nad všemi dropnutými itemy který jsou z pluginu PvE a tak
+  udělej možnost v menu to také vypnout nebo přes CMD. Dej to také i do configu aby se to dalo
+  vypnout celo serverově a nemuselo se myslet u itemu aby se to vypnulo."
+  - Nová tabulka `item_hologram_disabled` (jen `template_id PRIMARY KEY`) - přítomnost řádku =
+    hologram u téhle šablony vypnutý, nepřítomnost = zapnutý (default), stejná "živý/globální
+    config, ne verzovaný" filozofie jako `mob_equipment`/`mob_drop`. Záměrně NE nové pole v
+    `ItemTemplate` recordu (viz zkušenost s `armorAmount` - vyžadovalo by úpravu všech
+    konstruktorových volání napříč kódem), místo toho samostatná `ItemHologramRepository`
+    (`isDisabled`/`setDisabled`), stejný vzor jako `MobDropRepository`.
+  - Server-wide vypínač: `DropHologramSettings(enabled)` record + `ConfigLoader.
+    loadDropHologramSettings`, nová sekce `drop-hologram.enabled: true` v `config.yml` - vypnuto
+    tady přebije úplně všechno, i per-item nastavení, admin nemusí procházet každý item zvlášť.
+  - `DropHologramListener` (nový balíček `hologram/`) - na `ItemSpawnEvent` ověří přes
+    `ItemRenderer.readStamp` + `ItemTemplateService.findByKey`, jestli dropnutý item pochází z
+    tohohle pluginu, a pokud ano (a hologram není vypnutý globálně ani per-item), spawne
+    `TextDisplay` jako passenger dropnuté `Item` entity s jejím vlastním (už vyrenderovaným)
+    displayName - passenger jezdí/despawne spolu s itemem samo od sebe. `ItemDespawnEvent`/
+    `EntityPickupItemEvent`/`ItemMergeEvent` navíc ručně odstraní a `remove()`-nou display entitu
+    tam, kde item entity samotná přežívá dál (pickup do inventáře, merge do jiné hromádky), aby
+    nezůstal osiřelý display.
+  - `PurrtechPVE.java` dostal chybějící `getItemRenderer()` getter (potřeboval ho listener),
+    plus `getDropHologramSettings()`/`getItemHologramRepository()`; `reload()` teď taky volá
+    `dropHologramListener.refresh(dropHologramSettings.enabled())`, takže `/pve reload` zvládne
+    přepnutí server-wide configu bez restartu.
+  - **Menu**: nová ikonka v PUBLISH tabu (`ItemEditorMenu`, slot `CONTENT_START`=18, do teď
+    nevyužitý) - lime/gray dye stejným vzorem jako `headerToggleIcon`, klik přepne
+    `ItemHologramRepository` pro danou šablonu.
+  - **CMD**: `/pve item hologram <key> on|off` (nová `ON_OFF_SUGGESTIONS` konstanta,
+    `setItemHologram` executor).
+  - Ověřeno `compileJava`, `compileTestJava`, `test`, celý `build` - vše prošlo čistě.
 
 # PurrtechPVE — analýza a implementační plán
 

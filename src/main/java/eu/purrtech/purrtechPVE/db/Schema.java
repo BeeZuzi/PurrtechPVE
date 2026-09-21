@@ -270,6 +270,17 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_mob_drop_template ON mob_drop(template_id)");
 
+            // Per-item override for the world-drop hologram (see DropHologramListener) - presence
+            // of a row means "hologram disabled for this template", absence means "enabled" (the
+            // default), so a fresh install needs zero rows for every existing item to already show
+            // holograms. Live/global config like mob_equipment/mob_drop above, not
+            // versioned/snapshotted - it's a display setting, not part of the item itself.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_hologram_disabled (
+                        template_id TEXT PRIMARY KEY REFERENCES item_templates(id) ON DELETE CASCADE
+                    )
+                    """);
+
             // A template's applied enchantments (vanilla or otherwise registered in the server's
             // Enchantment registry) - a stat like damage contributions/type modifiers, so it's
             // versioned/snapshotted the same way (see item_template_snapshot.enchantments above).

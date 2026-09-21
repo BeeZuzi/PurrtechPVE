@@ -92,6 +92,7 @@ public final class PveCommand {
             Registry.ENCHANTMENT.keyStream().map(NamespacedKey::toString).toList());
 
     private static final SuggestionProvider<CommandSourceStack> ARMOR_CLASS_SUGGESTIONS = fixedSuggestions("light", "medium", "heavy");
+    private static final SuggestionProvider<CommandSourceStack> ON_OFF_SUGGESTIONS = fixedSuggestions("on", "off");
     private static final SuggestionProvider<CommandSourceStack> ARMOR_CLASS_OR_NONE_SUGGESTIONS = fixedSuggestions("light", "medium", "heavy", "none");
     private static final SuggestionProvider<CommandSourceStack> DAMAGE_MODE_SUGGESTIONS = fixedSuggestions("flat", "percent_of_total");
     private static final SuggestionProvider<CommandSourceStack> MODIFIER_CONTEXT_SUGGESTIONS = fixedSuggestions("wielded", "worn");
@@ -389,7 +390,13 @@ public final class PveCommand {
                                 .then(Commands.literal("clear")
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .suggests(templateKeys)
-                                                .executes(ctx -> clearItemCustomLore(plugin, ctx))))))
+                                                .executes(ctx -> clearItemCustomLore(plugin, ctx)))))
+                        .then(Commands.literal("hologram")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
+                                        .then(Commands.argument("state", StringArgumentType.word())
+                                                .suggests(ON_OFF_SUGGESTIONS)
+                                                .executes(ctx -> setItemHologram(plugin, ctx))))))
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
@@ -1246,6 +1253,29 @@ public final class PveCommand {
             return 0;
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.lore-cleared", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setItemHologram(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        String stateArg = StringArgumentType.getString(ctx, "state");
+
+        if (!"on".equalsIgnoreCase(stateArg) && !"off".equalsIgnoreCase(stateArg)) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.unknown-state", Placeholder.unparsed("state", stateArg)));
+            return 0;
+        }
+
+        var template = plugin.getItemTemplateService().findByKey(key);
+        if (template.isEmpty()) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        boolean enabled = "on".equalsIgnoreCase(stateArg);
+        plugin.getItemHologramRepository().setDisabled(template.get().id(), !enabled);
+        sender.sendMessage(plugin.getMessages().render(locale, enabled ? "item.hologram-on" : "item.hologram-off",
+                Placeholder.unparsed("key", key)));
         return Command.SINGLE_SUCCESS;
     }
 
