@@ -9,6 +9,7 @@ import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.Database;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
+import eu.purrtech.purrtechPVE.db.ReflectEffectRepository;
 import eu.purrtech.purrtechPVE.db.StunEffectRepository;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
@@ -56,6 +57,7 @@ class ItemTemplateServiceTest {
                 new BleedEffectRepository(database),
                 new CriticalEffectRepository(database),
                 new StunEffectRepository(database),
+                new ReflectEffectRepository(database),
                 new AttributeModifierRepository(database),
                 snapshotRepository,
                 new DamageTypeRegistry(),

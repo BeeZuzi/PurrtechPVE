@@ -2948,6 +2948,32 @@
     damage, mob drop, armor class amount, stun resist) - žádná kind-specifická logika navíc, protože
     `applyValue`/`currentState` už je jednotné.
   - Ověřeno `compileJava`, `compileTestJava`, `test`, celý `build` - vše prošlo čistě.
+- **Odražení poškození (2026-09-21), na žádost**: "Poté co budeš mít hotov tento úkol tak přidej také
+  vlastnost itemů a to je odražené poškození. Můžeš to dát ke krvácení a tak, ale bude fungovat když
+  to budeš mít v ruce nebo na sobě (případně trinkety). Bude tam šance na odražení a velikost
+  odraženého damage (obě v procentech)."
+  - Nový `ReflectEffect(chancePercent, reflectPercent, visible)` record, stejná "živý-verzovaný/
+    snapshotovaný" filozofie jako `BleedEffect`/`CriticalEffect`/`StunEffect` - nové pole v
+    `TemplateSnapshot` (mezi `stunEffect` a `attributeModifiers`), vlastní `ReflectEffectRepository`
+    + CRUD v `ItemTemplateService` (`setReflectEffect`/`removeReflectEffect`/`reflectEffect`/
+    `toggleReflectEffectVisibility`), 1:1 podle vzoru `StunEffectRepository`/`setStunEffect`.
+  - **Na rozdíl od bleed/crit/stun** (které čtou jen z jedné držené zbraně přes
+    `resolveWieldedStat`), reflect se počítá z **celé sady obránce** - nová
+    `EquipmentResolver.resolveReflectEffects(LivingEntity defender)` projde všechny nasazené kusy
+    (ruka + brnění + trinkety, respektuje `allowedSlots`) a vrátí `List<ReflectEffect>`, protože
+    každý kus může nezávisle přispět vlastním hodem (meč v ruce se štítem/prstenem s reflectem oba
+    fungují zároveň).
+  - **Mechanika v `CombatDamageListener`**: po vyřešení crit/bleed/stun se pro každý
+    `resolveReflectEffects(defender)` nezávisle hodí `chancePercent`, úspěšné hody sečtou
+    `total * reflectPercent / 100` do `reflected`, a pokud `reflected > 0`, zavolá se
+    `attacker.damage(reflected)` (bez damager argumentu) - záměrně ne `damage(amount, defender)`,
+    aby se předešlo nekonečné rekurzi přes `EntityDamageByEntityEvent` (prostý `damage(double)`
+    vyvolá jen `EntityDamageEvent`).
+  - **GUI**: nové ikonky `SLOT_REFLECT_CHANCE`/`SLOT_REFLECT_PERCENT` v SPECIAL_EFFECTS tabu (za stun
+    sloty), přes `ValueEditorMenu`/`ValueEditorKind` (`REFLECT_CHANCE`/`REFLECT_PERCENT`, viditelnost
+    v loru jako u ostatních efektů).
+  - **CMD**: `/pve item reflect set/remove <key> <chancePercent> <reflectPercent>`.
+  - Ověřeno `compileJava`, `compileTestJava`, `test`, celý `build` - vše prošlo čistě.
 
 # PurrtechPVE — analýza a implementační plán
 

@@ -19,6 +19,7 @@ import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemRenderer;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
+import eu.purrtech.purrtechPVE.item.ReflectEffect;
 import eu.purrtech.purrtechPVE.item.StunEffect;
 import eu.purrtech.purrtechPVE.item.TemplateSnapshot;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
@@ -214,6 +215,30 @@ public final class EquipmentResolver {
                     .orElse(0.0);
         }
         return total;
+    }
+
+    /**
+     * Every equipped piece's (weapon in hand, worn armor, trinkets alike) {@link ReflectEffect}, if
+     * complete (see {@link ReflectEffect#isComplete()}) - unlike bleed/critical/stun, which only
+     * ever look at the attacker's wielded weapon, this is resolved off the DEFENDER's whole
+     * equipped set, respecting each piece's allowedSlots, since it has to trigger whether the item
+     * carrying it is held or worn (including trinkets). See {@code CombatDamageListener} for how
+     * each entry is rolled independently and the reflected damage applied back to the attacker.
+     */
+    public List<ReflectEffect> resolveReflectEffects(LivingEntity defender) {
+        EntityEquipment equipment = defender.getEquipment();
+        if (equipment == null) {
+            return List.of();
+        }
+        List<ReflectEffect> effects = new ArrayList<>();
+        for (Map.Entry<String, ItemStack> entry : allEquippedPieces(defender, equipment).entrySet()) {
+            resolvedItemOf(entry.getValue())
+                    .filter(item -> isAllowedInSlot(item.template(), entry.getKey()))
+                    .map(item -> item.snapshot().reflectEffect())
+                    .filter(effect -> effect != null && effect.isComplete())
+                    .ifPresent(effects::add);
+        }
+        return effects;
     }
 
     private <T> Optional<T> resolveWieldedStat(LivingEntity attacker, Function<TemplateSnapshot, T> extractor) {

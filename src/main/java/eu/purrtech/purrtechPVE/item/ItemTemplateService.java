@@ -8,6 +8,7 @@ import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
+import eu.purrtech.purrtechPVE.db.ReflectEffectRepository;
 import eu.purrtech.purrtechPVE.db.StunEffectRepository;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
@@ -43,6 +44,7 @@ public final class ItemTemplateService {
     private final BleedEffectRepository bleedEffectRepository;
     private final CriticalEffectRepository criticalEffectRepository;
     private final StunEffectRepository stunEffectRepository;
+    private final ReflectEffectRepository reflectEffectRepository;
     private final AttributeModifierRepository attributeModifierRepository;
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final DamageTypeRegistry damageTypeRegistry;
@@ -87,6 +89,7 @@ public final class ItemTemplateService {
                                 BleedEffectRepository bleedEffectRepository,
                                 CriticalEffectRepository criticalEffectRepository,
                                 StunEffectRepository stunEffectRepository,
+                                ReflectEffectRepository reflectEffectRepository,
                                 AttributeModifierRepository attributeModifierRepository,
                                 ItemTemplateSnapshotRepository snapshotRepository,
                                 DamageTypeRegistry damageTypeRegistry,
@@ -99,6 +102,7 @@ public final class ItemTemplateService {
         this.bleedEffectRepository = bleedEffectRepository;
         this.criticalEffectRepository = criticalEffectRepository;
         this.stunEffectRepository = stunEffectRepository;
+        this.reflectEffectRepository = reflectEffectRepository;
         this.attributeModifierRepository = attributeModifierRepository;
         this.snapshotRepository = snapshotRepository;
         this.damageTypeRegistry = damageTypeRegistry;
@@ -131,7 +135,7 @@ public final class ItemTemplateService {
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, List.of(), List.of(),
                 baseMaterial, baseItemSnapshot, customModelData, false, List.of(), null, 0, 0, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
-        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, null, List.of()));
+        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, null, null, List.of()));
         return template;
     }
 
@@ -398,6 +402,43 @@ public final class ItemTemplateService {
     }
 
     /**
+     * This item's chance to reflect part of an incoming hit back onto the attacker + how much of
+     * it - a stat, so it bumps version. See {@link ReflectEffect}'s javadoc; unlike bleed/critical/
+     * stun, resolved against every equipped slot of whoever is WEARING/HOLDING it (see {@code
+     * EquipmentResolver#resolveReflectEffects}), not just the attacker's wielded weapon.
+     */
+    public ItemTemplate setReflectEffect(String key, double chancePercent, double reflectPercent) {
+        return setReflectEffect(key, chancePercent, reflectPercent, currentReflectVisible(key));
+    }
+
+    /** Same as the 3-arg overload, but also sets whether the combined reflect line shows in lore - see {@link ReflectEffect#visible()}. */
+    public ItemTemplate setReflectEffect(String key, double chancePercent, double reflectPercent, boolean visible) {
+        ItemTemplate template = requireTemplate(key);
+        reflectEffectRepository.upsert(template.id(), new ReflectEffect(chancePercent, reflectPercent, visible));
+        return bumpVersion(template);
+    }
+
+    /** Flips the reflect effect's lore visibility without touching its chance/percent. */
+    public ItemTemplate toggleReflectEffectVisibility(String key) {
+        ReflectEffect current = reflectEffect(key).orElse(new ReflectEffect(0, 0, true));
+        return setReflectEffect(key, current.chancePercent(), current.reflectPercent(), !current.visible());
+    }
+
+    private boolean currentReflectVisible(String key) {
+        return reflectEffect(key).map(ReflectEffect::visible).orElse(true);
+    }
+
+    public ItemTemplate removeReflectEffect(String key) {
+        ItemTemplate template = requireTemplate(key);
+        reflectEffectRepository.remove(template.id());
+        return bumpVersion(template);
+    }
+
+    public Optional<ReflectEffect> reflectEffect(String key) {
+        return reflectEffectRepository.findByTemplate(requireTemplate(key).id());
+    }
+
+    /**
      * A real vanilla {@link Attribute} bonus this template grants in one specific {@code slot} -
      * a stat like damage contributions, so it bumps version. See {@link AttributeModifierEntry}'s
      * javadoc for exactly how {@code slot} determines whether it's baked into the rendered item
@@ -650,8 +691,9 @@ public final class ItemTemplateService {
         BleedEffect bleed = bleedEffectRepository.findByTemplate(template.id()).orElse(null);
         CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
         StunEffect stun = stunEffectRepository.findByTemplate(template.id()).orElse(null);
+        ReflectEffect reflect = reflectEffectRepository.findByTemplate(template.id()).orElse(null);
         List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
-        ItemStack rendered = renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical, stun, attributeModifiers);
+        ItemStack rendered = renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical, stun, reflect, attributeModifiers);
         renderCache.put(key, new RenderCacheEntry(fingerprint, rendered));
         return rendered.clone();
     }
@@ -668,9 +710,10 @@ public final class ItemTemplateService {
         BleedEffect bleed = bleedEffectRepository.findByTemplate(template.id()).orElse(null);
         CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
         StunEffect stun = stunEffectRepository.findByTemplate(template.id()).orElse(null);
+        ReflectEffect reflect = reflectEffectRepository.findByTemplate(template.id()).orElse(null);
         List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
         List<LoreLine> candidates = renderer.lineCandidates(template.customLore(), template.hiddenHeaders(), contributions, modifiers,
-                armorPenetration, bleed, critical, stun, attributeModifiers);
+                armorPenetration, bleed, critical, stun, reflect, attributeModifiers);
         return LoreLine.canonicalize(template.loreOrder(), candidates);
     }
 
@@ -702,6 +745,7 @@ public final class ItemTemplateService {
                 bleedEffectRepository.findByTemplate(bumped.id()).orElse(null),
                 criticalEffectRepository.findByTemplate(bumped.id()).orElse(null),
                 stunEffectRepository.findByTemplate(bumped.id()).orElse(null),
+                reflectEffectRepository.findByTemplate(bumped.id()).orElse(null),
                 attributeModifierRepository.findByTemplate(bumped.id())));
         return bumped;
     }
@@ -709,10 +753,10 @@ public final class ItemTemplateService {
     private TemplateSnapshot snapshotOf(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                          List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
                                          BleedEffect bleedEffect, CriticalEffect criticalEffect, StunEffect stunEffect,
-                                         List<AttributeModifierEntry> attributeModifiers) {
+                                         ReflectEffect reflectEffect, List<AttributeModifierEntry> attributeModifiers) {
         return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                contributions, modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, stunEffect, attributeModifiers,
-                template.updatedAt());
+                contributions, modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, stunEffect, reflectEffect,
+                attributeModifiers, template.updatedAt());
     }
 }

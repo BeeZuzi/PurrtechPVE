@@ -16,6 +16,7 @@ import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import eu.purrtech.purrtechPVE.item.LoreHeader;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
+import eu.purrtech.purrtechPVE.item.ReflectEffect;
 import eu.purrtech.purrtechPVE.item.TemplateNotFoundException;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import eu.purrtech.purrtechPVE.lang.Messages;
@@ -828,12 +829,15 @@ public final class ItemEditorMenu {
     private static final int SLOT_CRIT_BONUS = CONTENT_START + 4;
     private static final int SLOT_STUN_CHANCE = CONTENT_START + 5;
     private static final int SLOT_STUN_DURATION = CONTENT_START + 6;
+    private static final int SLOT_REFLECT_CHANCE = CONTENT_START + 7;
+    private static final int SLOT_REFLECT_PERCENT = CONTENT_START + 8;
 
     private static void renderSpecialEffects(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
         Messages messages = plugin.getMessages();
         Optional<BleedEffect> bleed = plugin.getItemTemplateService().bleedEffect(templateKey);
         Optional<CriticalEffect> critical = plugin.getItemTemplateService().criticalEffect(templateKey);
         Optional<StunEffect> stun = plugin.getItemTemplateService().stunEffect(templateKey);
+        Optional<ReflectEffect> reflect = plugin.getItemTemplateService().reflectEffect(templateKey);
 
         inventory.setItem(SLOT_BLEED_CHANCE, effectStatIcon(messages, locale, Material.REDSTONE, "gui.item-editor.effects.bleed-chance",
                 bleed.map(b -> formatAmount(b.chancePercent()) + "%").orElse(null)));
@@ -849,6 +853,10 @@ public final class ItemEditorMenu {
                 stun.map(s -> formatAmount(s.chancePercent()) + "%").orElse(null)));
         inventory.setItem(SLOT_STUN_DURATION, effectStatIcon(messages, locale, Material.CLOCK, "gui.item-editor.effects.stun-duration",
                 stun.map(s -> formatAmount(s.durationSeconds()) + "s").orElse(null)));
+        inventory.setItem(SLOT_REFLECT_CHANCE, effectStatIcon(messages, locale, Material.SHIELD, "gui.item-editor.effects.reflect-chance",
+                reflect.map(r -> formatAmount(r.chancePercent()) + "%").orElse(null)));
+        inventory.setItem(SLOT_REFLECT_PERCENT, effectStatIcon(messages, locale, Material.SHIELD, "gui.item-editor.effects.reflect-percent",
+                reflect.map(r -> formatAmount(r.reflectPercent()) + "%").orElse(null)));
 
         ItemStack info = named(Material.PAPER, messages.render(locale, "gui.item-editor.effects.info-title"));
         ItemMeta infoMeta = info.getItemMeta();
@@ -868,6 +876,8 @@ public final class ItemEditorMenu {
                 ? "gui.item-editor.effects.crit-complete" : "gui.item-editor.effects.crit-incomplete"));
         infoLore.add(messages.render(locale, stun.map(StunEffect::isComplete).orElse(false)
                 ? "gui.item-editor.effects.stun-complete" : "gui.item-editor.effects.stun-incomplete"));
+        infoLore.add(messages.render(locale, reflect.map(ReflectEffect::isComplete).orElse(false)
+                ? "gui.item-editor.effects.reflect-complete" : "gui.item-editor.effects.reflect-incomplete"));
         infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
         inventory.setItem(PREVIEW_SLOT, info);
@@ -928,6 +938,16 @@ public final class ItemEditorMenu {
                     return;
                 }
                 ValueEditorKind kind = slot == SLOT_STUN_CHANCE ? ValueEditorKind.STUN_CHANCE : ValueEditorKind.STUN_DURATION;
+                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
+            }
+            case SLOT_REFLECT_CHANCE, SLOT_REFLECT_PERCENT -> {
+                if (shift) {
+                    plugin.getItemTemplateService().removeReflectEffect(holder.templateKey());
+                    player.sendMessage(messages.render(locale, "gui.item-editor.effects.reflect-removed"));
+                    render(plugin, holder.getInventory(), holder, locale);
+                    return;
+                }
+                ValueEditorKind kind = slot == SLOT_REFLECT_CHANCE ? ValueEditorKind.REFLECT_CHANCE : ValueEditorKind.REFLECT_PERCENT;
                 ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
             }
             default -> {

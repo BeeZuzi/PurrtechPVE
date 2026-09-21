@@ -97,6 +97,7 @@ final class Schema {
             addColumnIfMissing(connection, "item_template_snapshot", "bleed_effect", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "critical_effect", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "stun_effect", "TEXT");
+            addColumnIfMissing(connection, "item_template_snapshot", "reflect_effect", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "attribute_modifiers", "TEXT NOT NULL DEFAULT ''");
             addColumnIfMissing(connection, "item_template_snapshot", "base_item_snapshot", "BLOB");
             addColumnIfMissing(connection, "item_template_snapshot", "custom_lore", "TEXT");
@@ -358,6 +359,19 @@ final class Schema {
                         template_id TEXT PRIMARY KEY REFERENCES item_templates(id) ON DELETE CASCADE,
                         chance_percent REAL NOT NULL,
                         duration_seconds REAL NOT NULL,
+                        visible INTEGER NOT NULL DEFAULT 1
+                    )
+                    """);
+
+            // An item's chance to reflect part of an incoming hit back onto the attacker + how
+            // much of it - see the ReflectEffect record's javadoc. At most one row per template.
+            // Unlike item_stun_effect (attacker's wielded weapon only), this is checked against
+            // every equipped slot (hand/armor/trinkets) of whoever is taking the hit.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_reflect_effect (
+                        template_id TEXT PRIMARY KEY REFERENCES item_templates(id) ON DELETE CASCADE,
+                        chance_percent REAL NOT NULL,
+                        reflect_percent REAL NOT NULL,
                         visible INTEGER NOT NULL DEFAULT 1
                     )
                     """);

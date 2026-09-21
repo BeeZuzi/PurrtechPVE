@@ -28,6 +28,9 @@ public enum ValueEditorKind {
     CRIT_BONUS(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
     STUN_CHANCE(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
     STUN_DURATION(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
+    /** See {@code ReflectEffect}'s javadoc - resolved off the wearer's/holder's whole equipped set, unlike bleed/crit/stun above. */
+    REFLECT_CHANCE(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
+    REFLECT_PERCENT(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
     /**
      * How many flat, vanilla-style armor points ({@code ItemTemplate.armorAmount}) the currently
      * selected {@code ArmorClass} grants - unlike every other kind, there's no {@code visible}

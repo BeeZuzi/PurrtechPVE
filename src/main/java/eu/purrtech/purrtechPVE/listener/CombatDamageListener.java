@@ -14,6 +14,7 @@ import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
 import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageMode;
+import eu.purrtech.purrtechPVE.item.ReflectEffect;
 import eu.purrtech.purrtechPVE.item.StunEffect;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.LivingEntity;
@@ -66,6 +67,15 @@ import java.util.concurrent.ThreadLocalRandom;
  * ("zpomalená a nebude nic vidět"); the "can't attack" part ("nemůže útočit") isn't a potion
  * effect at all - it's enforced by cancelling this very event up front whenever the ATTACKER is
  * found still stunned, regardless of which weapon/side stunned them.
+ *
+ * <p>Reflect is resolved off the DEFENDER's entire equipped set instead ({@link
+ * EquipmentResolver#resolveReflectEffects}, weapon in hand + worn armor + trinkets alike, unlike
+ * bleed/critical/stun which only ever look at the attacker's wielded weapon) - each equipped
+ * piece's {@link eu.purrtech.purrtechPVE.item.ReflectEffect} rolls independently once this hit's
+ * final total is known, and successful rolls' reflected amounts are summed and applied straight
+ * back to the attacker via {@code LivingEntity.damage(double)} (no damager argument), which fires
+ * a plain {@code EntityDamageEvent} rather than another {@code EntityDamageByEntityEvent} - so a
+ * reflect can't recursively trigger this very listener even if both combatants have it configured.
  *
  * <p>{@code combatFeedbackSettings.effectivenessColors()} (see {@code config.yml}) switches the
  * per-type numbers from a flat attacker/defender color to yellow/white/gray by how effective the
@@ -197,6 +207,23 @@ public final class CombatDamageListener implements Listener {
             if (effectiveChance > 0 && ThreadLocalRandom.current().nextDouble(100) < effectiveChance) {
                 applyStun(defender, stun.get().durationSeconds());
             }
+        }
+
+        // Reflect: rolled independently of crit/bleed/stun, off the DEFENDER's whole equipped set
+        // (weapon in hand, worn armor, trinkets alike - see EquipmentResolver.resolveReflectEffects),
+        // since it has to trigger whether the item carrying it is held or worn. Each equipped
+        // piece's effect rolls independently; successful rolls' reflected amounts (reflectPercent%
+        // of the fully-resolved total this hit dealt, crit/armor included) are summed and applied
+        // back to the attacker with no damager argument, so this doesn't re-enter this very
+        // listener and risk an infinite loop if both combatants have reflect configured.
+        double reflected = 0;
+        for (ReflectEffect effect : equipmentResolver.resolveReflectEffects(defender)) {
+            if (ThreadLocalRandom.current().nextDouble(100) < effect.chancePercent()) {
+                reflected += total * effect.reflectPercent() / 100.0;
+            }
+        }
+        if (reflected > 0) {
+            attacker.damage(reflected);
         }
 
         boolean effectivenessColors = combatFeedbackSettings.effectivenessColors();

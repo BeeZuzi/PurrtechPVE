@@ -10,6 +10,7 @@ import eu.purrtech.purrtechPVE.db.MobDropEntry;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplateService;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
+import eu.purrtech.purrtechPVE.item.ReflectEffect;
 import eu.purrtech.purrtechPVE.item.StunEffect;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import eu.purrtech.purrtechPVE.lang.Messages;
@@ -329,6 +330,12 @@ public final class ValueEditorMenu {
             case STUN_DURATION -> service.stunEffect(key)
                     .map(s -> new CurrentState(s.durationSeconds(), s.visible(), DamageMode.FLAT, ModifierContext.WIELDED))
                     .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
+            case REFLECT_CHANCE -> service.reflectEffect(key)
+                    .map(r -> new CurrentState(r.chancePercent(), r.visible(), DamageMode.FLAT, ModifierContext.WIELDED))
+                    .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
+            case REFLECT_PERCENT -> service.reflectEffect(key)
+                    .map(r -> new CurrentState(r.reflectPercent(), r.visible(), DamageMode.FLAT, ModifierContext.WIELDED))
+                    .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
             case ARMOR_CLASS_AMOUNT -> new CurrentState(
                     service.findByKey(key).orElseThrow().armorAmount(), true, DamageMode.FLAT, ModifierContext.WIELDED);
             case STUN_RESIST_PERCENT -> new CurrentState(
@@ -395,6 +402,14 @@ public final class ValueEditorMenu {
             case STUN_DURATION -> {
                 StunEffect current = service.stunEffect(key).orElse(new StunEffect(0, 0, true));
                 service.setStunEffect(key, current.chancePercent(), newValue, visible);
+            }
+            case REFLECT_CHANCE -> {
+                ReflectEffect current = service.reflectEffect(key).orElse(new ReflectEffect(0, 0, true));
+                service.setReflectEffect(key, newValue, current.reflectPercent(), visible);
+            }
+            case REFLECT_PERCENT -> {
+                ReflectEffect current = service.reflectEffect(key).orElse(new ReflectEffect(0, 0, true));
+                service.setReflectEffect(key, current.chancePercent(), newValue, visible);
             }
             case ARMOR_CLASS_AMOUNT -> service.setArmorAmount(key, newValue);
             case STUN_RESIST_PERCENT -> service.setStunResistPercent(key, newValue);

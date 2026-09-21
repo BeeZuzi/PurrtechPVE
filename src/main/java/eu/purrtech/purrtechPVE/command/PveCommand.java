@@ -390,6 +390,17 @@ public final class PveCommand {
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .suggests(templateKeys)
                                                 .executes(ctx -> removeItemStunEffect(plugin, ctx)))))
+                        .then(Commands.literal("reflect")
+                                .then(Commands.literal("set")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
+                                                .then(Commands.argument("chancePercent", DoubleArgumentType.doubleArg())
+                                                        .then(Commands.argument("reflectPercent", DoubleArgumentType.doubleArg())
+                                                                .executes(ctx -> setItemReflectEffect(plugin, ctx))))))
+                                .then(Commands.literal("remove")
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
+                                                .executes(ctx -> removeItemReflectEffect(plugin, ctx)))))
                         .then(Commands.literal("stunresist")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .suggests(templateKeys)
@@ -1267,6 +1278,38 @@ public final class PveCommand {
             return 0;
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.stun-removed", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setItemReflectEffect(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        double chancePercent = DoubleArgumentType.getDouble(ctx, "chancePercent");
+        double reflectPercent = DoubleArgumentType.getDouble(ctx, "reflectPercent");
+
+        try {
+            plugin.getItemTemplateService().setReflectEffect(key, chancePercent, reflectPercent);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.reflect-set", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int removeItemReflectEffect(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+
+        try {
+            plugin.getItemTemplateService().removeReflectEffect(key);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.reflect-removed", Placeholder.unparsed("key", key)));
         return Command.SINGLE_SUCCESS;
     }
 

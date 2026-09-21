@@ -30,6 +30,7 @@ public record TemplateSnapshot(
         BleedEffect bleedEffect,
         CriticalEffect criticalEffect,
         StunEffect stunEffect,
+        ReflectEffect reflectEffect,
         List<AttributeModifierEntry> attributeModifiers,
         long createdAt
 ) {
