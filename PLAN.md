@@ -2677,6 +2677,34 @@
     poškození podle bodů brnění a mezitřídní konverze penetrace -
     potřebuje reálně připojeného hráče.
 
+- **Zpět na paper-api místo leaf-api (2026-09-19), na žádost**: build
+  hodil `PKIX path building failed` při snaze ověřit čerstvost
+  `cn.dreeam.leaf:leaf-api:1.21.11-R0.1-SNAPSHOT` (SNAPSHOT vyžaduje
+  periodickou síťovou kontrolu) - způsobené Avastem, co si HTTPS provoz
+  prolamuje vlastním certifikátem, kterému Java nevěří. Následně
+  dotaz: "a šlo by to prosím předělat na paper? Aby ten plugin šel i
+  na paper a nebyl jenom na leaf?"
+  - Zjištěno, že `repo.papermc.io` publikuje `io.papermc.paper:
+    paper-api` i pod úplně stejným řetězcem verze
+    `1.21.11-R0.1-SNAPSHOT`, jaký mělo `leaf-api` - tedy zjevně
+    postavené ze stejného tagu. `compileOnly`/`testImplementation`
+    přepnuty z `cn.dreeam.leaf:leaf-api` na `io.papermc.paper:
+    paper-api` na téže verzi, odstraněno `maven("https://
+    maven.leafmc.one/snapshots/")` z `repositories`.
+  - Tímhle zůstává zachovaná oprava původního produkčního pádu
+    (`NoSuchMethodError` na Adventure bridge metodě, viz
+    `DamageFeedback` - řeší se kompilací proti přesně té verzi API,
+    co běží na produkci), ale plugin teď jde zkompilovat i spustit na
+    čistém Paperu, ne jen na Leaf fork, a odpadá závislost na menším
+    leafmc.one hostu (a tím i na jeho SNAPSHOT-freshness síťové
+    kontrole, co celý problém spustila).
+  - Žádné `cn.dreeam.leaf` importy v kódu nebyly (ověřeno grepem),
+    takže šlo o čistou výměnu compile-time závislosti bez dopadu na
+    zdrojový kód.
+  - Ověřeno síťově (ne přes `--offline`, poprvé stahovaná závislost):
+    čistý `compileJava`, `compileTestJava`, `test` i celý `build`
+    task (přesně ten, co uživateli původně spadl).
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

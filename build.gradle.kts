@@ -9,19 +9,19 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
     // MythicMobs API
     maven("https://mvn.lumine.io/repository/maven-public/")
-    // Leaf API - see the compileOnly dependency below for why this replaced paper-api.
-    maven("https://maven.leafmc.one/snapshots/")
 }
 
 dependencies {
-    // Compiled directly against the user's actual production server (a Leaf fork of Paper,
-    // Minecraft 1.21.11 - "Leaf-1.21.11-R0.1-SNAPSHOT") instead of the newest Paper API
-    // (26.2), after a production crash (NoSuchMethodError on an Adventure bridge method -
-    // see DamageFeedback's history/PLAN.md) traced to compiling against a newer API than
-    // what's actually running. Leaf is API-compatible with Paper (same org.bukkit/
-    // io.papermc.paper classes), so this is otherwise a drop-in replacement for
-    // io.papermc.paper:paper-api at this version.
-    compileOnly("cn.dreeam.leaf:leaf-api:1.21.11-R0.1-SNAPSHOT")
+    // Compiled against real Paper (not the newest release) at the exact version tag the user's
+    // production server (a Leaf fork of Paper, Minecraft 1.21.11) was built from -
+    // "1.21.11-R0.1-SNAPSHOT" is published under both io.papermc.paper:paper-api and
+    // cn.dreeam.leaf:leaf-api with the identical version string, i.e. the same source tag. This
+    // replaced the newest Paper API (26.2) after a production crash (NoSuchMethodError on an
+    // Adventure bridge method - see DamageFeedback's history/PLAN.md) traced to compiling against
+    // a newer API than what's actually running. Using plain paper-api here (rather than
+    // leaf-api) keeps the plugin buildable/runnable on stock Paper too, not just Leaf, and drops
+    // the dependency on Leaf's own (smaller, SNAPSHOT-only) maven host.
+    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
 
     // MythicMobs integration is soft-depend - guarded at runtime behind an
     // isPluginEnabled("MythicMobs") check in mythicmobs/MythicMobsBridge, the
@@ -39,7 +39,7 @@ dependencies {
     implementation("com.zaxxer:HikariCP:7.1.0")
     implementation("org.xerial:sqlite-jdbc:3.53.2.1")
 
-    testImplementation("cn.dreeam.leaf:leaf-api:1.21.11-R0.1-SNAPSHOT")
+    testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     testImplementation("com.google.code.gson:gson:2.13.2")
 
     testImplementation(platform("org.junit:junit-bom:6.1.2"))
