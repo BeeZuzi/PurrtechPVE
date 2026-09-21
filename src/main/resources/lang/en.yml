@@ -589,6 +589,9 @@ gui:
     context-worn: "<white>Passively worn</white>"
     hint-toggle-context: "<yellow>Click: toggle whether it must attack or just be worn</yellow>"
     hint-adjust: "<yellow>Click the buttons above to adjust the value</yellow>"
+    type-value: "<aqua>Type a value in chat</aqua>"
+    hint-type-value: "<yellow>Click: type an exact value in chat</yellow>"
+    prompt-set: "<yellow>Type the new value in chat:</yellow>"
   lore-order:
     title: "Lore line order"
     position: "<aqua>Position: <position>/<total></aqua>"

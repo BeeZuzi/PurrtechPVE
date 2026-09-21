@@ -591,6 +591,9 @@ gui:
     context-worn: "<white>Pasivně nasazeno</white>"
     hint-toggle-context: "<yellow>Klik: přepnout, jestli to musí útočit nebo stačí to mít nasazené</yellow>"
     hint-adjust: "<yellow>Klikni na tlačítka nahoře pro úpravu hodnoty</yellow>"
+    type-value: "<aqua>Zadat hodnotu do chatu</aqua>"
+    hint-type-value: "<yellow>Klik: zadej přesnou hodnotu do chatu</yellow>"
+    prompt-set: "<yellow>Napiš novou hodnotu do chatu:</yellow>"
   lore-order:
     title: "Pořadí řádků loru"
     position: "<aqua>Pozice: <position>/<total></aqua>"

@@ -64,6 +64,7 @@ public final class ValueEditorMenu {
     private static final int VISIBLE_TOGGLE_SLOT = 13;
     private static final int MODE_TOGGLE_SLOT = 15;
     private static final int CONTEXT_TOGGLE_SLOT = 17;
+    private static final int TYPE_VALUE_SLOT = 10;
     private static final int BACK_SLOT = 22;
     private static final int CLOSE_SLOT = 26;
 
@@ -131,6 +132,12 @@ public final class ValueEditorMenu {
             inventory.setItem(CONTEXT_TOGGLE_SLOT, contextButton);
         }
 
+        ItemStack typeValue = named(Material.WRITABLE_BOOK, messages.render(locale, "gui.value-editor.type-value"));
+        ItemMeta typeValueMeta = typeValue.getItemMeta();
+        typeValueMeta.lore(List.of(messages.render(locale, "gui.value-editor.hint-type-value")));
+        typeValue.setItemMeta(typeValueMeta);
+        inventory.setItem(TYPE_VALUE_SLOT, typeValue);
+
         inventory.setItem(BACK_SLOT, named(Material.ARROW, messages.render(locale, "gui.back")));
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
     }
@@ -195,10 +202,56 @@ public final class ValueEditorMenu {
                         state.value(), state.mode(), state.visible());
                 ValueEditorMenu.open(plugin, player, holder.templateKey(), holder.kind(), damageTypeKey + "|" + flipped.name());
             }
+            case TYPE_VALUE_SLOT -> promptForValue(plugin, player, holder);
             case BACK_SLOT -> ItemEditorMenu.open(plugin, player, holder.templateKey(), holder.kind().returnTab());
             case CLOSE_SLOT -> player.closeInventory();
             default -> {
             }
+        }
+    }
+
+    /**
+     * Lets the admin type an exact value in chat instead of clicking +/- buttons - reuses {@link
+     * ItemEditorListener}'s existing {@code AsyncChatEvent}-based prompt flow (chosen there
+     * specifically because it's the one chat hook the server's CMI plugin doesn't intercept),
+     * same convention as {@link ArmorClassMenu}'s percent prompt. Only the numeric value changes;
+     * {@code visible}/{@code mode} stay whatever they already were.
+     */
+    private static void promptForValue(PurrtechPVE plugin, Player player, ValueEditorHolder holder) {
+        Locale locale = player.locale();
+        Messages messages = plugin.getMessages();
+        CurrentState state = currentState(plugin, holder);
+        player.closeInventory();
+        player.sendMessage(messages.render(locale, "gui.value-editor.prompt-set"));
+        player.sendMessage(messages.render(locale, "gui.prompt.cancel-hint"));
+        plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
+            if (isCancel(rawInput)) {
+                p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
+                open(plugin, p, holder.templateKey(), holder.kind(), holder.entryId());
+                return;
+            }
+            Double newValue = parseDouble(rawInput.trim());
+            if (newValue == null) {
+                p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
+                open(plugin, p, holder.templateKey(), holder.kind(), holder.entryId());
+                return;
+            }
+            applyValue(plugin, holder, newValue, state.visible(), state.mode());
+            p.sendMessage(messages.render(locale, "gui.prompt.done"));
+            open(plugin, p, holder.templateKey(), holder.kind(), holder.entryId());
+        });
+    }
+
+    private static boolean isCancel(String rawInput) {
+        String normalized = rawInput.trim().toLowerCase(Locale.ROOT);
+        return normalized.equals("zrusit") || normalized.equals("zrušit") || normalized.equals("cancel");
+    }
+
+    private static Double parseDouble(String raw) {
+        try {
+            return Double.parseDouble(raw.trim().replace(',', '.'));
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 

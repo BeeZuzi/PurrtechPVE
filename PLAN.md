@@ -2924,6 +2924,30 @@
   - Ověřeno `compileJava`, `compileTestJava`, `test`, celý `build` - vše prošlo čistě. Živé ověření
     potion efektů/cancelnutí přes `runServer` je na uživateli (stejná "no MockBukkit" konvence jako
     u ostatních combat listenerů).
+- **Zadání hodnoty do chatu ve `ValueEditorMenu` (2026-09-21), na žádost**: "Poté co to budeš mít
+  hotové přidej do menučka kde se mění ty hodnoty že si budeš moct zadat svoji hodnotu do chatu.
+  Používej event PlayerAsyncChatEvent nebo něco takového protože ten jako jediný nepošle i přes naše
+  hloupé CMI zprávu."
+  - Nové tlačítko `TYPE_VALUE_SLOT` (slot 10, volný v rozložení `ValueEditorMenu`, `WRITABLE_BOOK`) -
+    zavře menu, pošle prompt + `gui.prompt.cancel-hint`, a čeká na chat vstup přes existující
+    `ItemEditorListener.awaitInput`. Žádný nový listener - `ItemEditorListener` už od dřívějška
+    (attribute prompt v `ItemEditorMenu`, percent prompt v `ArmorClassMenu`/`ItemListMenu`/
+    `LoreOrderMenu`/`SetEditorMenu`) poslouchá přímo `io.papermc.paper.event.player.AsyncChatEvent`
+    (ne zastaralý `AsyncPlayerChatEvent`) přesně proto, že tohle je ten jediný chat event, který CMI
+    plugin na tomhle serveru nezachytí/nezpracuje první - `ValueEditorMenu` jen znovu použil stejnou
+    infrastrukturu místo psaní vlastní.
+  - Zadaná hodnota jde přes stejný `applyValue`, jaký používají +/- tlačítka, se zachovaným aktuálním
+    `visible`/`mode` (typování hodnoty mění jen samotné číslo). `cancel`/`zrušit`/`zrusit` vrátí zpět
+    do stejného `ValueEditorMenu` beze změny (`isCancel`/`parseDouble` - kopie stejného vzoru jako v
+    `ArmorClassMenu` atd., desetinná čárka i tečka obě fungují). Neplatné číslo = `gui.prompt.
+    invalid-number` a návrat do menu, žádný pád/výjimka.
+  - Sdílené `gui.prompt.cancel-hint/cancelled/invalid-number/done` lang klíče (existující, používané
+    už ostatními prompt flow) beze změny; přidány jen 3 nové `gui.value-editor.*` klíče
+    (`type-value`, `hint-type-value`, `prompt-set`) pro tlačítko a prompt text.
+  - Funguje pro úplně všechny `ValueEditorKind` (crit, bleed, stun, resist, armor pen, atribut,
+    damage, mob drop, armor class amount, stun resist) - žádná kind-specifická logika navíc, protože
+    `applyValue`/`currentState` už je jednotné.
+  - Ověřeno `compileJava`, `compileTestJava`, `test`, celý `build` - vše prošlo čistě.
 
 # PurrtechPVE — analýza a implementační plán
 
