@@ -150,14 +150,11 @@ damage-type:
 # s nadpisem zobrazeným, "Lehký armor" s nadpisem skrytým.
 armor-class:
   light:
-    name: "Lehký"
-    name-full: "Lehký armor"
+    penetration-full: "Penetrace lehkého armoru"
   medium:
-    name: "Střední"
-    name-full: "Střední armor"
+    penetration-full: "Penetrace středního armoru"
   heavy:
-    name: "Těžký"
-    name-full: "Těžký armor"
+    penetration-full: "Penetrace těžkého armoru"
 
 # Zobrazovaný název vanilla Attribute (Messages.attributeName), klíčovaný jeho stálým registry
 # klíčem (attribute.getKey().value(), např. "attack_damage"), ne zastaralým OldEnum name() -
@@ -246,8 +243,10 @@ item:
     damage-percent: "<#7425E9><gray>[</gray><amount>%<gray>]</gray> <type></#7425E9>"
     resist: "<#7425E9><gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9>"
     weakness: "<#7425E9><gray>[</gray><red>-<amount>%</red><gray>]</gray> <type></#7425E9>"
-    penetration-flat: "<#7425E9><gray>[</gray>-<amount><gray>]</gray> <class></#7425E9>"
-    penetration-percent: "<#7425E9> gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
+    penetration-flat: "<#7425E9><gray>[</gray>-<amount><gray>]</gray></#7425E9>"
+    penetration-percent: "<#7425E9><gray>[</gray>-<amount>%<gray>]</gray></#7425E9>"
+    penetration-flat-full: "<#7425E9><gray>[</gray>-<amount><gray>]</gray> <class></#7425E9>"
+    penetration-percent-full: "<#7425E9><gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
     bleed-flat: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage><gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9>"
     bleed-percent: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage>%<gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9>"
     critical: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀɪᴛ, <gray>[</gray>+<bonus>%<gray>]</gray> ᴘᴏškᴏᴢᴇɴí</#7425E9>"

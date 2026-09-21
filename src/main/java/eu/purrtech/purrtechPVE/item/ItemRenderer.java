@@ -207,9 +207,11 @@ public final class ItemRenderer {
         // the header is skipped too, same as having no entries there at all. Hiding the header
         // itself (hiddenHeaders) only ever suppresses that one header line - the stat lines below
         // it keep rendering regardless (see ItemTemplate's javadoc on hiddenHeaders). DAMAGE/
-        // PASSIVE/RESIST additionally swap each line's damage-type name (and PENETRATION its armor
-        // class name) to its "no header" variant (see Messages.damageTypeName/armorClassName) so a
-        // bare "Blunt"/"Heavy" doesn't lose its context once the section header above it is gone -
+        // PASSIVE/RESIST additionally swap each line's damage-type name to its "no header" variant
+        // (see Messages.damageTypeName/resistTypeName) so a bare "Blunt" doesn't lose its context
+        // once the section header above it is gone. PENETRATION instead shows a bare number under
+        // its header (the header itself already says "penetration") and only adds the armor
+        // class's full phrase (see Messages.armorClassPenetrationName) once that header is hidden -
         // BLEED/CRITICAL/ATTRIBUTES have no such variant since their lines carry no type name.
         List<DamageContribution> wielded = contributions.stream()
                 .filter(c -> c.context() == ModifierContext.WIELDED && c.visible()).toList();
@@ -309,10 +311,15 @@ public final class ItemRenderer {
     }
 
     private Component penetrationLine(ArmorPenetration p, boolean headerHidden) {
-        String key = p.mode() == DamageMode.PERCENT_OF_TOTAL ? "item.line.penetration-percent" : "item.line.penetration-flat";
+        boolean percent = p.mode() == DamageMode.PERCENT_OF_TOTAL;
+        if (!headerHidden) {
+            String key = percent ? "item.line.penetration-percent" : "item.line.penetration-flat";
+            return messages.render(locale, key, Placeholder.unparsed("amount", formatAmount(p.amount())));
+        }
+        String key = percent ? "item.line.penetration-percent-full" : "item.line.penetration-flat-full";
         return messages.render(locale, key,
                 Placeholder.unparsed("amount", formatAmount(p.amount())),
-                Placeholder.component("class", messages.armorClassName(locale, p.armorClass().name(), headerHidden)));
+                Placeholder.component("class", messages.armorClassPenetrationName(locale, p.armorClass().name())));
     }
 
     /** {@code damageAmount}/{@code mode} work exactly like a {@link DamageContribution}'s own amount/mode - see {@link BleedEffect}'s javadoc - hence the same flat-vs-percent lang key split as {@link #damageLine}/{@link #penetrationLine}. */

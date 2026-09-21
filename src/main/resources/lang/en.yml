@@ -148,14 +148,11 @@ damage-type:
 # with the header shown, "Light armor" with the header hidden.
 armor-class:
   light:
-    name: "Light"
-    name-full: "Light armor"
+    penetration-full: "Penetration of light armor"
   medium:
-    name: "Medium"
-    name-full: "Medium armor"
+    penetration-full: "Penetration of medium armor"
   heavy:
-    name: "Heavy"
-    name-full: "Heavy armor"
+    penetration-full: "Penetration of heavy armor"
 
 # Display name for a vanilla Attribute (Messages.attributeName), keyed by its stable registry key
 # (attribute.getKey().value(), e.g. "attack_damage") rather than the deprecated OldEnum name() -
@@ -244,8 +241,10 @@ item:
     damage-percent: "<#7425E9> <gray>[</gray><amount>%<gray>]</gray> <type></#7425E9>"
     resist: "<#7425E9> <gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9>"
     weakness: "<#7425E9> <gray>[</gray><red>-<amount>%</red><gray>]</gray> <type></#7425E9>"
-    penetration-flat: "<#7425E9> <gray>[</gray>-<amount><gray>]</gray> <class></#7425E9>"
-    penetration-percent: "<#7425E9> <gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
+    penetration-flat: "<#7425E9> <gray>[</gray>-<amount><gray>]</gray></#7425E9>"
+    penetration-percent: "<#7425E9> <gray>[</gray>-<amount>%<gray>]</gray></#7425E9>"
+    penetration-flat-full: "<#7425E9> <gray>[</gray>-<amount><gray>]</gray> <class></#7425E9>"
+    penetration-percent-full: "<#7425E9> <gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
     bleed-flat: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> ᴄʜᴀɴᴄᴇ ᴛᴏ ʙʟᴇᴇᴅ ꜰᴏʀ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage><gray>]</gray> ᴛᴏᴛᴀʟ</#7425E9>"
     bleed-percent: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> ᴄʜᴀɴᴄᴇ ᴛᴏ ʙʟᴇᴇᴅ ꜰᴏʀ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage>%<gray>]</gray> ᴛᴏᴛᴀʟ</#7425E9>"
     critical: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> ᴄʀɪᴛ ᴄʜᴀɴᴄᴇ, <gray>[</gray>+<bonus>%<gray>]</gray> ᴅᴀᴍᴀɢᴇ</#7425E9>"

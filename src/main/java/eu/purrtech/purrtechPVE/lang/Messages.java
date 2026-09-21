@@ -151,15 +151,18 @@ public final class Messages {
     }
 
     /**
-     * An armor class's display name, shown on a {@code item.line.penetration} lore line - same
-     * {@code name}/{@code name-full} shape and header-hidden reasoning as {@link
-     * #damageTypeName}. Takes the raw enum name (e.g. {@code "HEAVY"}, from {@code
+     * An armor class's name for a {@code item.line.penetration} lore line's "no header" variant -
+     * a full descriptive phrase (e.g. "Penetration of light armor"), same idea as {@link
+     * #resistTypeName}'s {@code resist-full}/{@code weakness-full}. Only ever used when the
+     * PENETRATION header is hidden - see {@code ItemRenderer#penetrationLine}, which otherwise
+     * drops the class name entirely and shows a bare number (the header alone already says
+     * "penetration"). Takes the raw enum name (e.g. {@code "HEAVY"}, from {@code
      * ArmorClass.name()}) rather than the enum type itself so this class doesn't need to depend
      * on the {@code item} package - same reason {@link #damageTypeName} takes a key, not a
      * {@code DamageType}.
      */
-    public Component armorClassName(Locale locale, String armorClass, boolean full) {
-        return render(locale, "armor-class." + armorClass.toLowerCase(Locale.ROOT) + (full ? ".name-full" : ".name"));
+    public Component armorClassPenetrationName(Locale locale, String armorClass) {
+        return render(locale, "armor-class." + armorClass.toLowerCase(Locale.ROOT) + ".penetration-full");
     }
 
     /**
