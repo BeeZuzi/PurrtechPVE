@@ -188,7 +188,9 @@ public final class PurrtechPVE extends JavaPlugin {
      * else needs touching. Also retries {@link #trySetupMythicMobs}, so fixing whatever made
      * MythicMobs detection fail (installing it, updating it, restarting it) can be picked up here
      * too instead of needing a restart - see that method's javadoc for why detection can fail even
-     * when the installed version looks right.
+     * when the installed version looks right. Finally force-resyncs every online player's stamped
+     * items (see {@link ItemSyncService#resyncAllOnlinePlayersFull()}) so a lang/design wording
+     * change shows up on items already handed out, not just ones given after this reload.
      *
      * <p>Deliberately NOT reconstructed here: {@code EquipmentResolver}'s own captured {@code
      * MythicMobsBridge} reference (combat resolution keeps whatever MythicMobs state it started
@@ -209,6 +211,11 @@ public final class PurrtechPVE extends JavaPlugin {
         trinketAttributeListener.refresh(accessorySettings);
         equipmentResolver.refresh(armorPenetrationConversionSettings);
         mythicMobsSetup.run();
+        // Lang text is global, not per-template, so it never bumps any template's version - the
+        // normal syncedVersion-gated resync would never pick this up. Force every stamped stack
+        // already in circulation to re-render right now instead of waiting on an unrelated
+        // template edit to trigger a push.
+        itemSyncService.resyncAllOnlinePlayersFull();
 
         getLogger().info("Reloaded config.yml + lang/*.yml. World toggles: " + worldToggles.disabledWorlds().size()
                 + " disabled world(s), PvP " + (worldToggles.pvpEnabled() ? "on" : "off")

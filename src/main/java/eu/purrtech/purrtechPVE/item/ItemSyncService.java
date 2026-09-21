@@ -43,18 +43,38 @@ public final class ItemSyncService {
         return touched;
     }
 
-    /** Sweeps one player's inventory (main + armor + offhand) + ender chest. Meant for both an explicit push and PlayerJoinEvent catch-up. */
-    public int resyncPlayer(Player player) {
-        return resyncPlayerInventory(player.getInventory()) + resyncInventory(player.getEnderChest());
+    /**
+     * Same sweep as {@link #resyncAllOnlinePlayers()}, but re-renders every stamped stack
+     * unconditionally instead of only ones behind their template's {@code syncedVersion}. Needed
+     * because a {@code lang/*.yml} (or locale) change doesn't bump any template's version - it's
+     * global text, not a per-template edit - so the normal stale check would never catch it.
+     * Called by {@code PurrtechPVE.reload()} so editing lang and running {@code /pve reload}
+     * updates already-issued items' name/lore too, not just future ones.
+     */
+    public int resyncAllOnlinePlayersFull() {
+        int touched = 0;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            touched += resyncPlayer(player, true);
+        }
+        return touched;
     }
 
-    private int resyncPlayerInventory(PlayerInventory inventory) {
-        int touched = resyncInventory(inventory);
+    /** Sweeps one player's inventory (main + armor + offhand) + ender chest. Meant for both an explicit push and PlayerJoinEvent catch-up. */
+    public int resyncPlayer(Player player) {
+        return resyncPlayer(player, false);
+    }
+
+    private int resyncPlayer(Player player, boolean force) {
+        return resyncPlayerInventory(player.getInventory(), force) + resyncInventory(player.getEnderChest(), force);
+    }
+
+    private int resyncPlayerInventory(PlayerInventory inventory, boolean force) {
+        int touched = resyncInventory(inventory, force);
 
         ItemStack[] armor = inventory.getArmorContents();
         boolean armorChanged = false;
         for (int i = 0; i < armor.length; i++) {
-            Optional<ItemStack> updated = resyncStackIfStale(armor[i]);
+            Optional<ItemStack> updated = resyncStackIfStale(armor[i], force);
             if (updated.isPresent()) {
                 armor[i] = updated.get();
                 armorChanged = true;
@@ -65,7 +85,7 @@ public final class ItemSyncService {
             inventory.setArmorContents(armor);
         }
 
-        Optional<ItemStack> offhand = resyncStackIfStale(inventory.getItemInOffHand());
+        Optional<ItemStack> offhand = resyncStackIfStale(inventory.getItemInOffHand(), force);
         if (offhand.isPresent()) {
             inventory.setItemInOffHand(offhand.get());
             touched++;
@@ -74,11 +94,11 @@ public final class ItemSyncService {
         return touched;
     }
 
-    private int resyncInventory(Inventory inventory) {
+    private int resyncInventory(Inventory inventory, boolean force) {
         int touched = 0;
         ItemStack[] contents = inventory.getContents();
         for (int slot = 0; slot < contents.length; slot++) {
-            Optional<ItemStack> updated = resyncStackIfStale(contents[slot]);
+            Optional<ItemStack> updated = resyncStackIfStale(contents[slot], force);
             if (updated.isPresent()) {
                 inventory.setItem(slot, updated.get());
                 touched++;
@@ -87,7 +107,7 @@ public final class ItemSyncService {
         return touched;
     }
 
-    private Optional<ItemStack> resyncStackIfStale(ItemStack stack) {
+    private Optional<ItemStack> resyncStackIfStale(ItemStack stack, boolean force) {
         Optional<ItemRenderer.StampedTemplate> stamp = renderer.readStamp(stack);
         if (stamp.isEmpty()) {
             return Optional.empty();
@@ -99,7 +119,7 @@ public final class ItemSyncService {
             return Optional.empty();
         }
         ItemTemplate template = templateOpt.get();
-        if (stamp.get().templateVersion() >= template.syncedVersion()) {
+        if (!force && stamp.get().templateVersion() >= template.syncedVersion()) {
             return Optional.empty();
         }
 
