@@ -56,6 +56,16 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks {
+    // shadowJar's archiveClassifier is "" (below), i.e. it writes to the exact same file as the
+    // plain jar task. With both enabled, whichever of the two happens to run last in a given
+    // build wins the race and silently overwrites the other's output - which is how a plain,
+    // unshaded jar (missing HikariCP/sqlite-jdbc) ended up deployed and threw
+    // NoClassDefFoundError on HikariConfig at startup. Disabling the plain jar removes the race
+    // entirely; shadowJar (via build { dependsOn(shadowJar) } below) is the only jar produced.
+    jar {
+        enabled = false
+    }
+
     runServer {
         // Matches the user's actual production server version (Leaf, Minecraft 1.21.11) -
         // downloads a real PaperMC build for local testing. Leaf itself isn't downloadable
