@@ -294,8 +294,9 @@ public final class ItemRenderer {
 
     private Component damageLine(DamageContribution c, boolean headerHidden) {
         String key = c.mode() == DamageMode.PERCENT_OF_TOTAL ? "item.line.damage-percent" : "item.line.damage-flat";
+        String sign = c.amount() < 0 ? "-" : "+";
         return messages.render(locale, key,
-                Placeholder.unparsed("amount", formatAmount(c.amount())),
+                Placeholder.unparsed("amount", sign + formatAmount(Math.abs(c.amount()))),
                 Placeholder.component("type", messages.damageTypeName(locale, c.damageTypeKey(), headerHidden)));
     }
 

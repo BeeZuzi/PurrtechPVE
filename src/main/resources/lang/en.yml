@@ -240,8 +240,8 @@ item:
     penetration: "<#7425E9>ᴀʀᴍᴏʀ ᴘᴇɴᴇᴛʀᴀᴛɪᴏɴ:</#7425E9>"
     attributes: "<#7425E9>ᴀᴛᴛʀɪʙᴜᴛᴇꜱ:</#7425E9>"
   line:
-    damage-flat: "<#7425E9> <gray>[</gray>+<amount><gray>]</gray> <type></#7425E9>"
-    damage-percent: "<#7425E9> <gray>[</gray>+<amount>%<gray>]</gray> <type></#7425E9>"
+    damage-flat: "<#7425E9> <gray>[</gray><amount><gray>]</gray> <type></#7425E9>"
+    damage-percent: "<#7425E9> <gray>[</gray><amount>%<gray>]</gray> <type></#7425E9>"
     resist: "<#7425E9> <gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9>"
     weakness: "<#7425E9> <gray>[</gray><red>-<amount>%</red><gray>]</gray> <type></#7425E9>"
     penetration-flat: "<#7425E9> <gray>[</gray>-<amount><gray>]</gray> <class></#7425E9>"

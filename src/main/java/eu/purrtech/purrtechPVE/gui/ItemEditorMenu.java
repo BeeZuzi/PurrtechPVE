@@ -1523,9 +1523,10 @@ public final class ItemEditorMenu {
     }
 
     private static String formatContribution(DamageContribution c) {
+        String sign = c.amount() < 0 ? "-" : "+";
         return c.mode() == DamageMode.PERCENT_OF_TOTAL
-                ? "+" + formatAmount(c.amount()) + "%"
-                : "+" + formatAmount(c.amount());
+                ? sign + formatAmount(Math.abs(c.amount())) + "%"
+                : sign + formatAmount(Math.abs(c.amount()));
     }
 
     private static String formatAmount(double amount) {
