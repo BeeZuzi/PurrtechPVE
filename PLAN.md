@@ -2823,6 +2823,42 @@
     jednotková logika je ověřená jen offline buildem/testy (`compileJava`, `compileTestJava`,
     `test`, celý `build` - vše prošlo čistě); reálné ověření na živém serveru je na uživateli.
 
+- **Propsání lang změn do vydaných itemů + MythicMobs droppy (2026-09-21), na žádost**: "Poté co
+  doděláš předešlý úkol udělej to, že po updatnutí lang se všechny změny projeví do všech itemů. To
+  znamená že kdybych měnil nějak design a tak, tak se to projeví i do těch itemů který už jsou
+  hotový. Dále taky přidej do kategorie mythicmobs že budeš moct dát že ten item bude z něj padat
+  jako drop. Vybereš si moba toho rozklikneš a budeš tam mít v menu na výběr mezi tím jestli mu to
+  chceš dát jako vybavení a nebo jestli to z něj bude padat, když tam bude padat tak kolik toho bude
+  a s jakou % pravděpodobností." Dvě samostatné featury z jednoho zadání.
+  - **Propsání langu**: `ItemSyncService`'s stávající resync je gatovaný přes `templateVersion vs
+    template.syncedVersion()` - lang je globální, nikdy nebumpne verzi žádné šablony, takže tenhle
+    mechanismus lang-only změnu nikdy nezachytí. Přidán `force` bypass parametr protažený přes
+    všechny privátní pomocné metody plus nová `resyncAllOnlinePlayersFull()`, volaná z
+    `PurrtechPVE.reload()` hned po `mythicMobsSetup.run()` - `/pve reload` teď natvrdo přerenderuje
+    každý stamped stack u online hráčů bez ohledu na verzi (offline hráči dožene běžný
+    lazy-touch při loginu jako doteď).
+  - **MythicMobs droppy**: nová tabulka `mob_drop` (mythic_mob_internal_name, template_id, amount,
+    chance_percent) - stejná filozofie jako `mob_equipment` (živý/globální config, ne
+    verzovaný/snapshotovaný), ale odděleně - dvojice mob+šablona je buď vybavení, nebo drop,
+    nikdy obojí. Nová `MobDropRepository` (CRUD zrcadlící `MobEquipmentRepository`) a
+    `MythicMobDropListener` na `MythicMobDeathEvent` (potvrzeno `javap` na cachovaném
+    `Mythic-Dist-5.12.1.jar`, že existuje `getMobType().getInternalName()` a
+    `getDrops()`/`setDrops(List<ItemStack>)`) - drop se rolluje na smrt, přidá do nativního
+    drop listu (ne spawn entity ručně, ať to jede po MythicMobs vlastní drop-location/looting
+    logice), renderovaný přes `ItemTemplateService.renderGiveable` (recykluje cache z předešlé
+    opravy laguu při mazání).
+  - **GUI**: tab MOBS v `ItemEditorMenu` teď rozlišuje řádky podle toho, ve které tabulce mob s
+    danou šablonou je (`mobEquipmentSlot`/`mobDropEntry`), s odpovídajícím lore a shift-click
+    odebráním ze správné tabulky. Výběr nového (dosud nepřiřazeného) moba z pickeru nezapíše nic
+    rovnou - nejdřív ukáže volbu "Vybavení nebo Drop?" (`ItemEditorHolder.mobsPendingMobType`), a
+    Drop vede do dalšího screenu na množství/šanci (`mobsDropConfigMobType`, číselné pole editovaná
+    přes `ValueEditorMenu` s novými `ValueEditorKind.MOB_DROP_AMOUNT`/`MOB_DROP_CHANCE`). Omezení:
+    `ValueEditorMenu`'s tlačítko Zpět vždy vytvoří nový `ItemEditorHolder`, takže
+    `mobsDropConfigMobType` po návratu z číselného editoru nepřežije - uživatel musí znovu kliknout
+    na řádek moba pro úpravu druhého pole (přijatelný kompromis, stejně jako u ostatních
+    picker-based tabů).
+  - Ověřeno `compileJava`, `compileTestJava`, `test`, celý `build` - vše prošlo čistě.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

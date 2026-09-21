@@ -33,7 +33,16 @@ public enum ValueEditorKind {
      * armor_class_profile}'s own bonus - see {@code ItemTemplate}'s javadoc), so {@code
      * hasVisibility} is {@code false} here.
      */
-    ARMOR_CLASS_AMOUNT(ItemEditorTab.ARMOR_CLASS, false, false, false);
+    ARMOR_CLASS_AMOUNT(ItemEditorTab.ARMOR_CLASS, false, false, false),
+    /**
+     * How many of this template a MythicMobs mob type drops on death - {@link
+     * ValueEditorHolder#entryId()} is the mob's internal name. Not shown in this item's own lore
+     * (it describes a mob's loot table, not the item itself), so {@code hasVisibility} is {@code
+     * false}, same reasoning as {@link #ARMOR_CLASS_AMOUNT}.
+     */
+    MOB_DROP_AMOUNT(ItemEditorTab.MOBS, false, false, false),
+    /** The % chance {@link #MOB_DROP_AMOUNT}'s drop rolls at all on that death - same entryId shape. */
+    MOB_DROP_CHANCE(ItemEditorTab.MOBS, false, false, false);
 
     private final ItemEditorTab returnTab;
     private final boolean hasMode;

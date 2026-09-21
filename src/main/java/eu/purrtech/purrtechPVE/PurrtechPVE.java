@@ -26,6 +26,7 @@ import eu.purrtech.purrtechPVE.db.ItemSetRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
+import eu.purrtech.purrtechPVE.db.MobDropRepository;
 import eu.purrtech.purrtechPVE.db.MobEquipmentRepository;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
@@ -37,6 +38,7 @@ import eu.purrtech.purrtechPVE.itemset.ItemSetService;
 import eu.purrtech.purrtechPVE.lang.Messages;
 import eu.purrtech.purrtechPVE.listener.CombatDamageListener;
 import eu.purrtech.purrtechPVE.listener.ItemSyncJoinListener;
+import eu.purrtech.purrtechPVE.mythicmobs.MythicMobDropListener;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobEquipmentListener;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobsBridge;
 import eu.purrtech.purrtechPVE.trinket.AccessoryMenuListener;
@@ -63,6 +65,7 @@ public final class PurrtechPVE extends JavaPlugin {
     private ItemEditorListener itemEditorListener;
     private MythicMobsBridge mythicMobsBridge;
     private MobEquipmentRepository mobEquipmentRepository;
+    private MobDropRepository mobDropRepository;
     private ArmorClassProfileRepository armorClassProfileRepository;
     private CombatFeedbackSettings combatFeedbackSettings;
     private ArmorPenetrationConversionSettings armorPenetrationConversionSettings;
@@ -108,6 +111,7 @@ public final class PurrtechPVE extends JavaPlugin {
         armorClassProfileRepository = new ArmorClassProfileRepository(database);
         accessoryRepository = new AccessoryRepository(database);
         mobEquipmentRepository = new MobEquipmentRepository(database);
+        mobDropRepository = new MobDropRepository(database);
         ItemSetRepository itemSetRepository = new ItemSetRepository(database);
         ItemSetMemberRepository itemSetMemberRepository = new ItemSetMemberRepository(database);
         ItemSetDamageThresholdRepository itemSetDamageThresholdRepository = new ItemSetDamageThresholdRepository(database);
@@ -134,7 +138,7 @@ public final class PurrtechPVE extends JavaPlugin {
                 itemTemplateRepository,
                 damageTypeRegistry);
 
-        mythicMobsSetup = () -> trySetupMythicMobs(mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
+        mythicMobsSetup = () -> trySetupMythicMobs(mobEquipmentRepository, mobDropRepository, itemTemplateRepository, damageContributionRepository,
                 typeModifierRepository, enchantmentRepository, armorPenetrationRepository, bleedEffectRepository,
                 criticalEffectRepository, attributeModifierRepository, itemRenderer);
         mythicMobsSetup.run();
@@ -234,7 +238,8 @@ public final class PurrtechPVE extends JavaPlugin {
      * isn't enabled at all - safe to call repeatedly from both {@code onEnable} and {@link
      * #reload()}.
      */
-    private void trySetupMythicMobs(MobEquipmentRepository mobEquipmentRepository, ItemTemplateRepository itemTemplateRepository,
+    private void trySetupMythicMobs(MobEquipmentRepository mobEquipmentRepository, MobDropRepository mobDropRepository,
+                                     ItemTemplateRepository itemTemplateRepository,
                                      DamageContributionRepository damageContributionRepository, TypeModifierRepository typeModifierRepository,
                                      TemplateEnchantmentRepository enchantmentRepository, ArmorPenetrationRepository armorPenetrationRepository,
                                      BleedEffectRepository bleedEffectRepository, CriticalEffectRepository criticalEffectRepository,
@@ -268,6 +273,13 @@ public final class PurrtechPVE extends JavaPlugin {
         } catch (Throwable t) {
             getLogger().log(Level.WARNING,
                     "Failed to register the MythicMobs mob-equipment listener - mobs won't spawn with assigned equipment.", t);
+        }
+        try {
+            getServer().getPluginManager().registerEvents(
+                    new MythicMobDropListener(mobDropRepository, itemTemplateRepository, itemTemplateService), this);
+        } catch (Throwable t) {
+            getLogger().log(Level.WARNING,
+                    "Failed to register the MythicMobs mob-drop listener - mobs won't drop assigned loot.", t);
         }
     }
 
@@ -326,6 +338,10 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public MobEquipmentRepository getMobEquipmentRepository() {
         return mobEquipmentRepository;
+    }
+
+    public MobDropRepository getMobDropRepository() {
+        return mobDropRepository;
     }
 
     public ArmorClassProfileRepository getArmorClassProfileRepository() {

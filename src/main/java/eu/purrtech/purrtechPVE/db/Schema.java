@@ -254,6 +254,22 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_mob_equipment_template ON mob_equipment(template_id)");
 
+            // Which of our item templates a MythicMobs mob type drops on death, how many, and with
+            // what % chance. Separate from mob_equipment above (a mob-template pairing is either
+            // worn/held gear or a loot drop, never both at once) - rolled fresh on every death by
+            // MythicMobDropListener, so like mob_equipment this is live/global config, not
+            // versioned/snapshotted.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS mob_drop (
+                        mythic_mob_internal_name TEXT NOT NULL,
+                        template_id TEXT NOT NULL REFERENCES item_templates(id) ON DELETE CASCADE,
+                        amount INTEGER NOT NULL,
+                        chance_percent REAL NOT NULL,
+                        PRIMARY KEY (mythic_mob_internal_name, template_id)
+                    )
+                    """);
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_mob_drop_template ON mob_drop(template_id)");
+
             // A template's applied enchantments (vanilla or otherwise registered in the server's
             // Enchantment registry) - a stat like damage contributions/type modifiers, so it's
             // versioned/snapshotted the same way (see item_template_snapshot.enchantments above).

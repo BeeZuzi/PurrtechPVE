@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE.gui;
 
 import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.damage.DamageType;
+import eu.purrtech.purrtechPVE.db.MobDropEntry;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
 import eu.purrtech.purrtechPVE.item.AttributeModifierEntry;
@@ -116,6 +117,8 @@ public final class ItemEditorMenu {
         holder.setPickerOpen(false);
         holder.setMobsPage(0);
         holder.setMobsPickerPage(0);
+        holder.setMobsPendingMobType(null);
+        holder.setMobsDropConfigMobType(null);
         render(plugin, holder.getInventory(), holder, player.locale());
     }
 
@@ -903,6 +906,12 @@ public final class ItemEditorMenu {
     // Same "only configured + Add button" shape as DAMAGE/RESIST above, just keyed by mob type
     // name (a plain String from MythicMobs, not a DamageType) instead of a damage type - mob type
     // lists can get a lot longer than the ~19 damage types, so this is where it matters most.
+    // Each assigned mob type lives in exactly one of two tables - mob_equipment (worn/held gear)
+    // or mob_drop (loot on death), never both - so the assigned list below merges rows from
+    // either source and each row's click behavior branches on which one it came from. Picking a
+    // brand-new mob type from the picker doesn't write to either table right away: it first shows
+    // an "Equipment or Drop?" choice (holder.mobsPendingMobType()), and choosing Drop leads into
+    // an amount/chance config screen (holder.mobsDropConfigMobType()) before anything is saved.
 
     private static void renderMobs(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
         Messages messages = plugin.getMessages();
@@ -919,6 +928,14 @@ public final class ItemEditorMenu {
         }
 
         String templateKey = holder.templateKey();
+        if (holder.mobsDropConfigMobType() != null) {
+            renderMobDropConfig(plugin, inventory, holder, locale);
+            return;
+        }
+        if (holder.mobsPendingMobType() != null) {
+            renderMobChoice(plugin, inventory, holder, locale);
+            return;
+        }
         if (holder.isPickerOpen()) {
             renderMobPicker(plugin, inventory, holder, locale);
             return;
@@ -932,13 +949,23 @@ public final class ItemEditorMenu {
         int start = page * MOBS_PAGE_SIZE;
         for (int i = 0; i < MOBS_PAGE_SIZE && start + i < assigned.size(); i++) {
             String mobType = assigned.get(start + i);
-            String assignedSlot = mobEquipmentSlot(plugin, mobType, template.id()).orElseThrow();
+            Optional<String> equipSlot = mobEquipmentSlot(plugin, mobType, template.id());
 
             List<Component> lore = new ArrayList<>();
-            lore.add(messages.render(locale, "gui.item-editor.mobs.equipped-in", Placeholder.unparsed("slot", assignedSlot)));
-            lore.add(Component.empty());
-            lore.add(messages.render(locale, "gui.item-editor.mobs.hint-reequip"));
-            lore.add(messages.render(locale, "gui.item-editor.mobs.hint-unequip"));
+            if (equipSlot.isPresent()) {
+                lore.add(messages.render(locale, "gui.item-editor.mobs.equipped-in", Placeholder.unparsed("slot", equipSlot.get())));
+                lore.add(Component.empty());
+                lore.add(messages.render(locale, "gui.item-editor.mobs.hint-reequip"));
+                lore.add(messages.render(locale, "gui.item-editor.mobs.hint-unequip"));
+            } else {
+                MobDropEntry drop = mobDropEntry(plugin, mobType, template.id()).orElseThrow();
+                lore.add(messages.render(locale, "gui.item-editor.mobs.drop-summary",
+                        Placeholder.unparsed("amount", String.valueOf(drop.amount())),
+                        Placeholder.unparsed("chance", formatAmount(drop.chancePercent()))));
+                lore.add(Component.empty());
+                lore.add(messages.render(locale, "gui.item-editor.mobs.hint-drop-edit"));
+                lore.add(messages.render(locale, "gui.item-editor.mobs.hint-drop-remove"));
+            }
 
             ItemStack icon = named(Material.ZOMBIE_HEAD, messages.render(locale, "gui.item-editor.mobs.icon", Placeholder.unparsed("mob", mobType)));
             ItemMeta meta = icon.getItemMeta();
@@ -953,6 +980,78 @@ public final class ItemEditorMenu {
         if (addIndexOnPage >= 0 && addIndexOnPage < MOBS_PAGE_SIZE) {
             inventory.setItem(MOBS_LIST_START + addIndexOnPage, addButton(messages, locale, "gui.item-editor.mobs.add"));
         }
+    }
+
+    /** "Equipment or Drop?" choice shown right after picking a not-yet-assigned mob type, before anything's written to either table. */
+    private static void renderMobChoice(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
+        Messages messages = plugin.getMessages();
+        String mobType = holder.mobsPendingMobType();
+
+        ItemStack title = named(Material.ZOMBIE_HEAD, messages.render(locale, "gui.item-editor.mobs.icon", Placeholder.unparsed("mob", mobType)));
+        ItemMeta titleMeta = title.getItemMeta();
+        titleMeta.lore(List.of(messages.render(locale, "gui.item-editor.mobs.choose-hint")));
+        title.setItemMeta(titleMeta);
+        inventory.setItem(MOBS_INFO_SLOT, title);
+
+        ItemStack equipment = named(Material.IRON_CHESTPLATE, messages.render(locale, "gui.item-editor.mobs.choice-equipment"));
+        ItemMeta equipmentMeta = equipment.getItemMeta();
+        equipmentMeta.lore(List.of(
+                messages.render(locale, "gui.item-editor.mobs.choice-equipment-1"),
+                messages.render(locale, "gui.item-editor.mobs.choice-equipment-2")));
+        equipment.setItemMeta(equipmentMeta);
+        inventory.setItem(MOBS_LIST_START, equipment);
+
+        ItemStack drop = named(Material.HOPPER, messages.render(locale, "gui.item-editor.mobs.choice-drop"));
+        ItemMeta dropMeta = drop.getItemMeta();
+        dropMeta.lore(List.of(
+                messages.render(locale, "gui.item-editor.mobs.choice-drop-1"),
+                messages.render(locale, "gui.item-editor.mobs.choice-drop-2")));
+        drop.setItemMeta(dropMeta);
+        inventory.setItem(MOBS_LIST_START + 1, drop);
+
+        ItemStack back = named(Material.ARROW, messages.render(locale, "gui.item-editor.back-red"));
+        ItemMeta backMeta = back.getItemMeta();
+        backMeta.lore(List.of(messages.render(locale, "gui.item-editor.mobs.hint-back")));
+        back.setItemMeta(backMeta);
+        inventory.setItem(PREVIEW_SLOT, back);
+    }
+
+    /** Amount/chance config for a mob type already routed to mob_drop - reuses {@link #dropStatIcon} for the two numeric fields. */
+    private static void renderMobDropConfig(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
+        Messages messages = plugin.getMessages();
+        String mobType = holder.mobsDropConfigMobType();
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
+        MobDropEntry drop = mobDropEntry(plugin, mobType, template.id()).orElse(new MobDropEntry(1, 100.0));
+
+        ItemStack title = named(Material.ZOMBIE_HEAD, messages.render(locale, "gui.item-editor.mobs.icon", Placeholder.unparsed("mob", mobType)));
+        inventory.setItem(MOBS_INFO_SLOT, title);
+
+        inventory.setItem(MOBS_LIST_START, dropStatIcon(messages, locale, Material.HOPPER,
+                "gui.item-editor.mobs.drop-amount", String.valueOf(drop.amount())));
+        inventory.setItem(MOBS_LIST_START + 1, dropStatIcon(messages, locale, Material.GOLD_NUGGET,
+                "gui.item-editor.mobs.drop-chance", formatAmount(drop.chancePercent()) + "%"));
+
+        ItemStack back = named(Material.ARROW, messages.render(locale, "gui.item-editor.back-red"));
+        ItemMeta backMeta = back.getItemMeta();
+        backMeta.lore(List.of(messages.render(locale, "gui.item-editor.mobs.hint-back")));
+        back.setItemMeta(backMeta);
+        inventory.setItem(PREVIEW_SLOT, back);
+    }
+
+    /** Same shape as {@link #effectStatIcon}, but with mob-drop-appropriate wording instead of "delete the whole effect". */
+    private static ItemStack dropStatIcon(Messages messages, Locale locale, Material material, String labelKey, String currentValue) {
+        ItemStack icon = named(material, messages.render(locale, labelKey));
+        ItemMeta meta = icon.getItemMeta();
+        List<Component> lore = new ArrayList<>();
+        lore.add(currentValue != null
+                ? messages.render(locale, "gui.item-editor.effects.value", Placeholder.unparsed("value", currentValue))
+                : messages.render(locale, "gui.armor-class.lore.not-set"));
+        lore.add(Component.empty());
+        lore.add(messages.render(locale, "gui.item-editor.armor-class.hint-set"));
+        lore.add(messages.render(locale, "gui.item-editor.mobs.hint-drop-remove"));
+        meta.lore(lore);
+        icon.setItemMeta(meta);
+        return icon;
     }
 
     private static void renderMobPicker(PurrtechPVE plugin, Inventory inventory, ItemEditorHolder holder, Locale locale) {
@@ -1015,17 +1114,33 @@ public final class ItemEditorMenu {
         return equipment.entrySet().stream().filter(e -> e.getValue().equals(templateId)).map(Map.Entry::getKey).findFirst();
     }
 
+    private static Optional<MobDropEntry> mobDropEntry(PurrtechPVE plugin, String mobType, UUID templateId) {
+        return plugin.getMobDropRepository().find(mobType, templateId);
+    }
+
     private static List<String> assignedMobTypes(PurrtechPVE plugin, UUID templateId) {
-        return listMobTypesSafely(plugin).stream().filter(m -> mobEquipmentSlot(plugin, m, templateId).isPresent()).toList();
+        return listMobTypesSafely(plugin).stream()
+                .filter(m -> mobEquipmentSlot(plugin, m, templateId).isPresent() || mobDropEntry(plugin, m, templateId).isPresent())
+                .toList();
     }
 
     private static List<String> unassignedMobTypes(PurrtechPVE plugin, UUID templateId) {
-        return listMobTypesSafely(plugin).stream().filter(m -> mobEquipmentSlot(plugin, m, templateId).isEmpty()).toList();
+        return listMobTypesSafely(plugin).stream()
+                .filter(m -> mobEquipmentSlot(plugin, m, templateId).isEmpty() && mobDropEntry(plugin, m, templateId).isEmpty())
+                .toList();
     }
 
     private static void handleMobsClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
         Locale locale = player.locale();
         if (plugin.getMythicMobsBridge() == null) {
+            return;
+        }
+        if (holder.mobsDropConfigMobType() != null) {
+            handleMobDropConfigClick(plugin, player, holder, slot, shift);
+            return;
+        }
+        if (holder.mobsPendingMobType() != null) {
+            handleMobChoiceClick(plugin, player, holder, slot);
             return;
         }
         if (holder.isPickerOpen()) {
@@ -1063,15 +1178,25 @@ public final class ItemEditorMenu {
             return;
         }
         String mobType = assigned.get(index);
+        Optional<String> equipSlot = mobEquipmentSlot(plugin, mobType, template.id());
         if (shift) {
-            String assignedSlot = mobEquipmentSlot(plugin, mobType, template.id()).orElseThrow();
-            plugin.getMobEquipmentRepository().remove(mobType, assignedSlot);
-            player.sendMessage(plugin.getMessages().render(locale, "gui.item-editor.mobs.unequipped", Placeholder.unparsed("mob", mobType)));
+            if (equipSlot.isPresent()) {
+                plugin.getMobEquipmentRepository().remove(mobType, equipSlot.get());
+                player.sendMessage(plugin.getMessages().render(locale, "gui.item-editor.mobs.unequipped", Placeholder.unparsed("mob", mobType)));
+            } else {
+                plugin.getMobDropRepository().remove(mobType, template.id());
+                player.sendMessage(plugin.getMessages().render(locale, "gui.item-editor.mobs.drop-removed", Placeholder.unparsed("mob", mobType)));
+            }
             render(plugin, holder.getInventory(), holder, locale);
             return;
         }
-        equipToMob(plugin, player, template, mobType);
-        render(plugin, holder.getInventory(), holder, locale);
+        if (equipSlot.isPresent()) {
+            equipToMob(plugin, player, template, mobType);
+            render(plugin, holder.getInventory(), holder, locale);
+        } else {
+            holder.setMobsDropConfigMobType(mobType);
+            render(plugin, holder.getInventory(), holder, locale);
+        }
     }
 
     private static void handleMobPickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
@@ -1105,9 +1230,55 @@ public final class ItemEditorMenu {
         if (index < 0 || index >= available.size()) {
             return;
         }
-        equipToMob(plugin, player, template, available.get(index));
         holder.setPickerOpen(false);
+        holder.setMobsPendingMobType(available.get(index));
         render(plugin, holder.getInventory(), holder, locale);
+    }
+
+    /** Handles the "Equipment or Drop?" choice screen shown right after picking a new mob type in the picker. */
+    private static void handleMobChoiceClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
+        Locale locale = player.locale();
+        String mobType = holder.mobsPendingMobType();
+        if (slot == PREVIEW_SLOT) {
+            holder.setMobsPendingMobType(null);
+            render(plugin, holder.getInventory(), holder, locale);
+            return;
+        }
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
+        if (slot == MOBS_LIST_START) {
+            holder.setMobsPendingMobType(null);
+            equipToMob(plugin, player, template, mobType);
+            render(plugin, holder.getInventory(), holder, locale);
+        } else if (slot == MOBS_LIST_START + 1) {
+            holder.setMobsPendingMobType(null);
+            plugin.getMobDropRepository().set(mobType, template.id(), 1, 100.0);
+            holder.setMobsDropConfigMobType(mobType);
+            render(plugin, holder.getInventory(), holder, locale);
+        }
+    }
+
+    /** Handles the drop amount/chance config screen for a mob type already routed to mob_drop. */
+    private static void handleMobDropConfigClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot, boolean shift) {
+        Locale locale = player.locale();
+        String mobType = holder.mobsDropConfigMobType();
+        if (slot == PREVIEW_SLOT) {
+            holder.setMobsDropConfigMobType(null);
+            render(plugin, holder.getInventory(), holder, locale);
+            return;
+        }
+        if (slot != MOBS_LIST_START && slot != MOBS_LIST_START + 1) {
+            return;
+        }
+        ItemTemplate template = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow();
+        if (shift) {
+            plugin.getMobDropRepository().remove(mobType, template.id());
+            player.sendMessage(plugin.getMessages().render(locale, "gui.item-editor.mobs.drop-removed", Placeholder.unparsed("mob", mobType)));
+            holder.setMobsDropConfigMobType(null);
+            render(plugin, holder.getInventory(), holder, locale);
+            return;
+        }
+        ValueEditorKind kind = slot == MOBS_LIST_START ? ValueEditorKind.MOB_DROP_AMOUNT : ValueEditorKind.MOB_DROP_CHANCE;
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, mobType);
     }
 
     private static void equipToMob(PurrtechPVE plugin, Player player, ItemTemplate template, String mobType) {

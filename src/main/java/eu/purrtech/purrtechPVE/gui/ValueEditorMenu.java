@@ -6,6 +6,7 @@ import eu.purrtech.purrtechPVE.item.ArmorPenetration;
 import eu.purrtech.purrtechPVE.item.AttributeModifierEntry;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
 import eu.purrtech.purrtechPVE.item.CriticalEffect;
+import eu.purrtech.purrtechPVE.db.MobDropEntry;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplateService;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
@@ -24,6 +25,8 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * A generic "+/- buttons to nudge a number, plus a lore-visibility toggle" screen, opened from
@@ -268,7 +271,18 @@ public final class ValueEditorMenu {
                     .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
             case ARMOR_CLASS_AMOUNT -> new CurrentState(
                     service.findByKey(key).orElseThrow().armorAmount(), true, DamageMode.FLAT, ModifierContext.WIELDED);
+            case MOB_DROP_AMOUNT -> new CurrentState(
+                    mobDrop(plugin, key, holder.entryId()).map(MobDropEntry::amount).orElse(1),
+                    true, DamageMode.FLAT, ModifierContext.WIELDED);
+            case MOB_DROP_CHANCE -> new CurrentState(
+                    mobDrop(plugin, key, holder.entryId()).map(MobDropEntry::chancePercent).orElse(100.0),
+                    true, DamageMode.FLAT, ModifierContext.WIELDED);
         };
+    }
+
+    private static Optional<MobDropEntry> mobDrop(PurrtechPVE plugin, String templateKey, String mobType) {
+        UUID templateId = plugin.getItemTemplateService().findByKey(templateKey).orElseThrow().id();
+        return plugin.getMobDropRepository().find(mobType, templateId);
     }
 
     /** {@code mode} only actually matters for {@link ValueEditorKind#BLEED_DAMAGE}/{@link ValueEditorKind#DAMAGE} - every other kind's {@code setXxx} call just ignores/doesn't take one. */
@@ -313,6 +327,23 @@ public final class ValueEditorMenu {
                 service.setCriticalEffect(key, current.chancePercent(), newValue, visible);
             }
             case ARMOR_CLASS_AMOUNT -> service.setArmorAmount(key, newValue);
+            case MOB_DROP_AMOUNT -> {
+                UUID templateId = service.findByKey(key).orElseThrow().id();
+                double chance = plugin.getMobDropRepository().find(holder.entryId(), templateId)
+                        .map(MobDropEntry::chancePercent).orElse(100.0);
+                // A drop with nothing left to drop is meaningless - floor at 1 rather than letting
+                // the DEC buttons walk it down to 0 (or negative) and silently stop dropping anything.
+                plugin.getMobDropRepository().set(holder.entryId(), templateId, Math.max(1, (int) Math.round(newValue)), chance);
+            }
+            case MOB_DROP_CHANCE -> {
+                UUID templateId = service.findByKey(key).orElseThrow().id();
+                int amount = plugin.getMobDropRepository().find(holder.entryId(), templateId)
+                        .map(MobDropEntry::amount).orElse(1);
+                // Clamped to a real percentage - the +/-10 buttons would otherwise walk this past
+                // 100% (a no-op chance-wise but confusing to display) or below 0%.
+                double clamped = Math.max(0.0, Math.min(100.0, newValue));
+                plugin.getMobDropRepository().set(holder.entryId(), templateId, amount, clamped);
+            }
         }
     }
 

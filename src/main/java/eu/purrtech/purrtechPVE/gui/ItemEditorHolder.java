@@ -21,6 +21,14 @@ public final class ItemEditorHolder implements InventoryHolder {
     // number over onto the other list. Reset to 0 by switchTab()/entering the picker.
     private int mobsPage;
     private int mobsPickerPage;
+    // MOBS tab's extra sub-screens, both null/unset outside MOBS: mobsPendingMobType is set right
+    // after picking a not-yet-assigned mob type in the picker, showing an "Equipment or Drop?"
+    // choice before anything's actually written to either mob_equipment or mob_drop.
+    // mobsDropConfigMobType is set when viewing/editing an existing drop assignment's amount/
+    // chance% (a mob already routed to mob_drop). Only one of the two, or neither, is ever set at
+    // once - see ItemEditorMenu's MOBS tab render/click handling.
+    private String mobsPendingMobType;
+    private String mobsDropConfigMobType;
 
     public ItemEditorHolder(String templateKey, ItemEditorTab tab) {
         this.templateKey = templateKey;
@@ -70,5 +78,21 @@ public final class ItemEditorHolder implements InventoryHolder {
 
     public void setMobsPickerPage(int mobsPickerPage) {
         this.mobsPickerPage = mobsPickerPage;
+    }
+
+    public String mobsPendingMobType() {
+        return mobsPendingMobType;
+    }
+
+    public void setMobsPendingMobType(String mobsPendingMobType) {
+        this.mobsPendingMobType = mobsPendingMobType;
+    }
+
+    public String mobsDropConfigMobType() {
+        return mobsDropConfigMobType;
+    }
+
+    public void setMobsDropConfigMobType(String mobsDropConfigMobType) {
+        this.mobsDropConfigMobType = mobsDropConfigMobType;
     }
 }
