@@ -2889,6 +2889,41 @@
   - **CMD**: `/pve item hologram <key> on|off` (nová `ON_OFF_SUGGESTIONS` konstanta,
     `setItemHologram` executor).
   - Ověřeno `compileJava`, `compileTestJava`, `test`, celý `build` - vše prošlo čistě.
+- **Stun efekt zbraní + odolnost brnění (2026-09-21), na žádost**: "Poté co doděláš předešlý úkol
+  udělej také to že zbraň bude mít šanci na to dát stun. Stun bude to že daná entita nemůže útočit,
+  bude zpomalená a nebude nic vidět. Dej tam pravděpodobnost pro udělení stunu a pak jak dlouhý může
+  být. Také udělej rezistenci na to pro armory."
+  - **Zbraňová strana**: nový `StunEffect(chancePercent, durationSeconds, visible)` record, 1:1
+    stejná struktura a "živý-verzovaný/snapshotovaný" filozofie jako `CriticalEffect`/`BleedEffect`
+    - patří do `TemplateSnapshot` (nové pole mezi `criticalEffect` a `attributeModifiers`), takže
+    stun na zbrani se propisuje jen do nových kusů/publikace, ne retroaktivně do už vydaných itemů.
+    Vlastní `StunEffectRepository` + CRUD v `ItemTemplateService`, přesně podle vzoru
+    `CriticalEffectRepository`/`setCriticalEffect`/`removeCriticalEffect`.
+  - **Brnění strana**: `ItemTemplate.stunResistPercent` - nové pole přímo na `ItemTemplate` (mezi
+    `armorAmount` a `version`), "živé/neverzované" stejně jako `armorAmount`, nezávislé na
+    `armorClass`. Aplikuje se rovnou na už vydané itemy, bez nutnosti republish. `/pve item
+    stunresist <key> <percent>` (jeden příkaz, žádné set/remove - stun odolnost je vždycky "nastavená
+    hodnota", 0 = žádná, na rozdíl od stun efektu na zbrani, který buď je nebo není nakonfigurovaný).
+  - `EquipmentResolver.resolveStunEffect` (wielded stat, stejný vzor jako `resolveCriticalEffect`) a
+    `resolveStunResistPercent` (sečte `stunResistPercent` napříč všemi nasazenými kusy brnění
+    respektujícími svoje `allowedSlots` - plochý součet bez seskupování podle `ArmorClass` a bez
+    redukce armor-penetrací, protože je to vlastní klasifikační magnitude kusu, ne class-wide bonus).
+  - **Mechanika v `CombatDamageListener`**: "nemůže útočit" řešeno cancelnutím eventu - na začátku
+    `onEntityDamageByEntity` se ověří, jestli je útočník v `Map<UUID, Long> stunnedUntilMillis` (tzn.
+    ještě běží jeho stun), a pokud ano, event se rovnou zruší. "Zpomalená a nebude nic vidět" jsou
+    reálné potion efekty (`SLOWNESS`/`BLINDNESS`, ambient, bez částic) aplikované na obránce při
+    úspěšném hodu na stun (nezávisle na crit/bleed hodu, ze stejné držené zbraně), aby to hráč i
+    viděl. Šance na stun se před hodem vynásobí `(1 - stunResistPercent/100)` obránce. Druhý stun
+    dopadlý uprostřed prvního prodlouží zbývající čas (`merge` s `Math::max`), nezkrátí ho.
+  - **GUI**: nové ikonky `SLOT_STUN_CHANCE`/`SLOT_STUN_DURATION` v SPECIAL_EFFECTS tabu (za bleed a
+    crit sloty), nová ikonka stun odolnosti v ARMOR_CLASS tabu (za 4 armor-class volby) - obě přes
+    `ValueEditorMenu`/`ValueEditorKind` (`STUN_CHANCE`/`STUN_DURATION` s viditelností v loru,
+    `STUN_RESIST_PERCENT` bez viditelnosti v loru, stejně jako `ARMOR_CLASS_AMOUNT`).
+  - **CMD**: `/pve item stun set/remove <key> ...` (zbraň), `/pve item stunresist <key> <percent>`
+    (brnění).
+  - Ověřeno `compileJava`, `compileTestJava`, `test`, celý `build` - vše prošlo čistě. Živé ověření
+    potion efektů/cancelnutí přes `runServer` je na uživateli (stejná "no MockBukkit" konvence jako
+    u ostatních combat listenerů).
 
 # PurrtechPVE — analýza a implementační plán
 

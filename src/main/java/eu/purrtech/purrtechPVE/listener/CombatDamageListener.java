@@ -14,6 +14,7 @@ import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
 import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageMode;
+import eu.purrtech.purrtechPVE.item.StunEffect;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -22,11 +23,14 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -54,6 +58,15 @@ import java.util.concurrent.ThreadLocalRandom;
  * DamageContribution}, split evenly across however many ticks fit the
  * weapon's configured duration).
  *
+ * <p>Stun is rolled the same way, off the attacker's wielded weapon's {@link StunEffect}, except
+ * its chance is first reduced by the defender's {@code EquipmentResolver.resolveStunResistPercent}
+ * (worn armor's {@code stunResistPercent}, live/unversioned unlike the weapon-side chance/duration
+ * themselves). A successful roll marks the defender's expiry timestamp in {@code
+ * stunnedUntilMillis} and applies {@code SLOWNESS}/{@code BLINDNESS} for the same duration
+ * ("zpomalená a nebude nic vidět"); the "can't attack" part ("nemůže útočit") isn't a potion
+ * effect at all - it's enforced by cancelling this very event up front whenever the ATTACKER is
+ * found still stunned, regardless of which weapon/side stunned them.
+ *
  * <p>{@code combatFeedbackSettings.effectivenessColors()} (see {@code config.yml}) switches the
  * per-type numbers from a flat attacker/defender color to yellow/white/gray by how effective the
  * hit was against the target - same {@code resistance} map already computed above, just also
@@ -74,6 +87,10 @@ public final class CombatDamageListener implements Listener {
     private final BleedManager bleedManager;
     private CombatFeedbackSettings combatFeedbackSettings;
     private final DpsTracker dpsTracker;
+    // System.currentTimeMillis() an entity's stun expires at - see the class javadoc's stun
+    // paragraph. Only ever touched from this listener's own event handler, always on the main
+    // thread, so a plain HashMap is fine.
+    private final Map<UUID, Long> stunnedUntilMillis = new HashMap<>();
 
     public CombatDamageListener(WorldToggleSettings worldToggles, EquipmentResolver equipmentResolver,
                                  DamageTypeRegistry damageTypeRegistry, BleedManager bleedManager,
@@ -98,6 +115,10 @@ public final class CombatDamageListener implements Listener {
             return;
         }
         LivingEntity attacker = resolveAttacker(event);
+        if (attacker != null && isStunned(attacker)) {
+            event.setCancelled(true);
+            return;
+        }
         if (attacker == null) {
             return;
         }
@@ -165,6 +186,19 @@ public final class CombatDamageListener implements Listener {
             });
         }
 
+        // Stun: rolled independently of crit/bleed, off the same wielded weapon, only once
+        // chance/duration are BOTH set (see StunEffect.isComplete()). The defender's worn armor's
+        // stunResistPercent scales the chance down multiplicatively before the roll - see
+        // EquipmentResolver.resolveStunResistPercent's javadoc.
+        Optional<StunEffect> stun = equipmentResolver.resolveStunEffect(attacker);
+        if (stun.isPresent() && stun.get().isComplete()) {
+            double resistPercent = equipmentResolver.resolveStunResistPercent(defender);
+            double effectiveChance = stun.get().chancePercent() * (1 - resistPercent / 100.0);
+            if (effectiveChance > 0 && ThreadLocalRandom.current().nextDouble(100) < effectiveChance) {
+                applyStun(defender, stun.get().durationSeconds());
+            }
+        }
+
         boolean effectivenessColors = combatFeedbackSettings.effectivenessColors();
         if (defender instanceof Player defenderPlayer) {
             defenderPlayer.sendActionBar(DamageFeedback.render(perTypeForDisplay, damageTypeRegistry, NamedTextColor.RED,
@@ -180,6 +214,27 @@ public final class CombatDamageListener implements Listener {
             }
             attackerPlayer.sendActionBar(feedback);
         }
+    }
+
+    /** Whether {@code entity} is still within a previously-rolled stun's duration - see the class javadoc's stun paragraph. */
+    private boolean isStunned(LivingEntity entity) {
+        Long until = stunnedUntilMillis.get(entity.getUniqueId());
+        return until != null && until > System.currentTimeMillis();
+    }
+
+    /**
+     * Marks {@code entity} stunned for {@code durationSeconds} ("nemůže útočit" is enforced
+     * separately, by cancelling this listener's own event whenever the ATTACKER is found still
+     * stunned) and applies the visible slow/blind part ("zpomalená a nebude nic vidět") as real
+     * potion effects so it's obvious to the player too. {@code merge}d rather than overwritten so a
+     * second stun landing mid-stun extends rather than shortens the remaining time.
+     */
+    private void applyStun(LivingEntity entity, double durationSeconds) {
+        long expiresAt = System.currentTimeMillis() + (long) (durationSeconds * 1000);
+        stunnedUntilMillis.merge(entity.getUniqueId(), expiresAt, Math::max);
+        int ticks = (int) Math.ceil(durationSeconds * 20.0);
+        entity.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, 3, false, true));
+        entity.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, ticks, 0, false, true));
     }
 
     private LivingEntity resolveAttacker(EntityDamageByEntityEvent event) {

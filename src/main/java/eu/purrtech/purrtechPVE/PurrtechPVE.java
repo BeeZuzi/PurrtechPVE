@@ -29,6 +29,7 @@ import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
 import eu.purrtech.purrtechPVE.db.MobDropRepository;
+import eu.purrtech.purrtechPVE.db.StunEffectRepository;
 import eu.purrtech.purrtechPVE.db.MobEquipmentRepository;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
@@ -113,6 +114,7 @@ public final class PurrtechPVE extends JavaPlugin {
         ArmorPenetrationRepository armorPenetrationRepository = new ArmorPenetrationRepository(database);
         BleedEffectRepository bleedEffectRepository = new BleedEffectRepository(database);
         CriticalEffectRepository criticalEffectRepository = new CriticalEffectRepository(database);
+        StunEffectRepository stunEffectRepository = new StunEffectRepository(database);
         AttributeModifierRepository attributeModifierRepository = new AttributeModifierRepository(database);
         mobDamageProfileRepository = new MobDamageProfileRepository(database);
         armorClassProfileRepository = new ArmorClassProfileRepository(database);
@@ -133,6 +135,7 @@ public final class PurrtechPVE extends JavaPlugin {
                 armorPenetrationRepository,
                 bleedEffectRepository,
                 criticalEffectRepository,
+                stunEffectRepository,
                 attributeModifierRepository,
                 snapshotRepository,
                 damageTypeRegistry,
@@ -148,7 +151,7 @@ public final class PurrtechPVE extends JavaPlugin {
 
         mythicMobsSetup = () -> trySetupMythicMobs(mobEquipmentRepository, mobDropRepository, itemTemplateRepository, damageContributionRepository,
                 typeModifierRepository, enchantmentRepository, armorPenetrationRepository, bleedEffectRepository,
-                criticalEffectRepository, attributeModifierRepository, itemRenderer);
+                criticalEffectRepository, stunEffectRepository, attributeModifierRepository, itemRenderer);
         mythicMobsSetup.run();
         equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
                 mobDamageProfileRepository, armorClassProfileRepository, accessoryRepository, itemSetMemberRepository,
@@ -255,6 +258,7 @@ public final class PurrtechPVE extends JavaPlugin {
                                      DamageContributionRepository damageContributionRepository, TypeModifierRepository typeModifierRepository,
                                      TemplateEnchantmentRepository enchantmentRepository, ArmorPenetrationRepository armorPenetrationRepository,
                                      BleedEffectRepository bleedEffectRepository, CriticalEffectRepository criticalEffectRepository,
+                                     StunEffectRepository stunEffectRepository,
                                      AttributeModifierRepository attributeModifierRepository, ItemRenderer itemRenderer) {
         if (mythicMobsBridge != null || !getServer().getPluginManager().isPluginEnabled("MythicMobs")) {
             return;
@@ -281,7 +285,7 @@ public final class PurrtechPVE extends JavaPlugin {
             getServer().getPluginManager().registerEvents(new MythicMobEquipmentListener(
                     mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
                     typeModifierRepository, enchantmentRepository, armorPenetrationRepository,
-                    bleedEffectRepository, criticalEffectRepository, attributeModifierRepository, itemRenderer), this);
+                    bleedEffectRepository, criticalEffectRepository, stunEffectRepository, attributeModifierRepository, itemRenderer), this);
         } catch (Throwable t) {
             getLogger().log(Level.WARNING,
                     "Failed to register the MythicMobs mob-equipment listener - mobs won't spawn with assigned equipment.", t);

@@ -4,6 +4,7 @@ import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
 import eu.purrtech.purrtechPVE.item.CriticalEffect;
+import eu.purrtech.purrtechPVE.item.StunEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
@@ -39,7 +40,7 @@ class ItemTemplateSnapshotRepositoryTest {
         repository = new ItemTemplateSnapshotRepository(database);
 
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "fire-sword", "Plamenný meč", List.of(), List.of(), List.of(), Material.IRON_SWORD,
-                null, null, false, List.of(), null, 0, 1, 1, 0L, 0L, "console");
+                null, null, false, List.of(), null, 0, 0, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
     }
@@ -60,6 +61,7 @@ class ItemTemplateSnapshotRepositoryTest {
                 List.of(new ArmorPenetration(ArmorClass.HEAVY, 15.0, DamageMode.FLAT, true)),
                 new BleedEffect(25.0, 5.0, 3.0, DamageMode.FLAT, true),
                 new CriticalEffect(15.0, 50.0, true),
+                new StunEffect(10.0, 2.0, true),
                 // NOT covered here: attributeModifiers round-tripping. Unlike every other list on
                 // this record, AttributeModifierEntry holds a real org.bukkit.attribute.Attribute,
                 // whose constants are backed by a live Bukkit registry (Attribute.<clinit> calls
@@ -92,6 +94,8 @@ class ItemTemplateSnapshotRepositoryTest {
         assertEquals(DamageMode.FLAT, found.bleedEffect().mode());
         assertEquals(15.0, found.criticalEffect().chancePercent());
         assertEquals(50.0, found.criticalEffect().bonusDamagePercent());
+        assertEquals(10.0, found.stunEffect().chancePercent());
+        assertEquals(2.0, found.stunEffect().durationSeconds());
         assertTrue(found.attributeModifiers().isEmpty());
         assertArrayEquals(baseItemSnapshotBytes, found.baseItemSnapshot());
     }
@@ -99,7 +103,7 @@ class ItemTemplateSnapshotRepositoryTest {
     @Test
     void emptyContributionsAndModifiersRoundTripAsEmptyLists() {
         TemplateSnapshot snapshot = new TemplateSnapshot(templateId, "fire-sword", 1, "Plamenný meč", List.of(), List.of(), List.of(),
-                Material.IRON_SWORD, null, null, List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 0L);
+                Material.IRON_SWORD, null, null, List.of(), List.of(), List.of(), List.of(), null, null, null, List.of(), 0L);
         repository.insert(snapshot);
 
         TemplateSnapshot found = repository.find(templateId, 1).orElseThrow();
@@ -121,9 +125,9 @@ class ItemTemplateSnapshotRepositoryTest {
     @Test
     void insertOnSameVersionReplaces() {
         repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "A", List.of(), List.of(), List.of(), Material.IRON_SWORD, null, null,
-                List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 0L));
+                List.of(), List.of(), List.of(), List.of(), null, null, null, List.of(), 0L));
         repository.insert(new TemplateSnapshot(templateId, "fire-sword", 1, "B", List.of(), List.of(), List.of(), Material.IRON_SWORD, null, null,
-                List.of(), List.of(), List.of(), List.of(), null, null, List.of(), 1L));
+                List.of(), List.of(), List.of(), List.of(), null, null, null, List.of(), 1L));
 
         assertEquals("B", repository.find(templateId, 1).orElseThrow().displayName());
     }

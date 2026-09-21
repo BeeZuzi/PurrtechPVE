@@ -26,6 +26,8 @@ public enum ValueEditorKind {
     BLEED_DAMAGE(ItemEditorTab.SPECIAL_EFFECTS, true, false, true),
     CRIT_CHANCE(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
     CRIT_BONUS(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
+    STUN_CHANCE(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
+    STUN_DURATION(ItemEditorTab.SPECIAL_EFFECTS, false, false, true),
     /**
      * How many flat, vanilla-style armor points ({@code ItemTemplate.armorAmount}) the currently
      * selected {@code ArmorClass} grants - unlike every other kind, there's no {@code visible}
@@ -34,6 +36,12 @@ public enum ValueEditorKind {
      * hasVisibility} is {@code false} here.
      */
     ARMOR_CLASS_AMOUNT(ItemEditorTab.ARMOR_CLASS, false, false, false),
+    /**
+     * {@code ItemTemplate.stunResistPercent} - same live/unversioned, never-in-lore treatment as
+     * {@link #ARMOR_CLASS_AMOUNT}, and likewise independent of which/whether an {@code ArmorClass}
+     * is currently selected.
+     */
+    STUN_RESIST_PERCENT(ItemEditorTab.ARMOR_CLASS, false, false, false),
     /**
      * How many of this template a MythicMobs mob type drops on death - {@link
      * ValueEditorHolder#entryId()} is the mob's internal name. Not shown in this item's own lore

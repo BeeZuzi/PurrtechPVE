@@ -8,6 +8,7 @@ import eu.purrtech.purrtechPVE.item.CriticalEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
+import eu.purrtech.purrtechPVE.item.StunEffect;
 import eu.purrtech.purrtechPVE.item.TemplateEnchantment;
 import eu.purrtech.purrtechPVE.item.TemplateSnapshot;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
@@ -49,8 +50,8 @@ public final class ItemTemplateSnapshotRepository {
                      INSERT OR REPLACE INTO item_template_snapshot
                          (template_id, version, template_key, display_name, custom_lore, hidden_headers, lore_order, base_material, custom_model_data,
                           damage_contributions, type_modifiers, enchantments, armor_penetration, bleed_effect,
-                          critical_effect, attribute_modifiers, base_item_snapshot, created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                          critical_effect, stun_effect, attribute_modifiers, base_item_snapshot, created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             statement.setString(1, snapshot.templateId().toString());
             statement.setInt(2, snapshot.version());
@@ -71,13 +72,14 @@ public final class ItemTemplateSnapshotRepository {
             statement.setString(13, encodeArmorPenetration(snapshot.armorPenetration()));
             statement.setString(14, encodeBleedEffect(snapshot.bleedEffect()));
             statement.setString(15, encodeCriticalEffect(snapshot.criticalEffect()));
-            statement.setString(16, encodeAttributeModifiers(snapshot.attributeModifiers()));
+            statement.setString(16, encodeStunEffect(snapshot.stunEffect()));
+            statement.setString(17, encodeAttributeModifiers(snapshot.attributeModifiers()));
             if (snapshot.baseItemSnapshot() != null) {
-                statement.setBytes(17, snapshot.baseItemSnapshot());
+                statement.setBytes(18, snapshot.baseItemSnapshot());
             } else {
-                statement.setNull(17, Types.BLOB);
+                statement.setNull(18, Types.BLOB);
             }
-            statement.setLong(18, snapshot.createdAt());
+            statement.setLong(19, snapshot.createdAt());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
@@ -131,6 +133,7 @@ public final class ItemTemplateSnapshotRepository {
                 decodeArmorPenetration(rs.getString("armor_penetration")),
                 decodeBleedEffect(rs.getString("bleed_effect")),
                 decodeCriticalEffect(rs.getString("critical_effect")),
+                decodeStunEffect(rs.getString("stun_effect")),
                 decodeAttributeModifiers(rs.getString("attribute_modifiers")),
                 rs.getLong("created_at")
         );
@@ -248,6 +251,18 @@ public final class ItemTemplateSnapshotRepository {
         }
         String[] fields = raw.split("\\|");
         return new CriticalEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]), parseVisible(fields, 2));
+    }
+
+    private static String encodeStunEffect(StunEffect effect) {
+        return effect == null ? null : effect.chancePercent() + "|" + effect.durationSeconds() + "|" + effect.visible();
+    }
+
+    private static StunEffect decodeStunEffect(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String[] fields = raw.split("\\|");
+        return new StunEffect(Double.parseDouble(fields[0]), Double.parseDouble(fields[1]), parseVisible(fields, 2));
     }
 
     private static String encodeAttributeModifiers(List<AttributeModifierEntry> attributeModifiers) {

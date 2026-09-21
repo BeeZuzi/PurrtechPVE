@@ -19,6 +19,7 @@ import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemRenderer;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
+import eu.purrtech.purrtechPVE.item.StunEffect;
 import eu.purrtech.purrtechPVE.item.TemplateSnapshot;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import eu.purrtech.purrtechPVE.itemset.SetThresholdDamage;
@@ -186,6 +187,33 @@ public final class EquipmentResolver {
     /** The attacker's wielded weapon's {@link BleedEffect}, if it has one configured - pinned to its snapshot like any other weapon stat. */
     public Optional<BleedEffect> resolveBleedEffect(LivingEntity attacker) {
         return resolveWieldedStat(attacker, TemplateSnapshot::bleedEffect);
+    }
+
+    /** The attacker's wielded weapon's {@link StunEffect}, if it has one configured - pinned to its snapshot like any other weapon stat. */
+    public Optional<StunEffect> resolveStunEffect(LivingEntity attacker) {
+        return resolveWieldedStat(attacker, TemplateSnapshot::stunEffect);
+    }
+
+    /**
+     * Sum of {@link ItemTemplate#stunResistPercent} across the defender's whole equipped set, respecting each
+     * piece's {@code allowedSlots} - live/unversioned, unlike {@link #resolveArmorPoints}, and pooled flatly with
+     * no per-{@link ArmorClass} grouping or armor-penetration reduction, since it's a piece's own classification
+     * magnitude rather than a class-wide profile bonus. See {@link StunEffect}'s javadoc for how this reduces the
+     * attacker's effective stun chance.
+     */
+    public double resolveStunResistPercent(LivingEntity defender) {
+        EntityEquipment equipment = defender.getEquipment();
+        if (equipment == null) {
+            return 0;
+        }
+        double total = 0;
+        for (Map.Entry<String, ItemStack> entry : allEquippedPieces(defender, equipment).entrySet()) {
+            total += resolvedItemOf(entry.getValue())
+                    .filter(item -> isAllowedInSlot(item.template(), entry.getKey()))
+                    .map(item -> item.template().stunResistPercent())
+                    .orElse(0.0);
+        }
+        return total;
     }
 
     private <T> Optional<T> resolveWieldedStat(LivingEntity attacker, Function<TemplateSnapshot, T> extractor) {

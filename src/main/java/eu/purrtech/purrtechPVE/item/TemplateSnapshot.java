@@ -29,6 +29,7 @@ public record TemplateSnapshot(
         List<ArmorPenetration> armorPenetration,
         BleedEffect bleedEffect,
         CriticalEffect criticalEffect,
+        StunEffect stunEffect,
         List<AttributeModifierEntry> attributeModifiers,
         long createdAt
 ) {

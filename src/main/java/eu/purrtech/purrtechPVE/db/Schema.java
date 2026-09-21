@@ -55,6 +55,11 @@ final class Schema {
             // ItemTemplate's javadoc. Live/unversioned just like armor_class itself, so it's a
             // plain column here, never in item_template_snapshot.
             addColumnIfMissing(connection, "item_templates", "armor_amount", "REAL NOT NULL DEFAULT 0");
+            // How much this one armor piece resists being stunned, in percent, pooled additively
+            // across a defender's whole equipped set (see EquipmentResolver.resolveStunResistPercent)
+            // - same live/unversioned treatment as armor_amount, since it's just that piece's own
+            // classification magnitude, independent of armor_class.
+            addColumnIfMissing(connection, "item_templates", "stun_resist_percent", "REAL NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, "item_templates", "custom_lore", "TEXT");
             addColumnIfMissing(connection, "item_templates", "hidden_headers", "TEXT");
             addColumnIfMissing(connection, "item_templates", "lore_order", "TEXT");
@@ -91,6 +96,7 @@ final class Schema {
             addColumnIfMissing(connection, "item_template_snapshot", "armor_penetration", "TEXT NOT NULL DEFAULT ''");
             addColumnIfMissing(connection, "item_template_snapshot", "bleed_effect", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "critical_effect", "TEXT");
+            addColumnIfMissing(connection, "item_template_snapshot", "stun_effect", "TEXT");
             addColumnIfMissing(connection, "item_template_snapshot", "attribute_modifiers", "TEXT NOT NULL DEFAULT ''");
             addColumnIfMissing(connection, "item_template_snapshot", "base_item_snapshot", "BLOB");
             addColumnIfMissing(connection, "item_template_snapshot", "custom_lore", "TEXT");
@@ -344,6 +350,17 @@ final class Schema {
                     )
                     """);
             addColumnIfMissing(connection, "item_critical_effect", "visible", "INTEGER NOT NULL DEFAULT 1");
+
+            // A weapon's chance to stun the defender on a hit + how long it lasts - see the
+            // StunEffect record's javadoc. At most one row per template.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_stun_effect (
+                        template_id TEXT PRIMARY KEY REFERENCES item_templates(id) ON DELETE CASCADE,
+                        chance_percent REAL NOT NULL,
+                        duration_seconds REAL NOT NULL,
+                        visible INTEGER NOT NULL DEFAULT 1
+                    )
+                    """);
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize database schema", e);
         }

@@ -72,10 +72,11 @@ public final class ItemRenderer {
     /** Renders from the template's current live data - always the newest version, used for freshly given items. */
     public ItemStack render(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                              List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
-                             BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
+                             BleedEffect bleedEffect, CriticalEffect criticalEffect, StunEffect stunEffect,
+                             List<AttributeModifierEntry> attributeModifiers) {
         return render(template.key(), template.version(), template.displayName(), template.customLore(), template.hiddenHeaders(),
                 template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), contributions,
-                modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, attributeModifiers);
+                modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, stunEffect, attributeModifiers);
     }
 
     /** Renders exactly as a given historical version looked - used to catch up a stack pinned behind the live version. */
@@ -83,14 +84,14 @@ public final class ItemRenderer {
         return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.customLore(), snapshot.hiddenHeaders(),
                 snapshot.loreOrder(), snapshot.baseMaterial(), snapshot.baseItemSnapshot(), snapshot.customModelData(),
                 snapshot.damageContributions(), snapshot.typeModifiers(), snapshot.enchantments(), snapshot.armorPenetration(),
-                snapshot.bleedEffect(), snapshot.criticalEffect(), snapshot.attributeModifiers());
+                snapshot.bleedEffect(), snapshot.criticalEffect(), snapshot.stunEffect(), snapshot.attributeModifiers());
     }
 
     private ItemStack render(String key, int version, String displayName, List<String> customLore, List<String> hiddenHeaders,
                               List<String> loreOrder, Material baseMaterial, byte[] baseItemSnapshot, Integer customModelData,
                               List<DamageContribution> contributions, List<TypeModifier> modifiers, List<TemplateEnchantment> enchantments,
                               List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
-                              List<AttributeModifierEntry> attributeModifiers) {
+                              StunEffect stunEffect, List<AttributeModifierEntry> attributeModifiers) {
         // Starts from a full clone of whatever real item this template was created/rebased from
         // (raw NBT, not just Bukkit's PersistentDataContainer view of it - see BaseItemSnapshots for
         // exactly why that distinction is the whole fix) instead of a bare new ItemStack, so
@@ -106,7 +107,7 @@ public final class ItemRenderer {
             meta.setCustomModelData(customModelData);
         }
         meta.lore(buildLore(customLore, hiddenHeaders, loreOrder, contributions, modifiers, armorPenetration, bleedEffect, criticalEffect,
-                attributeModifiers));
+                stunEffect, attributeModifiers));
 
         for (TemplateEnchantment enchantment : enchantments) {
             resolveEnchantment(enchantment.enchantmentKey())
@@ -172,9 +173,9 @@ public final class ItemRenderer {
     private List<Component> buildLore(List<String> customLore, List<String> hiddenHeaders, List<String> loreOrder,
                                        List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                        List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
-                                       List<AttributeModifierEntry> attributeModifiers) {
+                                       StunEffect stunEffect, List<AttributeModifierEntry> attributeModifiers) {
         List<LoreLine> candidates = lineCandidates(customLore, hiddenHeaders, contributions, modifiers,
-                armorPenetration, bleedEffect, criticalEffect, attributeModifiers);
+                armorPenetration, bleedEffect, criticalEffect, stunEffect, attributeModifiers);
         return LoreLine.canonicalize(loreOrder, candidates).stream().map(LoreLine::component).toList();
     }
 
@@ -190,7 +191,7 @@ public final class ItemRenderer {
     public List<LoreLine> lineCandidates(List<String> customLore, List<String> hiddenHeaders,
                                           List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                           List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
-                                          List<AttributeModifierEntry> attributeModifiers) {
+                                          StunEffect stunEffect, List<AttributeModifierEntry> attributeModifiers) {
         List<LoreLine> lines = new ArrayList<>();
 
         // Admin-authored (or import-seeded) lore - see ItemTemplate's javadoc for why this exists.
@@ -264,6 +265,12 @@ public final class ItemRenderer {
             lines.add(new LoreLine("critical", messages.render(locale, "item.line.critical",
                     Placeholder.unparsed("chance", formatAmount(criticalEffect.chancePercent())),
                     Placeholder.unparsed("bonus", formatAmount(criticalEffect.bonusDamagePercent())))));
+        }
+
+        if (stunEffect != null && stunEffect.visible()) {
+            lines.add(new LoreLine("stun", messages.render(locale, "item.line.stun",
+                    Placeholder.unparsed("chance", formatAmount(stunEffect.chancePercent())),
+                    Placeholder.unparsed("duration", formatAmount(stunEffect.durationSeconds())))));
         }
 
         List<AttributeModifierEntry> visibleAttributes = attributeModifiers.stream().filter(AttributeModifierEntry::visible).toList();

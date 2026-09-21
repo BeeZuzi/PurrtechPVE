@@ -10,6 +10,7 @@ import eu.purrtech.purrtechPVE.item.AttributeSlots;
 import eu.purrtech.purrtechPVE.item.BaseItemSnapshots;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
 import eu.purrtech.purrtechPVE.item.CriticalEffect;
+import eu.purrtech.purrtechPVE.item.StunEffect;
 import eu.purrtech.purrtechPVE.item.DamageContribution;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
@@ -672,6 +673,14 @@ public final class ItemEditorMenu {
         armorClassOption(messages, locale, inventory, CONTENT_START + 2, ArmorClass.MEDIUM, "gui.armor-class.tab.medium", Material.IRON_CHESTPLATE, current, amount);
         armorClassOption(messages, locale, inventory, CONTENT_START + 3, ArmorClass.HEAVY, "gui.armor-class.tab.heavy", Material.NETHERITE_CHESTPLATE, current, amount);
 
+        ItemStack stunResistIcon = named(Material.SHIELD, messages.render(locale, "gui.item-editor.armor-class.stun-resist"));
+        ItemMeta stunResistMeta = stunResistIcon.getItemMeta();
+        stunResistMeta.lore(List.of(
+                messages.render(locale, "gui.item-editor.armor-class.stun-resist-amount", Placeholder.unparsed("amount", formatAmount(template.stunResistPercent()))),
+                messages.render(locale, "gui.item-editor.armor-class.hint-set-stun-resist")));
+        stunResistIcon.setItemMeta(stunResistMeta);
+        inventory.setItem(CONTENT_START + 4, stunResistIcon);
+
         List<Component> infoLore = new ArrayList<>();
         infoLore.add(messages.render(locale, "gui.item-editor.armor-class.info-1"));
         infoLore.add(messages.render(locale, "gui.item-editor.armor-class.info-2"));
@@ -709,6 +718,10 @@ public final class ItemEditorMenu {
         if (slot == PREVIEW_SLOT) {
             ArmorClass current = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow().armorClass();
             ArmorClassMenu.open(plugin, player, current != null ? current : ArmorClass.LIGHT);
+            return;
+        }
+        if (slot == CONTENT_START + 4) {
+            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.STUN_RESIST_PERCENT, null);
             return;
         }
         int index = slot - CONTENT_START;
@@ -813,11 +826,14 @@ public final class ItemEditorMenu {
     private static final int SLOT_BLEED_DAMAGE = CONTENT_START + 2;
     private static final int SLOT_CRIT_CHANCE = CONTENT_START + 3;
     private static final int SLOT_CRIT_BONUS = CONTENT_START + 4;
+    private static final int SLOT_STUN_CHANCE = CONTENT_START + 5;
+    private static final int SLOT_STUN_DURATION = CONTENT_START + 6;
 
     private static void renderSpecialEffects(PurrtechPVE plugin, Inventory inventory, String templateKey, Locale locale) {
         Messages messages = plugin.getMessages();
         Optional<BleedEffect> bleed = plugin.getItemTemplateService().bleedEffect(templateKey);
         Optional<CriticalEffect> critical = plugin.getItemTemplateService().criticalEffect(templateKey);
+        Optional<StunEffect> stun = plugin.getItemTemplateService().stunEffect(templateKey);
 
         inventory.setItem(SLOT_BLEED_CHANCE, effectStatIcon(messages, locale, Material.REDSTONE, "gui.item-editor.effects.bleed-chance",
                 bleed.map(b -> formatAmount(b.chancePercent()) + "%").orElse(null)));
@@ -829,6 +845,10 @@ public final class ItemEditorMenu {
                 critical.map(c -> formatAmount(c.chancePercent()) + "%").orElse(null)));
         inventory.setItem(SLOT_CRIT_BONUS, effectStatIcon(messages, locale, Material.GOLDEN_SWORD, "gui.item-editor.effects.crit-bonus",
                 critical.map(c -> "+" + formatAmount(c.bonusDamagePercent()) + "%").orElse(null)));
+        inventory.setItem(SLOT_STUN_CHANCE, effectStatIcon(messages, locale, Material.PHANTOM_MEMBRANE, "gui.item-editor.effects.stun-chance",
+                stun.map(s -> formatAmount(s.chancePercent()) + "%").orElse(null)));
+        inventory.setItem(SLOT_STUN_DURATION, effectStatIcon(messages, locale, Material.CLOCK, "gui.item-editor.effects.stun-duration",
+                stun.map(s -> formatAmount(s.durationSeconds()) + "s").orElse(null)));
 
         ItemStack info = named(Material.PAPER, messages.render(locale, "gui.item-editor.effects.info-title"));
         ItemMeta infoMeta = info.getItemMeta();
@@ -846,6 +866,8 @@ public final class ItemEditorMenu {
                 ? "gui.item-editor.effects.bleed-complete" : "gui.item-editor.effects.bleed-incomplete"));
         infoLore.add(messages.render(locale, critical.map(CriticalEffect::isComplete).orElse(false)
                 ? "gui.item-editor.effects.crit-complete" : "gui.item-editor.effects.crit-incomplete"));
+        infoLore.add(messages.render(locale, stun.map(StunEffect::isComplete).orElse(false)
+                ? "gui.item-editor.effects.stun-complete" : "gui.item-editor.effects.stun-incomplete"));
         infoMeta.lore(infoLore);
         info.setItemMeta(infoMeta);
         inventory.setItem(PREVIEW_SLOT, info);
@@ -896,6 +918,16 @@ public final class ItemEditorMenu {
                     return;
                 }
                 ValueEditorKind kind = slot == SLOT_CRIT_CHANCE ? ValueEditorKind.CRIT_CHANCE : ValueEditorKind.CRIT_BONUS;
+                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
+            }
+            case SLOT_STUN_CHANCE, SLOT_STUN_DURATION -> {
+                if (shift) {
+                    plugin.getItemTemplateService().removeStunEffect(holder.templateKey());
+                    player.sendMessage(messages.render(locale, "gui.item-editor.effects.stun-removed"));
+                    render(plugin, holder.getInventory(), holder, locale);
+                    return;
+                }
+                ValueEditorKind kind = slot == SLOT_STUN_CHANCE ? ValueEditorKind.STUN_CHANCE : ValueEditorKind.STUN_DURATION;
                 ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
             }
             default -> {

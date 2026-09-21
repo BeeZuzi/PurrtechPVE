@@ -10,6 +10,7 @@ import eu.purrtech.purrtechPVE.db.MobDropEntry;
 import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ItemTemplateService;
 import eu.purrtech.purrtechPVE.item.ModifierContext;
+import eu.purrtech.purrtechPVE.item.StunEffect;
 import eu.purrtech.purrtechPVE.item.TypeModifier;
 import eu.purrtech.purrtechPVE.lang.Messages;
 import net.kyori.adventure.text.Component;
@@ -269,8 +270,16 @@ public final class ValueEditorMenu {
             case CRIT_BONUS -> service.criticalEffect(key)
                     .map(c -> new CurrentState(c.bonusDamagePercent(), c.visible(), DamageMode.FLAT, ModifierContext.WIELDED))
                     .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
+            case STUN_CHANCE -> service.stunEffect(key)
+                    .map(s -> new CurrentState(s.chancePercent(), s.visible(), DamageMode.FLAT, ModifierContext.WIELDED))
+                    .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
+            case STUN_DURATION -> service.stunEffect(key)
+                    .map(s -> new CurrentState(s.durationSeconds(), s.visible(), DamageMode.FLAT, ModifierContext.WIELDED))
+                    .orElse(new CurrentState(0, true, DamageMode.FLAT, ModifierContext.WIELDED));
             case ARMOR_CLASS_AMOUNT -> new CurrentState(
                     service.findByKey(key).orElseThrow().armorAmount(), true, DamageMode.FLAT, ModifierContext.WIELDED);
+            case STUN_RESIST_PERCENT -> new CurrentState(
+                    service.findByKey(key).orElseThrow().stunResistPercent(), true, DamageMode.FLAT, ModifierContext.WIELDED);
             case MOB_DROP_AMOUNT -> new CurrentState(
                     mobDrop(plugin, key, holder.entryId()).map(MobDropEntry::amount).orElse(1),
                     true, DamageMode.FLAT, ModifierContext.WIELDED);
@@ -326,7 +335,16 @@ public final class ValueEditorMenu {
                 CriticalEffect current = service.criticalEffect(key).orElse(new CriticalEffect(0, 0, true));
                 service.setCriticalEffect(key, current.chancePercent(), newValue, visible);
             }
+            case STUN_CHANCE -> {
+                StunEffect current = service.stunEffect(key).orElse(new StunEffect(0, 0, true));
+                service.setStunEffect(key, newValue, current.durationSeconds(), visible);
+            }
+            case STUN_DURATION -> {
+                StunEffect current = service.stunEffect(key).orElse(new StunEffect(0, 0, true));
+                service.setStunEffect(key, current.chancePercent(), newValue, visible);
+            }
             case ARMOR_CLASS_AMOUNT -> service.setArmorAmount(key, newValue);
+            case STUN_RESIST_PERCENT -> service.setStunResistPercent(key, newValue);
             case MOB_DROP_AMOUNT -> {
                 UUID templateId = service.findByKey(key).orElseThrow().id();
                 double chance = plugin.getMobDropRepository().find(holder.entryId(), templateId)

@@ -8,6 +8,7 @@ import eu.purrtech.purrtechPVE.db.CriticalEffectRepository;
 import eu.purrtech.purrtechPVE.db.DamageContributionRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
+import eu.purrtech.purrtechPVE.db.StunEffectRepository;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
 import org.bukkit.Material;
@@ -41,6 +42,7 @@ public final class ItemTemplateService {
     private final ArmorPenetrationRepository armorPenetrationRepository;
     private final BleedEffectRepository bleedEffectRepository;
     private final CriticalEffectRepository criticalEffectRepository;
+    private final StunEffectRepository stunEffectRepository;
     private final AttributeModifierRepository attributeModifierRepository;
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final DamageTypeRegistry damageTypeRegistry;
@@ -70,10 +72,10 @@ public final class ItemTemplateService {
      * silently defeat this cache for any template with a captured snapshot.
      */
     private record RenderFingerprint(int version, boolean trinket, ArmorClass armorClass, double armorAmount,
-                                      List<String> allowedSlots) {
+                                      double stunResistPercent, List<String> allowedSlots) {
         static RenderFingerprint of(ItemTemplate template) {
             return new RenderFingerprint(template.version(), template.trinket(), template.armorClass(),
-                    template.armorAmount(), template.allowedSlots());
+                    template.armorAmount(), template.stunResistPercent(), template.allowedSlots());
         }
     }
 
@@ -84,6 +86,7 @@ public final class ItemTemplateService {
                                 ArmorPenetrationRepository armorPenetrationRepository,
                                 BleedEffectRepository bleedEffectRepository,
                                 CriticalEffectRepository criticalEffectRepository,
+                                StunEffectRepository stunEffectRepository,
                                 AttributeModifierRepository attributeModifierRepository,
                                 ItemTemplateSnapshotRepository snapshotRepository,
                                 DamageTypeRegistry damageTypeRegistry,
@@ -95,6 +98,7 @@ public final class ItemTemplateService {
         this.armorPenetrationRepository = armorPenetrationRepository;
         this.bleedEffectRepository = bleedEffectRepository;
         this.criticalEffectRepository = criticalEffectRepository;
+        this.stunEffectRepository = stunEffectRepository;
         this.attributeModifierRepository = attributeModifierRepository;
         this.snapshotRepository = snapshotRepository;
         this.damageTypeRegistry = damageTypeRegistry;
@@ -125,9 +129,9 @@ public final class ItemTemplateService {
         }
         long now = System.currentTimeMillis();
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, List.of(), List.of(),
-                baseMaterial, baseItemSnapshot, customModelData, false, List.of(), null, 0, 1, 1, now, now, createdBy);
+                baseMaterial, baseItemSnapshot, customModelData, false, List.of(), null, 0, 0, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
-        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, List.of()));
+        snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, null, List.of()));
         return template;
     }
 
@@ -361,6 +365,38 @@ public final class ItemTemplateService {
         return criticalEffectRepository.findByTemplate(requireTemplate(key).id());
     }
 
+    /** This weapon's chance to stun the defender on a hit + how long it lasts - a stat, so it bumps version. See {@link StunEffect}'s javadoc. */
+    public ItemTemplate setStunEffect(String key, double chancePercent, double durationSeconds) {
+        return setStunEffect(key, chancePercent, durationSeconds, currentStunVisible(key));
+    }
+
+    /** Same as the 3-arg overload, but also sets whether the combined stun line shows in lore - see {@link StunEffect#visible()}. */
+    public ItemTemplate setStunEffect(String key, double chancePercent, double durationSeconds, boolean visible) {
+        ItemTemplate template = requireTemplate(key);
+        stunEffectRepository.upsert(template.id(), new StunEffect(chancePercent, durationSeconds, visible));
+        return bumpVersion(template);
+    }
+
+    /** Flips the stun effect's lore visibility without touching its chance/duration. */
+    public ItemTemplate toggleStunEffectVisibility(String key) {
+        StunEffect current = stunEffect(key).orElse(new StunEffect(0, 0, true));
+        return setStunEffect(key, current.chancePercent(), current.durationSeconds(), !current.visible());
+    }
+
+    private boolean currentStunVisible(String key) {
+        return stunEffect(key).map(StunEffect::visible).orElse(true);
+    }
+
+    public ItemTemplate removeStunEffect(String key) {
+        ItemTemplate template = requireTemplate(key);
+        stunEffectRepository.remove(template.id());
+        return bumpVersion(template);
+    }
+
+    public Optional<StunEffect> stunEffect(String key) {
+        return stunEffectRepository.findByTemplate(requireTemplate(key).id());
+    }
+
     /**
      * A real vanilla {@link Attribute} bonus this template grants in one specific {@code slot} -
      * a stat like damage contributions, so it bumps version. See {@link AttributeModifierEntry}'s
@@ -412,8 +448,8 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), displayName, template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
-                template.createdAt(), template.updatedAt(), template.createdBy());
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
+                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
 
@@ -427,8 +463,8 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), List.copyOf(lines),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
-                template.createdAt(), template.updatedAt(), template.createdBy());
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
+                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
 
@@ -474,8 +510,8 @@ public final class ItemTemplateService {
         }
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 List.copyOf(hidden), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
-                template.createdAt(), template.updatedAt(), template.createdBy());
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
+                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
 
@@ -505,8 +541,8 @@ public final class ItemTemplateService {
         }
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), order, template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
-                template.createdAt(), template.updatedAt(), template.createdBy());
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
+                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
 
@@ -528,8 +564,8 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(),
-                template.createdAt(), System.currentTimeMillis(), template.createdBy());
+                !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
+                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -546,8 +582,8 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), armorClass, template.armorAmount(), template.version(), template.syncedVersion(),
-                template.createdAt(), System.currentTimeMillis(), template.createdBy());
+                template.trinket(), template.allowedSlots(), armorClass, template.armorAmount(), template.stunResistPercent(),
+                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -562,8 +598,24 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                template.trinket(), template.allowedSlots(), template.armorClass(), amount, template.version(), template.syncedVersion(),
-                template.createdAt(), System.currentTimeMillis(), template.createdBy());
+                template.trinket(), template.allowedSlots(), template.armorClass(), amount, template.stunResistPercent(),
+                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+        templateRepository.update(updated);
+        return updated;
+    }
+
+    /**
+     * How much this one piece resists being stunned (see {@link StunEffect}), in percent. Same
+     * live/unversioned treatment as {@link #setArmorAmount}, and independent of {@code
+     * armorClass} - a piece doesn't need to be classified as armor at all to grant stun
+     * resistance, same as {@link #setArmorAmount} isn't rejected before {@code armorClass} is set.
+     */
+    public ItemTemplate setStunResistPercent(String key, double percent) {
+        ItemTemplate template = requireTemplate(key);
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
+                template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), percent,
+                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -579,8 +631,8 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate withNewBase = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), newBaseMaterial, newBaseItemSnapshot, newCustomModelData, template.trinket(),
-                template.allowedSlots(), template.armorClass(), template.armorAmount(), template.version(), template.syncedVersion(), template.createdAt(),
-                template.updatedAt(), template.createdBy());
+                template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(), template.version(),
+                template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(withNewBase);
     }
 
@@ -597,8 +649,9 @@ public final class ItemTemplateService {
         List<ArmorPenetration> armorPenetration = armorPenetrationRepository.findByTemplate(template.id());
         BleedEffect bleed = bleedEffectRepository.findByTemplate(template.id()).orElse(null);
         CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
+        StunEffect stun = stunEffectRepository.findByTemplate(template.id()).orElse(null);
         List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
-        ItemStack rendered = renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical, attributeModifiers);
+        ItemStack rendered = renderer.render(template, contributions, modifiers, enchantments, armorPenetration, bleed, critical, stun, attributeModifiers);
         renderCache.put(key, new RenderCacheEntry(fingerprint, rendered));
         return rendered.clone();
     }
@@ -614,9 +667,10 @@ public final class ItemTemplateService {
         List<ArmorPenetration> armorPenetration = armorPenetrationRepository.findByTemplate(template.id());
         BleedEffect bleed = bleedEffectRepository.findByTemplate(template.id()).orElse(null);
         CriticalEffect critical = criticalEffectRepository.findByTemplate(template.id()).orElse(null);
+        StunEffect stun = stunEffectRepository.findByTemplate(template.id()).orElse(null);
         List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
         List<LoreLine> candidates = renderer.lineCandidates(template.customLore(), template.hiddenHeaders(), contributions, modifiers,
-                armorPenetration, bleed, critical, attributeModifiers);
+                armorPenetration, bleed, critical, stun, attributeModifiers);
         return LoreLine.canonicalize(template.loreOrder(), candidates);
     }
 
@@ -647,15 +701,18 @@ public final class ItemTemplateService {
                 armorPenetrationRepository.findByTemplate(bumped.id()),
                 bleedEffectRepository.findByTemplate(bumped.id()).orElse(null),
                 criticalEffectRepository.findByTemplate(bumped.id()).orElse(null),
+                stunEffectRepository.findByTemplate(bumped.id()).orElse(null),
                 attributeModifierRepository.findByTemplate(bumped.id())));
         return bumped;
     }
 
     private TemplateSnapshot snapshotOf(ItemTemplate template, List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                          List<TemplateEnchantment> enchantments, List<ArmorPenetration> armorPenetration,
-                                         BleedEffect bleedEffect, CriticalEffect criticalEffect, List<AttributeModifierEntry> attributeModifiers) {
+                                         BleedEffect bleedEffect, CriticalEffect criticalEffect, StunEffect stunEffect,
+                                         List<AttributeModifierEntry> attributeModifiers) {
         return new TemplateSnapshot(template.id(), template.key(), template.version(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
-                contributions, modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, attributeModifiers, template.updatedAt());
+                contributions, modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, stunEffect, attributeModifiers,
+                template.updatedAt());
     }
 }

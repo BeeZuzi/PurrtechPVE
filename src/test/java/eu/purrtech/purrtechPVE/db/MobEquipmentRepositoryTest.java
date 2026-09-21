@@ -38,7 +38,7 @@ class MobEquipmentRepositoryTest {
     private UUID insertTemplate(String key) {
         long now = 1_700_000_000_000L;
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, "Zbroj kostlivce", List.of(), List.of(), List.of(), Material.IRON_HELMET, null, null,
-                false, List.of("HEAD"), null, 0, 1, 1, now, now, "console");
+                false, List.of("HEAD"), null, 0, 0, 1, 1, now, now, "console");
         templateRepository.insert(template);
         return template.id();
     }

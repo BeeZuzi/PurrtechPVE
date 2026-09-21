@@ -44,6 +44,11 @@ import java.util.UUID;
  * shown in this item's own rendered lore, for the same reason {@code armor_class_profile}'s
  * bonus isn't either (see {@code EquipmentResolver}).
  *
+ * <p>{@code stunResistPercent} is how much this one piece resists being stunned (see {@code
+ * StunEffect}), in percent, independent of {@code armorClass} - same live, unversioned
+ * treatment as {@code armorAmount}, and likewise pooled additively (not per-class) across a
+ * defender's whole equipped set in {@code EquipmentResolver.resolveStunResistPercent}.
+ *
  * <p>{@code customLore} is extra, admin-authored lore shown above whatever
  * stat lines get auto-generated - each line is a raw MiniMessage string (see
  * {@code ItemRenderer}), same as {@code displayName} itself, which is also
@@ -84,6 +89,7 @@ public record ItemTemplate(
         List<String> allowedSlots,
         ArmorClass armorClass,
         double armorAmount,
+        double stunResistPercent,
         int version,
         int syncedVersion,
         long createdAt,
@@ -93,12 +99,12 @@ public record ItemTemplate(
 
     public ItemTemplate withBumpedVersion(long updatedAt) {
         return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
-                trinket, allowedSlots, armorClass, armorAmount, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
+                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public ItemTemplate withSyncedVersion(int syncedVersion, long updatedAt) {
         return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
-                trinket, allowedSlots, armorClass, armorAmount, version, syncedVersion, createdAt, updatedAt, createdBy);
+                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, version, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public boolean isFullySynced() {
