@@ -159,6 +159,81 @@ armor-class:
     name: "Těžký"
     name-full: "Těžký armor"
 
+# Zobrazovaný název vanilla Attribute (Messages.attributeName), klíčovaný jeho stálým registry
+# klíčem (attribute.getKey().value(), např. "attack_damage"), ne zastaralým OldEnum name() -
+# ukazuje se všude, kde se vypisuje atributový modifikátor, místo toho syrového registry klíče.
+attribute:
+  max_health:
+    name: "Max. životy"
+  follow_range:
+    name: "Dosah sledování"
+  knockback_resistance:
+    name: "Odolnost vůči odhození"
+  movement_speed:
+    name: "Rychlost pohybu"
+  flying_speed:
+    name: "Rychlost letu"
+  attack_damage:
+    name: "Útočné poškození"
+  attack_knockback:
+    name: "Odhození útokem"
+  attack_speed:
+    name: "Rychlost útoku"
+  armor:
+    name: "Brnění"
+  armor_toughness:
+    name: "Odolnost brnění"
+  fall_damage_multiplier:
+    name: "Násobič pádového poškození"
+  luck:
+    name: "Štěstí"
+  max_absorption:
+    name: "Max. absorpce"
+  safe_fall_distance:
+    name: "Bezpečná pádová vzdálenost"
+  scale:
+    name: "Velikost"
+  step_height:
+    name: "Výška kroku"
+  gravity:
+    name: "Gravitace"
+  jump_strength:
+    name: "Síla skoku"
+  burning_time:
+    name: "Doba hoření"
+  camera_distance:
+    name: "Vzdálenost kamery"
+  explosion_knockback_resistance:
+    name: "Odolnost vůči odhození výbuchem"
+  movement_efficiency:
+    name: "Efektivita pohybu"
+  oxygen_bonus:
+    name: "Bonus kyslíku"
+  water_movement_efficiency:
+    name: "Efektivita pohybu ve vodě"
+  tempt_range:
+    name: "Dosah lákání"
+  block_interaction_range:
+    name: "Dosah na bloky"
+  entity_interaction_range:
+    name: "Dosah na entity"
+  block_break_speed:
+    name: "Rychlost těžby"
+  mining_efficiency:
+    name: "Efektivita těžby"
+  sneaking_speed:
+    name: "Rychlost plížení"
+  submerged_mining_speed:
+    name: "Rychlost těžby pod vodou"
+  sweeping_damage_ratio:
+    name: "Poměr plošného poškození"
+  spawn_reinforcements:
+    name: "Šance na posily"
+  waypoint_transmit_range:
+    name: "Dosah vysílání waypointu"
+  waypoint_receive_range:
+    name: "Dosah příjmu waypointu"
+
 item:
   header:
     damage: "<#7425E9>ᴘᴏškᴏᴢᴇɴí ᴘřɪ útᴏᴋᴜ:</#7425E9>"
@@ -167,16 +242,16 @@ item:
     penetration: "<#7425E9>ᴘᴇɴᴇᴛʀᴀᴄᴇ ᴀʀᴍᴏʀᴜ:</#7425E9>"
     attributes: "<#7425E9>ᴀᴛʀɪʙᴜᴛʏ:</#7425E9>"
   line:
-    damage-flat: "<#7425E9> <gray>[</gray>+<amount><gray>]</gray> <type></#7425E9>"
-    damage-percent: "<#7425E9> <gray>[</gray>+<amount>%<gray>]</gray> <type></#7425E9>"
-    resist: "<#7425E9> <gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9>"
-    weakness: "<#7425E9> <gray>[</gray><red>-<amount>%</red><gray>]</gray> <type></#7425E9>"
-    penetration-flat: "<#7425E9> <gray>[</gray>-<amount><gray>]</gray> <class></#7425E9>"
-    penetration-percent: "<#7425E9> <gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
-    bleed-flat: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage><gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9>"
-    bleed-percent: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage>%<gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9>"
-    critical: "<#7425E9> <gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀɪᴛ, <gray>[</gray>+<bonus>%<gray>]</gray> ᴘᴏškᴏᴢᴇɴí</#7425E9>"
-    attribute: "<#7425E9> <gray>[</gray><amount><gray>]</gray> <attribute></#7425E9> <gray>(<slot>)</gray>"
+    damage-flat: "<#7425E9><gray>[</gray>+<amount><gray>]</gray> <type></#7425E9>"
+    damage-percent: "<#7425E9><gray>[</gray>+<amount>%<gray>]</gray> <type></#7425E9>"
+    resist: "<#7425E9><gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9>"
+    weakness: "<#7425E9><gray>[</gray><red>-<amount>%</red><gray>]</gray> <type></#7425E9>"
+    penetration-flat: "<#7425E9><gray>[</gray>-<amount><gray>]</gray> <class></#7425E9>"
+    penetration-percent: "<#7425E9> gray>[</gray>-<amount>%<gray>]</gray> <class></#7425E9>"
+    bleed-flat: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage><gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9>"
+    bleed-percent: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage>%<gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9>"
+    critical: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀɪᴛ, <gray>[</gray>+<bonus>%<gray>]</gray> ᴘᴏškᴏᴢᴇɴí</#7425E9>"
+    attribute: "<#7425E9><gray>[</gray><amount><gray>]</gray> <attribute></#7425E9> <gray>(<slot>)</gray>"
   created: "<green>Šablona <white><key></white> vytvořena."
   renamed: "<green>Šablona <white><key></white> přejmenována."
   deleted: "<green>Šablona <white><key></white> smazána."

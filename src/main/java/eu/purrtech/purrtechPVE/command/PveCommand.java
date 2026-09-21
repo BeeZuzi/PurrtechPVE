@@ -938,7 +938,9 @@ public final class PveCommand {
             return 0;
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.attribute-set",
-                Placeholder.unparsed("key", key), Placeholder.unparsed("attribute", attribute.name()), Placeholder.unparsed("slot", slot)));
+                Placeholder.unparsed("key", key),
+                Placeholder.component("attribute", plugin.getMessages().attributeName(locale, attribute.getKey().value())),
+                Placeholder.unparsed("slot", slot)));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -967,7 +969,9 @@ public final class PveCommand {
             return 0;
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.attribute-removed",
-                Placeholder.unparsed("key", key), Placeholder.unparsed("attribute", attribute.name()), Placeholder.unparsed("slot", slot)));
+                Placeholder.unparsed("key", key),
+                Placeholder.component("attribute", plugin.getMessages().attributeName(locale, attribute.getKey().value())),
+                Placeholder.unparsed("slot", slot)));
         return Command.SINGLE_SUCCESS;
     }
 

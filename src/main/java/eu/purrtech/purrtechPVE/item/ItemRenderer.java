@@ -316,7 +316,7 @@ public final class ItemRenderer {
                 + (a.operation() == AttributeModifier.Operation.ADD_NUMBER ? "" : "%");
         return messages.render(locale, "item.line.attribute",
                 Placeholder.unparsed("amount", amount),
-                Placeholder.unparsed("attribute", a.attribute().name()),
+                Placeholder.component("attribute", messages.attributeName(locale, a.attribute().getKey().value())),
                 Placeholder.unparsed("slot", a.slot()));
     }
 

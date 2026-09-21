@@ -2705,6 +2705,91 @@
     čistý `compileJava`, `compileTestJava`, `test` i celý `build`
     task (přesně ten, co uživateli původně spadl).
 
+- **Neutrální barva #94F086 + atributy do lang (2026-09-20), na žádost**:
+  "Tam kde je neutrální barva že není ani zelená ani červená tak tam dej
+  tuhle barvu #94F086. Taky dej všechny zprávy a lory který nejsou v lang do
+  lang. Myslím tím třeba attributy který se ukazují a tak."
+  - Grepem přes celý kód ověřeno, že jediné skutečné třístavové (kladná/
+    záporná/nulová) barevné schéma je `DamageFeedback.effectivenessColor` -
+    všechna ostatní místa s resist/weakness (`ArmorClassMenu`,
+    `ItemEditorMenu`, `SetEditorMenu`, `ItemRenderer`) mají jen binární
+    zelená/červená bez neutrálního stavu. `effectivenessColor`'s nulová
+    větev (`NamedTextColor.WHITE`) přepnuta na `TextColor.fromHexString(
+    "#94F086")` - metoda i lokální `lineColor` v `render(...)` teď vrací/
+    typují `TextColor` místo `NamedTextColor` (`NamedTextColor` do něj pořád
+    jde přiřadit, je to jeho nadtyp). Test `DamageFeedbackTest` na starou
+    bílou (`effectivenessColorsOnColorsNormalWhite`) přejmenován a upraven
+    na `effectivenessColorsOnColorsNormalCustomGreen`, `soleChildColor`
+    helper vrací `TextColor` místo přetypování na `NamedTextColor` (to už by
+    spadlo s `ClassCastException` na custom hex barvu).
+  - Pro druhou půlku (zprávy/lory mimo lang) grepem přes `Component.text(`,
+    `sendMessage(`, `createInventory(` a `named(Material.` nalezena jediná
+    reálná mezera: atributy (`org.bukkit.attribute.Attribute`) se v item
+    loru, GUI editoru i chatových potvrzeních vypisovaly přes syrový
+    `attribute.name()` (např. "GENERIC_ATTACK_DAMAGE" nebo po Paperově
+    1.21.3+ přechodu na registry-backed atributy leccos jinak), místo
+    hezkého přeloženého názvu - přesně to, co uživatel myslel příkladem
+    "attributy který se ukazují". `Attribute.name()`/`.values()`/`.valueOf()`
+    jsou navíc `@Deprecated(forRemoval)` s plánovaným odstraněním v 1.22
+    (`OldEnum`), takže nová lookup logika místo nich používá stálý registry
+    klíč (`attribute.getKey().value()`, např. `"attack_damage"`).
+  - Přidána nová `Messages.attributeName(Locale, String attributeKey)`
+    metoda (stejný vzor jako existující `armorClassName`/`damageTypeName`),
+    plus nová `attribute:` sekce v `cs.yml`/`en.yml` se jménem pro všech 35
+    vanilla atributů (celý seznam vytažen přímo ze zdrojů
+    `paper-api-1.21.11-R0.1-SNAPSHOT-sources.jar`, ne z paměti/odhadu).
+    Přepnuty všechny display-only výskyty `attribute().name()` na
+    `messages.attributeName(...)`: `ItemRenderer.attributeLine`,
+    `PveCommand.setItemAttributeModifier`/`removeItemAttributeModifier`,
+    `ItemEditorMenu` (řádek s částkou, ikona v listu i v pickeru, chatová
+    zpráva při smazání). Místa, kde `.name()` slouží k ukládání/parsování
+    (DB repozitáře, PDC/NamespacedKey klíče, tab-completion, `valueOf`
+    parsing uživatelského vstupu) záměrně beze změny - nejde o zobrazovaný
+    text, jde o interní/datové identifikátory.
+  - Vědomě NEpřesunuto do lang: hardcoded `"CRIT! "`
+    (`DamageFeedback.render`) a `"  DPS: "` (`CombatDamageListener`) - obě
+    žijí přesně v tom action-bar hot-path kódu, o kterém `cs.yml`/`en.yml`
+    už mají komentář, že tam lang záměrně není kvůli výkonu (viz sekce
+    `damage-type` výše), a `DamageFeedback.render` navíc nemá přístup k
+    `Messages`/`Locale` (statická metoda, volaná i z `DamageFeedbackTest`
+    bez nich). Přidání by znamenalo měnit signaturu hodně testované,
+    záměrně samostatné utility kvůli dvěma jednoslovným popiskům - pokud to
+    uživatel přesto chce, je potřeba to říct výslovně.
+  - Ověřeno offline (žádná nová závislost): čistý `compileJava`,
+    `compileTestJava`, `test` (1 předělaný test, jinak beze změny počtu) i
+    celý `build` task.
+
+- **Effectiveness colors v action baru zapnuty defaultně (2026-09-20), na
+  žádost**: "Udělej také to že v action baru při útoku se bude ukazovat
+  barvou zdali je útok efektivní (žlutá), neutrální (bílá) nebo neefektivní
+  (šedivá). Co to znamená efektivní? Efektivní je to když ten damage bude
+  vyšší než normálně takže ta entita je vůči němu slabá, neutrální je to že
+  damage napsaný na zbrani se rovná poškození co udělíš a neefektivní je
+  obrácený efektivní že ten damage je menší než je psáno."
+  - Tahle přesná funkce (`DamageFeedback.effectivenessColor`, řízená
+    `combat.show-effectiveness-colors` v `config.yml`) už existovala - je to
+    tatáž třístavová logika, co v minulém záznamu dostala nulovou/neutrální
+    větev přepnutou z bílé na `#94F086`. Protože uživatel teď explicitně a
+    podrobně popsal neutrální jako bílou (stejně jako to měl původní
+    javadoc před minulou změnou), ta část minulé úpravy je tímto vrácena
+    zpět - `effectivenessColor` zase vrací `NamedTextColor.WHITE` pro
+    nulový případ (a typy `NamedTextColor`/test `DamageFeedbackTest` s tím
+    zase souhlasí). Obecná #94F086 z předchozího záznamu tak už nikde v
+    kódu není použita - pokud ji uživatel chtěl zachovat jinde, ať to řekne
+    výslovně, kam přesně.
+  - Skutečná mezera byla v tom, že `show-effectiveness-colors` byl defaultně
+    `false` (kvůli zpětné kompatibilitě při upgradu starších instalací) -
+    přepnuto na `true` v `CombatFeedbackSettings.defaults()` i v bundled
+    `config.yml`. Nová instalace pluginu teď bude mít tohle zapnuté rovnou.
+  - Důležité pro uživatelův živý server: `saveDefaultConfig()` zapisuje
+    `config.yml` na disk jen když tam ještě není - pokud plugin už dřív
+    běžel, `plugins/PurrtechPVE/config.yml` už na disku existuje s
+    `show-effectiveness-colors: false` a tahle změna defaultu se sama od
+    sebe neprojeví. Je potřeba ručně přepsat tenhle řádek na `true` v
+    `combat:` sekci toho souboru a pak dát `/pve reload` (nebo restart).
+  - Ověřeno offline: čistý `compileJava`, `compileTestJava`, `test` i celý
+    `build` task.
+
 # PurrtechPVE — analýza a implementační plán
 
 Paper plugin (`/Users/Zuzka/IdeaProjects/PurrtechPVE`, balíček `eu.purrtech.purrtechpve`,

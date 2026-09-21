@@ -60,7 +60,12 @@ public final class DamageFeedback {
         return result;
     }
 
-    /** Positive percent = target resists this type (gray), negative = target is weak to it (yellow), zero = normal (white). */
+    /**
+     * Positive percent = target resists this type, so the hit deals less than the weapon's
+     * written damage (ineffective, gray). Negative = target is weak to it, so the hit deals more
+     * than written (effective, yellow). Zero = the hit deals exactly the weapon's written damage
+     * (neutral, white).
+     */
     private static NamedTextColor effectivenessColor(double resistPercent) {
         if (resistPercent > 0) {
             return NamedTextColor.GRAY;

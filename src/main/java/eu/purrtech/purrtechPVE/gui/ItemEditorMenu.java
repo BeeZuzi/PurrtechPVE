@@ -195,14 +195,15 @@ public final class ItemEditorMenu {
             AttributeModifierEntry entry = entries.get(i);
             List<Component> entryLore = new ArrayList<>();
             entryLore.add(messages.render(locale, "gui.item-editor.base.attribute-amount",
-                    Placeholder.unparsed("amount", formatAttributeAmount(entry)), Placeholder.unparsed("attribute", entry.attribute().name())));
+                    Placeholder.unparsed("amount", formatAttributeAmount(entry)),
+                    Placeholder.component("attribute", messages.attributeName(locale, entry.attribute().getKey().value()))));
             entryLore.add(messages.render(locale, "gui.item-editor.base.attribute-slot", Placeholder.unparsed("slot", entry.slot())));
             entryLore.add(Component.empty());
             entryLore.add(messages.render(locale, "gui.item-editor.base.attribute-hint-edit-1"));
             entryLore.add(messages.render(locale, "gui.item-editor.base.attribute-hint-edit-2"));
             entryLore.add(messages.render(locale, "gui.item-editor.hint-shift-delete"));
             ItemStack icon = named(Material.NETHER_STAR, messages.render(locale, "gui.item-editor.base.attribute-icon",
-                    Placeholder.unparsed("attribute", entry.attribute().name())));
+                    Placeholder.component("attribute", messages.attributeName(locale, entry.attribute().getKey().value()))));
             ItemMeta entryMeta = icon.getItemMeta();
             entryMeta.lore(entryLore);
             icon.setItemMeta(entryMeta);
@@ -219,7 +220,7 @@ public final class ItemEditorMenu {
         for (int i = 0; i < attributes.length && CONTENT_START + i < SIZE; i++) {
             Attribute attribute = attributes[i];
             ItemStack icon = named(Material.NETHER_STAR, messages.render(locale, "gui.item-editor.base.attribute-icon",
-                    Placeholder.unparsed("attribute", attribute.name())));
+                    Placeholder.component("attribute", messages.attributeName(locale, attribute.getKey().value()))));
             ItemMeta meta = icon.getItemMeta();
             meta.lore(List.of(messages.render(locale, "gui.item-editor.base.picker-hint-add")));
             icon.setItemMeta(meta);
@@ -265,7 +266,8 @@ public final class ItemEditorMenu {
         if (shift) {
             plugin.getItemTemplateService().removeAttributeModifier(holder.templateKey(), entry.attribute(), entry.slot());
             player.sendMessage(plugin.getMessages().render(locale, "gui.item-editor.base.attribute-removed",
-                    Placeholder.unparsed("attribute", entry.attribute().name()), Placeholder.unparsed("slot", entry.slot())));
+                    Placeholder.component("attribute", plugin.getMessages().attributeName(locale, entry.attribute().getKey().value())),
+                    Placeholder.unparsed("slot", entry.slot())));
             render(plugin, holder.getInventory(), holder, locale);
             return;
         }

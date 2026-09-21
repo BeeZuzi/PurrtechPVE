@@ -161,4 +161,16 @@ public final class Messages {
     public Component armorClassName(Locale locale, String armorClass, boolean full) {
         return render(locale, "armor-class." + armorClass.toLowerCase(Locale.ROOT) + (full ? ".name-full" : ".name"));
     }
+
+    /**
+     * A vanilla {@link org.bukkit.attribute.Attribute}'s display name, shown wherever an attribute
+     * modifier is listed (item lore, the item editor GUI, command confirmations) instead of the
+     * raw registry key (e.g. {@code "attack_damage"}) those places used to show verbatim. Takes
+     * the attribute's {@code getKey().value()} (e.g. {@code "attack_damage"}), not its deprecated
+     * {@link org.bukkit.util.OldEnum#name()} - that legacy name is scheduled for removal, while the
+     * registry key is stable, so lang keys under {@code attribute.*} are keyed by it too.
+     */
+    public Component attributeName(Locale locale, String attributeKey) {
+        return render(locale, "attribute." + attributeKey.toLowerCase(Locale.ROOT) + ".name");
+    }
 }

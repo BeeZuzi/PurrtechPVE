@@ -157,6 +157,81 @@ armor-class:
     name: "Heavy"
     name-full: "Heavy armor"
 
+# Display name for a vanilla Attribute (Messages.attributeName), keyed by its stable registry key
+# (attribute.getKey().value(), e.g. "attack_damage") rather than the deprecated OldEnum name() -
+# shown wherever an attribute modifier is listed instead of that raw registry key.
+attribute:
+  max_health:
+    name: "Max Health"
+  follow_range:
+    name: "Follow Range"
+  knockback_resistance:
+    name: "Knockback Resistance"
+  movement_speed:
+    name: "Movement Speed"
+  flying_speed:
+    name: "Flying Speed"
+  attack_damage:
+    name: "Attack Damage"
+  attack_knockback:
+    name: "Attack Knockback"
+  attack_speed:
+    name: "Attack Speed"
+  armor:
+    name: "Armor"
+  armor_toughness:
+    name: "Armor Toughness"
+  fall_damage_multiplier:
+    name: "Fall Damage Multiplier"
+  luck:
+    name: "Luck"
+  max_absorption:
+    name: "Max Absorption"
+  safe_fall_distance:
+    name: "Safe Fall Distance"
+  scale:
+    name: "Scale"
+  step_height:
+    name: "Step Height"
+  gravity:
+    name: "Gravity"
+  jump_strength:
+    name: "Jump Strength"
+  burning_time:
+    name: "Burning Time"
+  camera_distance:
+    name: "Camera Distance"
+  explosion_knockback_resistance:
+    name: "Explosion Knockback Resistance"
+  movement_efficiency:
+    name: "Movement Efficiency"
+  oxygen_bonus:
+    name: "Oxygen Bonus"
+  water_movement_efficiency:
+    name: "Water Movement Efficiency"
+  tempt_range:
+    name: "Tempt Range"
+  block_interaction_range:
+    name: "Block Interaction Range"
+  entity_interaction_range:
+    name: "Entity Interaction Range"
+  block_break_speed:
+    name: "Block Break Speed"
+  mining_efficiency:
+    name: "Mining Efficiency"
+  sneaking_speed:
+    name: "Sneaking Speed"
+  submerged_mining_speed:
+    name: "Submerged Mining Speed"
+  sweeping_damage_ratio:
+    name: "Sweeping Damage Ratio"
+  spawn_reinforcements:
+    name: "Spawn Reinforcements"
+  waypoint_transmit_range:
+    name: "Waypoint Transmit Range"
+  waypoint_receive_range:
+    name: "Waypoint Receive Range"
+
 item:
   header:
     damage: "<#7425E9>ᴅᴀᴍᴀɢᴇ ᴏɴ ʜɪᴛ:</#7425E9>"
