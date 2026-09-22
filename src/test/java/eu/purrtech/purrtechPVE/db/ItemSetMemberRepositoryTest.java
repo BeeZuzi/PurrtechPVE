@@ -36,9 +36,9 @@ class ItemSetMemberRepositoryTest {
 
         ItemTemplateRepository templateRepository = new ItemTemplateRepository(database);
         ItemTemplate templateA = new ItemTemplate(UUID.randomUUID(), "helm", "Helma", List.of(), List.of(), List.of(), Material.IRON_HELMET,
-                null, null, false, List.of(), null, 0, 0, 1, 1, 0L, 0L, "console");
+                null, null, false, List.of(), null, 0, 0, 0, 1, 1, 0L, 0L, "console");
         ItemTemplate templateB = new ItemTemplate(UUID.randomUUID(), "chest", "Plát", List.of(), List.of(), List.of(), Material.IRON_CHESTPLATE,
-                null, null, false, List.of(), null, 0, 0, 1, 1, 0L, 0L, "console");
+                null, null, false, List.of(), null, 0, 0, 0, 1, 1, 0L, 0L, "console");
         templateRepository.insert(templateA);
         templateRepository.insert(templateB);
         templateAId = templateA.id();

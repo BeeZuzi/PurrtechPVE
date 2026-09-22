@@ -50,9 +50,13 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>Critical hits and bleed are both rolled off the attacker's wielded
  * weapon's {@link CriticalEffect}/{@link BleedEffect}, independently of
  * each other, and only once every field either needs is actually set (see
- * their {@code isComplete()}). A crit multiplies the fully-resolved total
- * (and the action bar breakdown shown, scaled the same way, so the numbers
- * add up) - same convention as vanilla's own sword crit. A successful bleed
+ * their {@code isComplete()}). A crit's chance is first scaled by the
+ * defender's {@code EquipmentResolver.resolveCritResistPercent} (worn
+ * armor's/held item's {@code critResistPercent}, live/unversioned, positive
+ * resists/negative is weakness - same convention as stun resist below), then
+ * multiplies the fully-resolved total (and the action bar breakdown shown,
+ * scaled the same way, so the numbers add up) - same convention as vanilla's
+ * own sword crit. A successful bleed
  * roll hands off to {@link BleedManager}, which owns the actual over-time
  * ticking; this class only computes the per-tick damage (the weapon's own
  * {@code damageAmount}/{@code mode}, same shape as a normal {@code
@@ -161,8 +165,12 @@ public final class CombatDamageListener implements Listener {
         // crit - not any one typed bucket, so the per-type action bar breakdown below is scaled by
         // the same factor to keep the numbers shown adding up to what's actually dealt.
         Optional<CriticalEffect> critical = equipmentResolver.resolveCriticalEffect(attacker);
-        boolean isCritical = critical.isPresent() && critical.get().isComplete()
-                && ThreadLocalRandom.current().nextDouble(100) < critical.get().chancePercent();
+        boolean isCritical = false;
+        if (critical.isPresent() && critical.get().isComplete()) {
+            double critResistPercent = equipmentResolver.resolveCritResistPercent(defender);
+            double effectiveCritChance = critical.get().chancePercent() * (1 - critResistPercent / 100.0);
+            isCritical = ThreadLocalRandom.current().nextDouble(100) < effectiveCritChance;
+        }
         double total = armored;
         Map<String, Double> perTypeForDisplay = perTypeArmored;
         if (isCritical) {

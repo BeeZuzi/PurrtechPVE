@@ -28,8 +28,8 @@ public final class ItemTemplateRepository {
              PreparedStatement statement = connection.prepareStatement("""
                      INSERT INTO item_templates
                          (id, key, display_name, custom_lore, hidden_headers, lore_order, base_material, base_item_snapshot, custom_model_data,
-                          is_trinket, allowed_slots, armor_class, armor_amount, stun_resist_percent, version, synced_version, created_at, updated_at, created_by)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                          is_trinket, allowed_slots, armor_class, armor_amount, stun_resist_percent, crit_resist_percent, version, synced_version, created_at, updated_at, created_by)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                      """)) {
             bind(statement, template);
             statement.executeUpdate();
@@ -44,7 +44,7 @@ public final class ItemTemplateRepository {
                      UPDATE item_templates
                      SET key = ?, display_name = ?, custom_lore = ?, hidden_headers = ?, lore_order = ?, base_material = ?, base_item_snapshot = ?,
                          custom_model_data = ?, is_trinket = ?, allowed_slots = ?, armor_class = ?, armor_amount = ?, stun_resist_percent = ?,
-                         version = ?, synced_version = ?, updated_at = ?
+                         crit_resist_percent = ?, version = ?, synced_version = ?, updated_at = ?
                      WHERE id = ?
                      """)) {
             statement.setString(1, template.key());
@@ -68,10 +68,11 @@ public final class ItemTemplateRepository {
             statement.setString(11, template.armorClass() != null ? template.armorClass().name() : null);
             statement.setDouble(12, template.armorAmount());
             statement.setDouble(13, template.stunResistPercent());
-            statement.setInt(14, template.version());
-            statement.setInt(15, template.syncedVersion());
-            statement.setLong(16, template.updatedAt());
-            statement.setString(17, template.id().toString());
+            statement.setDouble(14, template.critResistPercent());
+            statement.setInt(15, template.version());
+            statement.setInt(16, template.syncedVersion());
+            statement.setLong(17, template.updatedAt());
+            statement.setString(18, template.id().toString());
             statement.executeUpdate();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to update item template " + template.key(), e);
@@ -146,11 +147,12 @@ public final class ItemTemplateRepository {
         statement.setString(12, template.armorClass() != null ? template.armorClass().name() : null);
         statement.setDouble(13, template.armorAmount());
         statement.setDouble(14, template.stunResistPercent());
-        statement.setInt(15, template.version());
-        statement.setInt(16, template.syncedVersion());
-        statement.setLong(17, template.createdAt());
-        statement.setLong(18, template.updatedAt());
-        statement.setString(19, template.createdBy());
+        statement.setDouble(15, template.critResistPercent());
+        statement.setInt(16, template.version());
+        statement.setInt(17, template.syncedVersion());
+        statement.setLong(18, template.createdAt());
+        statement.setLong(19, template.updatedAt());
+        statement.setString(20, template.createdBy());
     }
 
     private ItemTemplate map(ResultSet rs) throws SQLException {
@@ -166,6 +168,7 @@ public final class ItemTemplateRepository {
         ArmorClass armorClass = armorClassRaw == null ? null : ArmorClass.valueOf(armorClassRaw);
         double armorAmount = rs.getDouble("armor_amount");
         double stunResistPercent = rs.getDouble("stun_resist_percent");
+        double critResistPercent = rs.getDouble("crit_resist_percent");
 
         String hiddenHeadersRaw = rs.getString("hidden_headers");
         List<String> hiddenHeaders = hiddenHeadersRaw == null || hiddenHeadersRaw.isBlank()
@@ -192,6 +195,7 @@ public final class ItemTemplateRepository {
                 armorClass,
                 armorAmount,
                 stunResistPercent,
+                critResistPercent,
                 rs.getInt("version"),
                 rs.getInt("synced_version"),
                 rs.getLong("created_at"),

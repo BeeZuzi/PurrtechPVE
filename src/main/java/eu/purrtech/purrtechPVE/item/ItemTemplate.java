@@ -49,6 +49,13 @@ import java.util.UUID;
  * treatment as {@code armorAmount}, and likewise pooled additively (not per-class) across a
  * defender's whole equipped set in {@code EquipmentResolver.resolveStunResistPercent}.
  *
+ * <p>{@code critResistPercent} is this one piece's resistance (positive) or weakness (negative)
+ * to being on the receiving end of a critical hit, in percent - same live, unversioned, additive-
+ * across-the-whole-equipped-set treatment as {@code stunResistPercent}, just scaling the
+ * attacker's {@code CriticalEffect} chance down (or, if negative, up) instead of a stun's - see
+ * {@code EquipmentResolver.resolveCritResistPercent}. A single signed field rather than a
+ * separate resist/weakness pair, same convention as {@code TypeModifier.percent()}.
+ *
  * <p>{@code customLore} is extra, admin-authored lore shown above whatever
  * stat lines get auto-generated - each line is a raw MiniMessage string (see
  * {@code ItemRenderer}), same as {@code displayName} itself, which is also
@@ -90,6 +97,7 @@ public record ItemTemplate(
         ArmorClass armorClass,
         double armorAmount,
         double stunResistPercent,
+        double critResistPercent,
         int version,
         int syncedVersion,
         long createdAt,
@@ -99,12 +107,12 @@ public record ItemTemplate(
 
     public ItemTemplate withBumpedVersion(long updatedAt) {
         return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
-                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
+                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, critResistPercent, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public ItemTemplate withSyncedVersion(int syncedVersion, long updatedAt) {
         return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
-                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, version, syncedVersion, createdAt, updatedAt, createdBy);
+                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, critResistPercent, version, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public boolean isFullySynced() {

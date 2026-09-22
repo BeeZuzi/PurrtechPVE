@@ -406,6 +406,11 @@ public final class PveCommand {
                                         .suggests(templateKeys)
                                         .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
                                                 .executes(ctx -> setItemStunResist(plugin, ctx)))))
+                        .then(Commands.literal("critresist")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
+                                        .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
+                                                .executes(ctx -> setItemCritResist(plugin, ctx)))))
                         .then(Commands.literal("lore")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
@@ -1327,6 +1332,23 @@ public final class PveCommand {
             return 0;
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.stunresist-set", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Same as {@link #setItemStunResist}, but for {@code ItemTemplateService.setCritResistPercent} instead. */
+    private static int setItemCritResist(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        double percent = DoubleArgumentType.getDouble(ctx, "percent");
+
+        try {
+            plugin.getItemTemplateService().setCritResistPercent(key, percent);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.critresist-set", Placeholder.unparsed("key", key)));
         return Command.SINGLE_SUCCESS;
     }
 

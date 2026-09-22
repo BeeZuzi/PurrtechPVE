@@ -46,6 +46,12 @@ public enum ValueEditorKind {
      */
     STUN_RESIST_PERCENT(ItemEditorTab.ARMOR_CLASS, false, false, false),
     /**
+     * {@code ItemTemplate.critResistPercent} - same live/unversioned, never-in-lore treatment as
+     * {@link #STUN_RESIST_PERCENT}, and likewise independent of which/whether an {@code ArmorClass}
+     * is currently selected. A single signed value: positive resists crits, negative is weakness.
+     */
+    CRIT_RESIST_PERCENT(ItemEditorTab.ARMOR_CLASS, false, false, false),
+    /**
      * How many of this template a MythicMobs mob type drops on death - {@link
      * ValueEditorHolder#entryId()} is the mob's internal name. Not shown in this item's own lore
      * (it describes a mob's loot table, not the item itself), so {@code hasVisibility} is {@code

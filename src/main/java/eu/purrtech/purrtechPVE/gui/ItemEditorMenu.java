@@ -682,6 +682,14 @@ public final class ItemEditorMenu {
         stunResistIcon.setItemMeta(stunResistMeta);
         inventory.setItem(CONTENT_START + 4, stunResistIcon);
 
+        ItemStack critResistIcon = named(Material.TOTEM_OF_UNDYING, messages.render(locale, "gui.item-editor.armor-class.crit-resist"));
+        ItemMeta critResistMeta = critResistIcon.getItemMeta();
+        critResistMeta.lore(List.of(
+                messages.render(locale, "gui.item-editor.armor-class.crit-resist-amount", Placeholder.unparsed("amount", formatAmount(template.critResistPercent()))),
+                messages.render(locale, "gui.item-editor.armor-class.hint-set-crit-resist")));
+        critResistIcon.setItemMeta(critResistMeta);
+        inventory.setItem(CONTENT_START + 5, critResistIcon);
+
         List<Component> infoLore = new ArrayList<>();
         infoLore.add(messages.render(locale, "gui.item-editor.armor-class.info-1"));
         infoLore.add(messages.render(locale, "gui.item-editor.armor-class.info-2"));
@@ -723,6 +731,10 @@ public final class ItemEditorMenu {
         }
         if (slot == CONTENT_START + 4) {
             ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.STUN_RESIST_PERCENT, null);
+            return;
+        }
+        if (slot == CONTENT_START + 5) {
+            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.CRIT_RESIST_PERCENT, null);
             return;
         }
         int index = slot - CONTENT_START;

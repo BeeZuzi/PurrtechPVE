@@ -60,6 +60,11 @@ final class Schema {
             // - same live/unversioned treatment as armor_amount, since it's just that piece's own
             // classification magnitude, independent of armor_class.
             addColumnIfMissing(connection, "item_templates", "stun_resist_percent", "REAL NOT NULL DEFAULT 0");
+            // This piece's resistance (positive) or weakness (negative) to being crit, pooled
+            // additively across a defender's whole equipped set (see
+            // EquipmentResolver.resolveCritResistPercent) - same live/unversioned treatment as
+            // stun_resist_percent, just scaling a CriticalEffect's chance instead of a stun's.
+            addColumnIfMissing(connection, "item_templates", "crit_resist_percent", "REAL NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, "item_templates", "custom_lore", "TEXT");
             addColumnIfMissing(connection, "item_templates", "hidden_headers", "TEXT");
             addColumnIfMissing(connection, "item_templates", "lore_order", "TEXT");

@@ -218,6 +218,27 @@ public final class EquipmentResolver {
     }
 
     /**
+     * Sum of {@link ItemTemplate#critResistPercent} across the defender's whole equipped set, respecting each
+     * piece's {@code allowedSlots} - same live/unversioned, flatly-pooled treatment as {@link
+     * #resolveStunResistPercent}. Positive scales the attacker's {@link CriticalEffect} chance down, negative
+     * (weakness) scales it up.
+     */
+    public double resolveCritResistPercent(LivingEntity defender) {
+        EntityEquipment equipment = defender.getEquipment();
+        if (equipment == null) {
+            return 0;
+        }
+        double total = 0;
+        for (Map.Entry<String, ItemStack> entry : allEquippedPieces(defender, equipment).entrySet()) {
+            total += resolvedItemOf(entry.getValue())
+                    .filter(item -> isAllowedInSlot(item.template(), entry.getKey()))
+                    .map(item -> item.template().critResistPercent())
+                    .orElse(0.0);
+        }
+        return total;
+    }
+
+    /**
      * Every equipped piece's (weapon in hand, worn armor, trinkets alike) {@link ReflectEffect}, if
      * complete (see {@link ReflectEffect#isComplete()}) - unlike bleed/critical/stun, which only
      * ever look at the attacker's wielded weapon, this is resolved off the DEFENDER's whole

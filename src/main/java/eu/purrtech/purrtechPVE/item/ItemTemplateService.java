@@ -74,10 +74,10 @@ public final class ItemTemplateService {
      * silently defeat this cache for any template with a captured snapshot.
      */
     private record RenderFingerprint(int version, boolean trinket, ArmorClass armorClass, double armorAmount,
-                                      double stunResistPercent, List<String> allowedSlots) {
+                                      double stunResistPercent, double critResistPercent, List<String> allowedSlots) {
         static RenderFingerprint of(ItemTemplate template) {
             return new RenderFingerprint(template.version(), template.trinket(), template.armorClass(),
-                    template.armorAmount(), template.stunResistPercent(), template.allowedSlots());
+                    template.armorAmount(), template.stunResistPercent(), template.critResistPercent(), template.allowedSlots());
         }
     }
 
@@ -133,7 +133,7 @@ public final class ItemTemplateService {
         }
         long now = System.currentTimeMillis();
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), key, displayName, customLore, List.of(), List.of(),
-                baseMaterial, baseItemSnapshot, customModelData, false, List.of(), null, 0, 0, 1, 1, now, now, createdBy);
+                baseMaterial, baseItemSnapshot, customModelData, false, List.of(), null, 0, 0, 0, 1, 1, now, now, createdBy);
         templateRepository.insert(template);
         snapshotRepository.insert(snapshotOf(template, List.of(), List.of(), List.of(), List.of(), null, null, null, null, List.of()));
         return template;
@@ -490,7 +490,7 @@ public final class ItemTemplateService {
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), displayName, template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
                 template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
-                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
+                template.critResistPercent(), template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
 
@@ -505,7 +505,7 @@ public final class ItemTemplateService {
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), List.copyOf(lines),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
                 template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
-                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
+                template.critResistPercent(), template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
 
@@ -552,7 +552,7 @@ public final class ItemTemplateService {
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 List.copyOf(hidden), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
                 template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
-                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
+                template.critResistPercent(), template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
 
@@ -583,7 +583,7 @@ public final class ItemTemplateService {
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), order, template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
                 template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
-                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
+                template.critResistPercent(), template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(updated);
     }
 
@@ -606,7 +606,7 @@ public final class ItemTemplateService {
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
                 !slotNames.isEmpty(), List.copyOf(slotNames), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
-                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+                template.critResistPercent(), template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -624,7 +624,7 @@ public final class ItemTemplateService {
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
                 template.trinket(), template.allowedSlots(), armorClass, template.armorAmount(), template.stunResistPercent(),
-                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+                template.critResistPercent(), template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -640,7 +640,7 @@ public final class ItemTemplateService {
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
                 template.trinket(), template.allowedSlots(), template.armorClass(), amount, template.stunResistPercent(),
-                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+                template.critResistPercent(), template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -656,7 +656,22 @@ public final class ItemTemplateService {
         ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
                 template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), percent,
-                template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+                template.critResistPercent(), template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
+        templateRepository.update(updated);
+        return updated;
+    }
+
+    /**
+     * This one piece's resistance (positive) or weakness (negative) to being crit, in percent. Same
+     * live/unversioned treatment as {@link #setStunResistPercent}, and likewise independent of
+     * {@code armorClass}.
+     */
+    public ItemTemplate setCritResistPercent(String key, double percent) {
+        ItemTemplate template = requireTemplate(key);
+        ItemTemplate updated = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
+                template.hiddenHeaders(), template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(),
+                template.trinket(), template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(),
+                percent, template.version(), template.syncedVersion(), template.createdAt(), System.currentTimeMillis(), template.createdBy());
         templateRepository.update(updated);
         return updated;
     }
@@ -672,8 +687,8 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         ItemTemplate withNewBase = new ItemTemplate(template.id(), template.key(), template.displayName(), template.customLore(),
                 template.hiddenHeaders(), template.loreOrder(), newBaseMaterial, newBaseItemSnapshot, newCustomModelData, template.trinket(),
-                template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(), template.version(),
-                template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
+                template.allowedSlots(), template.armorClass(), template.armorAmount(), template.stunResistPercent(), template.critResistPercent(),
+                template.version(), template.syncedVersion(), template.createdAt(), template.updatedAt(), template.createdBy());
         return bumpVersion(withNewBase);
     }
 
