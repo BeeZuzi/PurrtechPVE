@@ -29,6 +29,11 @@ public final class ItemEditorHolder implements InventoryHolder {
     // once - see ItemEditorMenu's MOBS tab render/click handling.
     private String mobsPendingMobType;
     private String mobsDropConfigMobType;
+    // Which page of ItemListMenu this editor was opened from (0 if opened directly, e.g. via
+    // command or freshly created) - threaded through every nested menu (ValueEditorMenu,
+    // LoreOrderMenu, ArmorClassMenu) that can return here, so BACK_TO_LIST_SLOT lands back on the
+    // same page instead of always resetting to page 0.
+    private int listPage;
 
     public ItemEditorHolder(String templateKey, ItemEditorTab tab) {
         this.templateKey = templateKey;
@@ -94,5 +99,13 @@ public final class ItemEditorHolder implements InventoryHolder {
 
     public void setMobsDropConfigMobType(String mobsDropConfigMobType) {
         this.mobsDropConfigMobType = mobsDropConfigMobType;
+    }
+
+    public int listPage() {
+        return listPage;
+    }
+
+    public void setListPage(int listPage) {
+        this.listPage = listPage;
     }
 }

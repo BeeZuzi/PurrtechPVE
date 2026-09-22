@@ -72,9 +72,9 @@ public final class ValueEditorMenu {
     private ValueEditorMenu() {
     }
 
-    public static void open(PurrtechPVE plugin, Player player, String templateKey, ValueEditorKind kind, String entryId) {
+    public static void open(PurrtechPVE plugin, Player player, String templateKey, ValueEditorKind kind, String entryId, int listPage) {
         Locale locale = player.locale();
-        ValueEditorHolder holder = new ValueEditorHolder(templateKey, kind, entryId);
+        ValueEditorHolder holder = new ValueEditorHolder(templateKey, kind, entryId, listPage);
         Inventory inventory = Bukkit.createInventory(holder, SIZE, plugin.getMessages().render(locale, "gui.value-editor.title"));
         holder.setInventory(inventory);
         render(plugin, inventory, holder, locale);
@@ -201,10 +201,10 @@ public final class ValueEditorMenu {
                 CurrentState state = currentState(plugin, holder);
                 plugin.getItemTemplateService().moveDamageContributionContext(holder.templateKey(), damageTypeKey, current, flipped,
                         state.value(), state.mode(), state.visible());
-                ValueEditorMenu.open(plugin, player, holder.templateKey(), holder.kind(), damageTypeKey + "|" + flipped.name());
+                ValueEditorMenu.open(plugin, player, holder.templateKey(), holder.kind(), damageTypeKey + "|" + flipped.name(), holder.listPage());
             }
             case TYPE_VALUE_SLOT -> promptForValue(plugin, player, holder);
-            case BACK_SLOT -> ItemEditorMenu.open(plugin, player, holder.templateKey(), holder.kind().returnTab());
+            case BACK_SLOT -> ItemEditorMenu.open(plugin, player, holder.templateKey(), holder.kind().returnTab(), holder.listPage());
             case CLOSE_SLOT -> player.closeInventory();
             default -> {
             }
@@ -228,18 +228,18 @@ public final class ValueEditorMenu {
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
                 p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                open(plugin, p, holder.templateKey(), holder.kind(), holder.entryId());
+                open(plugin, p, holder.templateKey(), holder.kind(), holder.entryId(), holder.listPage());
                 return;
             }
             Double newValue = parseDouble(rawInput.trim());
             if (newValue == null) {
                 p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
-                open(plugin, p, holder.templateKey(), holder.kind(), holder.entryId());
+                open(plugin, p, holder.templateKey(), holder.kind(), holder.entryId(), holder.listPage());
                 return;
             }
             applyValue(plugin, holder, newValue, state.visible(), state.mode());
             p.sendMessage(messages.render(locale, "gui.prompt.done"));
-            open(plugin, p, holder.templateKey(), holder.kind(), holder.entryId());
+            open(plugin, p, holder.templateKey(), holder.kind(), holder.entryId(), holder.listPage());
         });
     }
 

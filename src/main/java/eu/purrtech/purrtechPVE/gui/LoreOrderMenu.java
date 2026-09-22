@@ -46,9 +46,9 @@ public final class LoreOrderMenu {
     private LoreOrderMenu() {
     }
 
-    public static void open(PurrtechPVE plugin, Player player, String templateKey, ItemEditorTab returnTab) {
+    public static void open(PurrtechPVE plugin, Player player, String templateKey, ItemEditorTab returnTab, int listPage) {
         Locale locale = player.locale();
-        LoreOrderHolder holder = new LoreOrderHolder(templateKey, returnTab);
+        LoreOrderHolder holder = new LoreOrderHolder(templateKey, returnTab, listPage);
         Inventory inventory = Bukkit.createInventory(holder, SIZE, plugin.getMessages().render(locale, "gui.lore-order.title"));
         holder.setInventory(inventory);
         render(plugin, inventory, templateKey, locale);
@@ -100,7 +100,7 @@ public final class LoreOrderMenu {
             return;
         }
         if (slot == BACK_SLOT) {
-            ItemEditorMenu.open(plugin, player, holder.templateKey(), holder.returnTab());
+            ItemEditorMenu.open(plugin, player, holder.templateKey(), holder.returnTab(), holder.listPage());
             return;
         }
         if (slot == CLOSE_SLOT) {
@@ -146,21 +146,30 @@ public final class LoreOrderMenu {
         player.closeInventory();
         player.sendMessage(messages.render(locale, "gui.lore-order.add-prompt-1"));
         player.sendMessage(messages.render(locale, "gui.lore-order.add-prompt-2"));
+        player.sendMessage(messages.render(locale, "gui.lore-order.add-prompt-3"));
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
                 p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                open(plugin, p, holder.templateKey(), holder.returnTab());
+                open(plugin, p, holder.templateKey(), holder.returnTab(), holder.listPage());
                 return;
             }
-            plugin.getItemTemplateService().addCustomLoreLine(holder.templateKey(), rawInput);
+            String line = isBlankKeyword(rawInput) ? "" : rawInput;
+            plugin.getItemTemplateService().addCustomLoreLine(holder.templateKey(), line);
             p.sendMessage(messages.render(locale, "gui.lore-order.added"));
-            open(plugin, p, holder.templateKey(), holder.returnTab());
+            open(plugin, p, holder.templateKey(), holder.returnTab(), holder.listPage());
         });
     }
 
     private static boolean isCancel(String rawInput) {
         String normalized = rawInput.trim().toLowerCase(Locale.ROOT);
         return normalized.equals("zrusit") || normalized.equals("zrušit") || normalized.equals("cancel");
+    }
+
+    // Chat can't actually deliver an empty message (the client refuses to send one), so a blank
+    // lore line - useful as a visual spacer between custom lines - needs its own keyword instead.
+    private static boolean isBlankKeyword(String rawInput) {
+        String normalized = rawInput.trim().toLowerCase(Locale.ROOT);
+        return normalized.equals("prazdno") || normalized.equals("prázdno") || normalized.equals("empty");
     }
 
     private static ItemStack named(Material material, Component name) {

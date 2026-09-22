@@ -36,32 +36,43 @@ public final class ArmorClassMenu {
     private static final int TAB_LIGHT = 0;
     private static final int TAB_MEDIUM = 1;
     private static final int TAB_HEAVY = 2;
+    private static final int BACK_SLOT = 7;
     private static final int CLOSE_SLOT = 8;
     private static final int CONTENT_START = 9;
 
     private ArmorClassMenu() {
     }
 
+    /** Root-screen entry point ({@code /pve armorclass menu}) - no back button, only close. */
     public static void open(PurrtechPVE plugin, Player player, ArmorClass armorClass) {
+        open(plugin, player, armorClass, null, null, 0);
+    }
+
+    /** Nested entry point from {@link ItemEditorMenu}'s ARMOR_CLASS tab - shows a back button that returns to that exact template/tab/list-page. */
+    public static void open(PurrtechPVE plugin, Player player, ArmorClass armorClass, String returnTemplateKey, ItemEditorTab returnTab, int returnListPage) {
         Locale locale = player.locale();
-        ArmorClassHolder holder = new ArmorClassHolder(armorClass);
+        ArmorClassHolder holder = new ArmorClassHolder(armorClass, returnTemplateKey, returnTab, returnListPage);
         Inventory inventory = Bukkit.createInventory(holder, SIZE, plugin.getMessages().render(locale, "gui.armor-class.title"));
         holder.setInventory(inventory);
-        render(plugin, inventory, armorClass, locale);
+        render(plugin, inventory, holder, locale);
         player.openInventory(inventory);
     }
 
     private static void switchTab(PurrtechPVE plugin, ArmorClassHolder holder, ArmorClass armorClass, Locale locale) {
         holder.setArmorClass(armorClass);
-        render(plugin, holder.getInventory(), armorClass, locale);
+        render(plugin, holder.getInventory(), holder, locale);
     }
 
-    private static void render(PurrtechPVE plugin, Inventory inventory, ArmorClass armorClass, Locale locale) {
+    private static void render(PurrtechPVE plugin, Inventory inventory, ArmorClassHolder holder, Locale locale) {
         inventory.clear();
+        ArmorClass armorClass = holder.armorClass();
         Messages messages = plugin.getMessages();
         inventory.setItem(TAB_LIGHT, tabIcon(messages, locale, Material.LEATHER_CHESTPLATE, "gui.armor-class.tab.light", armorClass == ArmorClass.LIGHT));
         inventory.setItem(TAB_MEDIUM, tabIcon(messages, locale, Material.IRON_CHESTPLATE, "gui.armor-class.tab.medium", armorClass == ArmorClass.MEDIUM));
         inventory.setItem(TAB_HEAVY, tabIcon(messages, locale, Material.NETHERITE_CHESTPLATE, "gui.armor-class.tab.heavy", armorClass == ArmorClass.HEAVY));
+        if (holder.returnTemplateKey() != null) {
+            inventory.setItem(BACK_SLOT, named(Material.ARROW, messages.render(locale, "gui.back")));
+        }
         inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
 
         Map<String, Double> profile = plugin.getArmorClassProfileRepository().findByArmorClass(armorClass.name());
@@ -97,6 +108,11 @@ public final class ArmorClassMenu {
             case TAB_LIGHT -> switchTab(plugin, holder, ArmorClass.LIGHT, locale);
             case TAB_MEDIUM -> switchTab(plugin, holder, ArmorClass.MEDIUM, locale);
             case TAB_HEAVY -> switchTab(plugin, holder, ArmorClass.HEAVY, locale);
+            case BACK_SLOT -> {
+                if (holder.returnTemplateKey() != null) {
+                    ItemEditorMenu.open(plugin, player, holder.returnTemplateKey(), holder.returnTab(), holder.returnListPage());
+                }
+            }
             case CLOSE_SLOT -> player.closeInventory();
             default -> handleContentClick(plugin, player, holder, slot, shift);
         }
@@ -118,7 +134,7 @@ public final class ArmorClassMenu {
             player.sendMessage(messages.render(locale, "gui.armor-class.removed",
                     Placeholder.component("type", messages.damageTypeName(locale, type.key(), false)),
                     Placeholder.unparsed("class", armorClass.name())));
-            render(plugin, holder.getInventory(), armorClass, locale);
+            render(plugin, holder.getInventory(), holder, locale);
             return;
         }
 
@@ -128,18 +144,18 @@ public final class ArmorClassMenu {
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
                 p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                open(plugin, p, armorClass);
+                open(plugin, p, armorClass, holder.returnTemplateKey(), holder.returnTab(), holder.returnListPage());
                 return;
             }
             Double percent = parseDouble(rawInput.trim());
             if (percent == null) {
                 p.sendMessage(messages.render(locale, "gui.prompt.invalid-number"));
-                open(plugin, p, armorClass);
+                open(plugin, p, armorClass, holder.returnTemplateKey(), holder.returnTab(), holder.returnListPage());
                 return;
             }
             plugin.getArmorClassProfileRepository().upsert(armorClass.name(), type.key(), percent);
             p.sendMessage(messages.render(locale, "gui.prompt.done"));
-            open(plugin, p, armorClass);
+            open(plugin, p, armorClass, holder.returnTemplateKey(), holder.returnTab(), holder.returnListPage());
         });
     }
 

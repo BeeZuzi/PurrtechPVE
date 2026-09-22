@@ -9,11 +9,15 @@ public final class LoreOrderHolder implements InventoryHolder {
 
     private final String templateKey;
     private final ItemEditorTab returnTab;
+    // ItemListMenu page the originating ItemEditorMenu was opened from - see ValueEditorHolder's
+    // matching field for why this needs to be threaded through instead of just resetting to 0.
+    private final int listPage;
     private Inventory inventory;
 
-    public LoreOrderHolder(String templateKey, ItemEditorTab returnTab) {
+    public LoreOrderHolder(String templateKey, ItemEditorTab returnTab, int listPage) {
         this.templateKey = templateKey;
         this.returnTab = returnTab;
+        this.listPage = listPage;
     }
 
     void setInventory(Inventory inventory) {
@@ -31,5 +35,9 @@ public final class LoreOrderHolder implements InventoryHolder {
 
     public ItemEditorTab returnTab() {
         return returnTab;
+    }
+
+    public int listPage() {
+        return listPage;
     }
 }

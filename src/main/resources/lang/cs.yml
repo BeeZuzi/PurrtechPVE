@@ -620,6 +620,7 @@ gui:
     add-hint-2: "<yellow>(jde použít i MiniMessage tagy - barvy, tučné, ...)</yellow>"
     add-prompt-1: "<yellow>Napiš do chatu nový řádek loru:</yellow>"
     add-prompt-2: "<gray>Jde použít MiniMessage tagy - barvy, tučné, ...   (nebo napiš 'zrusit')</gray>"
+    add-prompt-3: "<gray>Chceš prázdný řádek? Napiš 'prazdno'.</gray>"
     added: "<green>Řádek přidán na konec loru.</green>"
     removed: "<green>Řádek smazán.</green>"
     cannot-remove-here: "<red>Tenhle řádek jde smazat jen ve svém vlastním tabu.</red>"

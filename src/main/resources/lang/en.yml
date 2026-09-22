@@ -618,6 +618,7 @@ gui:
     add-hint-2: "<yellow>(MiniMessage tags work too - colors, bold, ...)</yellow>"
     add-prompt-1: "<yellow>Type the new lore line in chat:</yellow>"
     add-prompt-2: "<gray>MiniMessage tags work - colors, bold, ...   (or type 'cancel')</gray>"
+    add-prompt-3: "<gray>Want a blank line? Type 'empty'.</gray>"
     added: "<green>Line added at the end of the lore.</green>"
     removed: "<green>Line removed.</green>"
     cannot-remove-here: "<red>This line can only be removed from its own tab.</red>"

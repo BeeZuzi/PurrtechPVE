@@ -183,7 +183,7 @@ public final class ItemListMenu {
                 reopen(plugin, player, holder.page());
             }
         } else {
-            ItemEditorMenu.open(plugin, player, template.key(), ItemEditorTab.BASE);
+            ItemEditorMenu.open(plugin, player, template.key(), ItemEditorTab.BASE, holder.page());
         }
     }
 

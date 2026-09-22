@@ -14,12 +14,17 @@ public final class ValueEditorHolder implements InventoryHolder {
     private final String templateKey;
     private final ValueEditorKind kind;
     private final String entryId;
+    // ItemListMenu page the originating ItemEditorMenu was opened from - carried through so
+    // BACK_SLOT's return to ItemEditorMenu can hand it straight back, keeping BACK_TO_LIST_SLOT
+    // over there accurate too.
+    private final int listPage;
     private Inventory inventory;
 
-    public ValueEditorHolder(String templateKey, ValueEditorKind kind, String entryId) {
+    public ValueEditorHolder(String templateKey, ValueEditorKind kind, String entryId, int listPage) {
         this.templateKey = templateKey;
         this.kind = kind;
         this.entryId = entryId;
+        this.listPage = listPage;
     }
 
     void setInventory(Inventory inventory) {
@@ -41,5 +46,9 @@ public final class ValueEditorHolder implements InventoryHolder {
 
     public String entryId() {
         return entryId;
+    }
+
+    public int listPage() {
+        return listPage;
     }
 }

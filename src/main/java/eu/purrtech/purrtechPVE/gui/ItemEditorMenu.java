@@ -96,13 +96,20 @@ public final class ItemEditorMenu {
     private ItemEditorMenu() {
     }
 
+    /** Opened directly (e.g. by command), not from {@code ItemListMenu} - BACK_TO_LIST_SLOT falls back to page 0. */
     public static void open(PurrtechPVE plugin, Player player, String templateKey, ItemEditorTab tab) {
+        open(plugin, player, templateKey, tab, 0);
+    }
+
+    /** {@code listPage} is the {@code ItemListMenu} page this editor was opened/returned from, so BACK_TO_LIST_SLOT lands back on the same page. */
+    public static void open(PurrtechPVE plugin, Player player, String templateKey, ItemEditorTab tab, int listPage) {
         Locale locale = player.locale();
         if (plugin.getItemTemplateService().findByKey(templateKey).isEmpty()) {
             player.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", templateKey)));
             return;
         }
         ItemEditorHolder holder = new ItemEditorHolder(templateKey, tab);
+        holder.setListPage(listPage);
         Inventory inventory = Bukkit.createInventory(holder, SIZE,
                 plugin.getMessages().render(locale, "gui.item-editor.title", Placeholder.unparsed("key", templateKey)));
         holder.setInventory(inventory);
@@ -279,7 +286,7 @@ public final class ItemEditorMenu {
         }
         // Already has a slot/operation from when it was created - nothing non-numeric left to
         // pick, so straight into the +/- editor instead of re-running the whole chat prompt.
-        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.ATTRIBUTE, entry.attribute().name() + "|" + entry.slot());
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.ATTRIBUTE, entry.attribute().name() + "|" + entry.slot(), holder.listPage());
     }
 
     private static void handleRebaseClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder) {
@@ -330,13 +337,13 @@ public final class ItemEditorMenu {
         plugin.getItemEditorListener().awaitInput(player, (p, rawInput) -> {
             if (isCancel(rawInput)) {
                 p.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
+                open(plugin, p, holder.templateKey(), ItemEditorTab.BASE, holder.listPage());
                 return;
             }
             String[] parts = rawInput.trim().split("\\s+");
             if (parts.length != 3) {
                 p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
+                open(plugin, p, holder.templateKey(), ItemEditorTab.BASE, holder.listPage());
                 return;
             }
             String slotName = AttributeSlots.parse(parts[0], plugin.getAccessorySettings().slots());
@@ -344,7 +351,7 @@ public final class ItemEditorMenu {
             AttributeModifier.Operation operation = parseOperation(parts[2]);
             if (slotName == null || amount == null || operation == null) {
                 p.sendMessage(messages.render(locale, "gui.item-editor.invalid-input"));
-                open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
+                open(plugin, p, holder.templateKey(), ItemEditorTab.BASE, holder.listPage());
                 return;
             }
             try {
@@ -353,7 +360,7 @@ public final class ItemEditorMenu {
             } catch (TemplateNotFoundException e) {
                 p.sendMessage(messages.render(locale, "gui.item-editor.template-gone"));
             }
-            open(plugin, p, holder.templateKey(), ItemEditorTab.BASE);
+            open(plugin, p, holder.templateKey(), ItemEditorTab.BASE, holder.listPage());
         });
     }
 
@@ -468,7 +475,7 @@ public final class ItemEditorMenu {
             return;
         }
         ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.DAMAGE,
-                contribution.damageTypeKey() + "|" + contribution.context().name());
+                contribution.damageTypeKey() + "|" + contribution.context().name(), holder.listPage());
     }
 
     private static void handleDamageTypePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
@@ -490,7 +497,7 @@ public final class ItemEditorMenu {
         // Defaults to whichever context (wielded/worn) isn't already taken by this type; the
         // editor's own context toggle can flip it afterwards.
         ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.DAMAGE,
-                type.key() + "|" + freeContextFor(contributions, type.key()).name());
+                type.key() + "|" + freeContextFor(contributions, type.key()).name(), holder.listPage());
     }
 
     // ---- RESIST ----
@@ -579,7 +586,7 @@ public final class ItemEditorMenu {
             render(plugin, holder.getInventory(), holder, player.locale());
             return;
         }
-        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.RESIST, type.key());
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.RESIST, type.key(), holder.listPage());
     }
 
     private static void handleResistTypePickerClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
@@ -597,7 +604,7 @@ public final class ItemEditorMenu {
         // A brand-new resist entry starts at 0% - RESIST is purely numeric (no mode/context to
         // pick like DAMAGE has), so there's nothing left needing chat, straight into the same
         // +/- editor an existing entry's icon opens.
-        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.RESIST, available.get(index).key());
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.RESIST, available.get(index).key(), holder.listPage());
     }
 
     // ---- TRINKET ----
@@ -734,19 +741,19 @@ public final class ItemEditorMenu {
     private static void handleArmorClassClick(PurrtechPVE plugin, Player player, ItemEditorHolder holder, int slot) {
         if (slot == PREVIEW_SLOT) {
             ArmorClass current = plugin.getItemTemplateService().findByKey(holder.templateKey()).orElseThrow().armorClass();
-            ArmorClassMenu.open(plugin, player, current != null ? current : ArmorClass.LIGHT);
+            ArmorClassMenu.open(plugin, player, current != null ? current : ArmorClass.LIGHT, holder.templateKey(), holder.tab(), holder.listPage());
             return;
         }
         if (slot == CONTENT_START + 4) {
-            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.STUN_RESIST_PERCENT, null);
+            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.STUN_RESIST_PERCENT, null, holder.listPage());
             return;
         }
         if (slot == CONTENT_START + 5) {
-            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.CRIT_RESIST_PERCENT, null);
+            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.CRIT_RESIST_PERCENT, null, holder.listPage());
             return;
         }
         if (slot == CONTENT_START + 6) {
-            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.PASSIVE_REFLECT_PERCENT, null);
+            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.PASSIVE_REFLECT_PERCENT, null, holder.listPage());
             return;
         }
         int index = slot - CONTENT_START;
@@ -763,7 +770,7 @@ public final class ItemEditorMenu {
         if (newValue != null && newValue == current) {
             // Already selected - a second click edits how many armor points it grants, instead of
             // being a no-op re-selection.
-            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.ARMOR_CLASS_AMOUNT, newValue.name());
+            ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.ARMOR_CLASS_AMOUNT, newValue.name(), holder.listPage());
             return;
         }
         plugin.getItemTemplateService().setArmorClass(holder.templateKey(), newValue);
@@ -833,7 +840,7 @@ public final class ItemEditorMenu {
             return;
         }
 
-        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.ARMOR_PENETRATION, armorClass.name());
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), ValueEditorKind.ARMOR_PENETRATION, armorClass.name(), holder.listPage());
     }
 
     private static Material armorClassIcon(ArmorClass armorClass) {
@@ -942,7 +949,7 @@ public final class ItemEditorMenu {
                     case SLOT_BLEED_DURATION -> ValueEditorKind.BLEED_DURATION;
                     default -> ValueEditorKind.BLEED_DAMAGE;
                 };
-                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
+                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null, holder.listPage());
             }
             case SLOT_CRIT_CHANCE, SLOT_CRIT_BONUS -> {
                 if (shift) {
@@ -952,7 +959,7 @@ public final class ItemEditorMenu {
                     return;
                 }
                 ValueEditorKind kind = slot == SLOT_CRIT_CHANCE ? ValueEditorKind.CRIT_CHANCE : ValueEditorKind.CRIT_BONUS;
-                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
+                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null, holder.listPage());
             }
             case SLOT_STUN_CHANCE, SLOT_STUN_DURATION -> {
                 if (shift) {
@@ -962,7 +969,7 @@ public final class ItemEditorMenu {
                     return;
                 }
                 ValueEditorKind kind = slot == SLOT_STUN_CHANCE ? ValueEditorKind.STUN_CHANCE : ValueEditorKind.STUN_DURATION;
-                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
+                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null, holder.listPage());
             }
             case SLOT_REFLECT_CHANCE, SLOT_REFLECT_PERCENT -> {
                 if (shift) {
@@ -972,7 +979,7 @@ public final class ItemEditorMenu {
                     return;
                 }
                 ValueEditorKind kind = slot == SLOT_REFLECT_CHANCE ? ValueEditorKind.REFLECT_CHANCE : ValueEditorKind.REFLECT_PERCENT;
-                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null);
+                ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, null, holder.listPage());
             }
             default -> {
             }
@@ -1355,7 +1362,7 @@ public final class ItemEditorMenu {
             return;
         }
         ValueEditorKind kind = slot == MOBS_LIST_START ? ValueEditorKind.MOB_DROP_AMOUNT : ValueEditorKind.MOB_DROP_CHANCE;
-        ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, mobType);
+        ValueEditorMenu.open(plugin, player, holder.templateKey(), kind, mobType, holder.listPage());
     }
 
     private static void equipToMob(PurrtechPVE plugin, Player player, ItemTemplate template, String mobType) {
@@ -1468,8 +1475,8 @@ public final class ItemEditorMenu {
             case TAB_MOBS -> switchTab(plugin, player, holder, ItemEditorTab.MOBS);
             case TAB_PUBLISH -> switchTab(plugin, player, holder, ItemEditorTab.PUBLISH);
             case CLOSE_SLOT -> player.closeInventory();
-            case BACK_TO_LIST_SLOT -> ItemListMenu.open(plugin, player, 0);
-            case LORE_ORDER_SLOT -> LoreOrderMenu.open(plugin, player, holder.templateKey(), holder.tab());
+            case BACK_TO_LIST_SLOT -> ItemListMenu.open(plugin, player, holder.listPage());
+            case LORE_ORDER_SLOT -> LoreOrderMenu.open(plugin, player, holder.templateKey(), holder.tab(), holder.listPage());
             default -> {
                 switch (holder.tab()) {
                     case BASE -> handleBaseClick(plugin, player, holder, slot, shift);
