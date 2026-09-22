@@ -411,6 +411,11 @@ public final class PveCommand {
                                         .suggests(templateKeys)
                                         .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
                                                 .executes(ctx -> setItemCritResist(plugin, ctx)))))
+                        .then(Commands.literal("passivereflect")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
+                                        .then(Commands.argument("percent", DoubleArgumentType.doubleArg())
+                                                .executes(ctx -> setItemPassiveReflect(plugin, ctx)))))
                         .then(Commands.literal("lore")
                                 .then(Commands.literal("set")
                                         .then(Commands.argument("key", StringArgumentType.word())
@@ -1349,6 +1354,23 @@ public final class PveCommand {
             return 0;
         }
         sender.sendMessage(plugin.getMessages().render(locale, "item.critresist-set", Placeholder.unparsed("key", key)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Same as {@link #setItemCritResist}, but for {@code ItemTemplateService.setPassiveReflectPercent} instead. */
+    private static int setItemPassiveReflect(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "key");
+        double percent = DoubleArgumentType.getDouble(ctx, "percent");
+
+        try {
+            plugin.getItemTemplateService().setPassiveReflectPercent(key, percent);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.passivereflect-set", Placeholder.unparsed("key", key)));
         return Command.SINGLE_SUCCESS;
     }
 

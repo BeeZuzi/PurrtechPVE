@@ -31,7 +31,7 @@ class DamageContributionRepositoryTest {
         repository = new DamageContributionRepository(database);
 
         ItemTemplate template = new ItemTemplate(UUID.randomUUID(), "test-item", "Test Item", List.of(), List.of(), List.of(), Material.STICK,
-                null, null, false, List.of(), null, 0, 0, 0, 1, 1, 0L, 0L, "console");
+                null, null, false, List.of(), null, 0, 0, 0, 0, 1, 1, 0L, 0L, "console");
         new ItemTemplateRepository(database).insert(template);
         templateId = template.id();
     }

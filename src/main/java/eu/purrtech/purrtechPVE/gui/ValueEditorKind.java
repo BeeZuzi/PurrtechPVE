@@ -52,6 +52,13 @@ public enum ValueEditorKind {
      */
     CRIT_RESIST_PERCENT(ItemEditorTab.ARMOR_CLASS, false, false, false),
     /**
+     * {@code ItemTemplate.passiveReflectPercent} - same live/unversioned, never-in-lore treatment
+     * as {@link #CRIT_RESIST_PERCENT}, and likewise independent of which/whether an {@code
+     * ArmorClass} is currently selected. Unlike {@link #REFLECT_CHANCE}/{@link #REFLECT_PERCENT}
+     * (a separate versioned, chance-based effect), this always triggers - no roll.
+     */
+    PASSIVE_REFLECT_PERCENT(ItemEditorTab.ARMOR_CLASS, false, false, false),
+    /**
      * How many of this template a MythicMobs mob type drops on death - {@link
      * ValueEditorHolder#entryId()} is the mob's internal name. Not shown in this item's own lore
      * (it describes a mob's loot table, not the item itself), so {@code hasVisibility} is {@code

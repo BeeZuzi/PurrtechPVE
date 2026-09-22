@@ -65,6 +65,12 @@ final class Schema {
             // EquipmentResolver.resolveCritResistPercent) - same live/unversioned treatment as
             // stun_resist_percent, just scaling a CriticalEffect's chance instead of a stun's.
             addColumnIfMissing(connection, "item_templates", "crit_resist_percent", "REAL NOT NULL DEFAULT 0");
+            // This piece's always-on reflect: this percent of a hit's fully-resolved total (every
+            // type combined) is reflected back at the attacker on every hit, no chance roll - pooled
+            // additively across a defender's whole equipped set (see
+            // EquipmentResolver.resolvePassiveReflectPercent), same live/unversioned treatment as
+            // crit_resist_percent/stun_resist_percent.
+            addColumnIfMissing(connection, "item_templates", "passive_reflect_percent", "REAL NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, "item_templates", "custom_lore", "TEXT");
             addColumnIfMissing(connection, "item_templates", "hidden_headers", "TEXT");
             addColumnIfMissing(connection, "item_templates", "lore_order", "TEXT");

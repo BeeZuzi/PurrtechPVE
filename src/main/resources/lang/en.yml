@@ -292,6 +292,7 @@ item:
   stun-removed: "<green>Stun effect removed from template <white><key></white>."
   stunresist-set: "<green>Stun resistance set on template <white><key></white>."
   critresist-set: "<green>Critical hit resistance set on template <white><key></white>."
+  passivereflect-set: "<green>Passive damage reflect set on template <white><key></white>."
   reflect-set: "<green>Damage reflect effect set on template <white><key></white>."
   reflect-removed: "<green>Damage reflect effect removed from template <white><key></white>."
   lore-set: "<green>Custom lore set on template <white><key></white> (<white><lines></white> line(s))."
@@ -492,6 +493,9 @@ gui:
       crit-resist: "<aqua>Crit resistance</aqua>"
       crit-resist-amount: "<green>Crit resistance: <amount>%</green>"
       hint-set-crit-resist: "<yellow>Click: edit crit resistance</yellow>"
+      passive-reflect: "<aqua>Passive damage reflect</aqua>"
+      passive-reflect-amount: "<green>Passive damage reflect: <amount>%</green>"
+      hint-set-passive-reflect: "<yellow>Click: edit passive damage reflect</yellow>"
     penetration:
       value-flat: "<green>Penetration: <amount></green>"
       value-percent: "<green>Penetration: <amount>%</green>"

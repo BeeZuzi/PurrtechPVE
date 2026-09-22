@@ -294,6 +294,7 @@ item:
   stun-removed: "<green>Omámení odebráno ze šablony <white><key></white>."
   stunresist-set: "<green>Odolnost proti omámení nastavena na šabloně <white><key></white>."
   critresist-set: "<green>Odolnost proti kritickému zásahu nastavena na šabloně <white><key></white>."
+  passivereflect-set: "<green>Trvalé odrážení poškození nastaveno na šabloně <white><key></white>."
   reflect-set: "<green>Odražení poškození nastaveno na šabloně <white><key></white>."
   reflect-removed: "<green>Odražení poškození odebráno ze šablony <white><key></white>."
   lore-set: "<green>Vlastní lore nastaveno na šabloně <white><key></white> (<white><lines></white> řádek/ů)."
@@ -494,6 +495,9 @@ gui:
       crit-resist: "<aqua>Odolnost proti kritickému zásahu</aqua>"
       crit-resist-amount: "<green>Odolnost proti kritickému zásahu: <amount>%</green>"
       hint-set-crit-resist: "<yellow>Klik: upravit odolnost proti kritickému zásahu</yellow>"
+      passive-reflect: "<aqua>Trvalé odrážení poškození</aqua>"
+      passive-reflect-amount: "<green>Trvalé odrážení poškození: <amount>%</green>"
+      hint-set-passive-reflect: "<yellow>Klik: upravit trvalé odrážení poškození</yellow>"
     penetration:
       value-flat: "<green>Penetrace: <amount></green>"
       value-percent: "<green>Penetrace: <amount>%</green>"

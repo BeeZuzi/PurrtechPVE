@@ -56,6 +56,13 @@ import java.util.UUID;
  * {@code EquipmentResolver.resolveCritResistPercent}. A single signed field rather than a
  * separate resist/weakness pair, same convention as {@code TypeModifier.percent()}.
  *
+ * <p>{@code passiveReflectPercent} is this one piece's always-on reflect: this percent of a
+ * hit's fully-resolved total (every damage type combined, after armor/crit) is reflected back at
+ * the attacker on every single hit, no chance roll - unlike {@code ReflectEffect}, which is a
+ * separate versioned/snapshotted chance+percent pair. Same live, unversioned, additive-across-
+ * the-whole-equipped-set treatment as {@code stunResistPercent}/{@code critResistPercent}, and
+ * applies whether the piece is held or worn - see {@code EquipmentResolver.resolvePassiveReflectPercent}.
+ *
  * <p>{@code customLore} is extra, admin-authored lore shown above whatever
  * stat lines get auto-generated - each line is a raw MiniMessage string (see
  * {@code ItemRenderer}), same as {@code displayName} itself, which is also
@@ -98,6 +105,7 @@ public record ItemTemplate(
         double armorAmount,
         double stunResistPercent,
         double critResistPercent,
+        double passiveReflectPercent,
         int version,
         int syncedVersion,
         long createdAt,
@@ -107,12 +115,12 @@ public record ItemTemplate(
 
     public ItemTemplate withBumpedVersion(long updatedAt) {
         return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
-                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, critResistPercent, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
+                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, critResistPercent, passiveReflectPercent, version + 1, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public ItemTemplate withSyncedVersion(int syncedVersion, long updatedAt) {
         return new ItemTemplate(id, key, displayName, customLore, hiddenHeaders, loreOrder, baseMaterial, baseItemSnapshot, customModelData,
-                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, critResistPercent, version, syncedVersion, createdAt, updatedAt, createdBy);
+                trinket, allowedSlots, armorClass, armorAmount, stunResistPercent, critResistPercent, passiveReflectPercent, version, syncedVersion, createdAt, updatedAt, createdBy);
     }
 
     public boolean isFullySynced() {

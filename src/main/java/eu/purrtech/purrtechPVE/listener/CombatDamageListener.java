@@ -47,9 +47,10 @@ import java.util.concurrent.ThreadLocalRandom;
  * damage event for skill-based damage, mob damage profiles, detecting
  * MythicMobs-equipped items) is Fáze 4.
  *
- * <p>Critical hits and bleed are both rolled off the attacker's wielded
- * weapon's {@link CriticalEffect}/{@link BleedEffect}, independently of
- * each other, and only once every field either needs is actually set (see
+ * <p>Critical hits and bleed are both rolled off the attacker's whole equipped set's pooled
+ * {@link CriticalEffect}/{@link BleedEffect} (weapon in hand, worn armor, trinkets alike, each
+ * contributing piece's own fields summed - see {@link EquipmentResolver#resolveCriticalEffect}),
+ * independently of each other, and only once every field either needs is actually set (see
  * their {@code isComplete()}). A crit's chance is first scaled by the
  * defender's {@code EquipmentResolver.resolveCritResistPercent} (worn
  * armor's/held item's {@code critResistPercent}, live/unversioned, positive
@@ -63,8 +64,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * DamageContribution}, split evenly across however many ticks fit the
  * weapon's configured duration).
  *
- * <p>Stun is rolled the same way, off the attacker's wielded weapon's {@link StunEffect}, except
- * its chance is first reduced by the defender's {@code EquipmentResolver.resolveStunResistPercent}
+ * <p>Stun is rolled the same way, off the attacker's whole-equipped-set-pooled {@link StunEffect},
+ * except its chance is first reduced by the defender's {@code EquipmentResolver.resolveStunResistPercent}
  * (worn armor's {@code stunResistPercent}, live/unversioned unlike the weapon-side chance/duration
  * themselves). A successful roll marks the defender's expiry timestamp in {@code
  * stunnedUntilMillis} and applies {@code SLOWNESS}/{@code BLINDNESS} for the same duration
@@ -72,14 +73,16 @@ import java.util.concurrent.ThreadLocalRandom;
  * effect at all - it's enforced by cancelling this very event up front whenever the ATTACKER is
  * found still stunned, regardless of which weapon/side stunned them.
  *
- * <p>Reflect is resolved off the DEFENDER's entire equipped set instead ({@link
- * EquipmentResolver#resolveReflectEffects}, weapon in hand + worn armor + trinkets alike, unlike
- * bleed/critical/stun which only ever look at the attacker's wielded weapon) - each equipped
- * piece's {@link eu.purrtech.purrtechPVE.item.ReflectEffect} rolls independently once this hit's
- * final total is known, and successful rolls' reflected amounts are summed and applied straight
- * back to the attacker via {@code LivingEntity.damage(double)} (no damager argument), which fires
- * a plain {@code EntityDamageEvent} rather than another {@code EntityDamageByEntityEvent} - so a
- * reflect can't recursively trigger this very listener even if both combatants have it configured.
+ * <p>Reflect is resolved off the DEFENDER's entire equipped set ({@link
+ * EquipmentResolver#resolveReflectEffects}, weapon in hand + worn armor + trinkets alike) - each
+ * equipped piece's {@link eu.purrtech.purrtechPVE.item.ReflectEffect} rolls independently once this
+ * hit's final total is known, and successful rolls' reflected amounts are summed together with the
+ * defender's {@code EquipmentResolver.resolvePassiveReflectPercent} (a live/unversioned percent,
+ * pooled the same way as {@code stunResistPercent}/{@code critResistPercent}, that reflects that
+ * share of the total on EVERY hit with no chance roll) and applied straight back to the attacker
+ * via {@code LivingEntity.damage(double)} (no damager argument), which fires a plain {@code
+ * EntityDamageEvent} rather than another {@code EntityDamageByEntityEvent} - so a reflect can't
+ * recursively trigger this very listener even if both combatants have it configured.
  *
  * <p>{@code combatFeedbackSettings.effectivenessColors()} (see {@code config.yml}) switches the
  * per-type numbers from a flat attacker/defender color to yellow/white/gray by how effective the
@@ -182,7 +185,7 @@ public final class CombatDamageListener implements Listener {
         }
         event.setDamage(total);
 
-        // Bleed: rolled independently of crit, off the same wielded weapon, only once chance/
+        // Bleed: rolled independently of crit, off the attacker's whole pooled equipped set, only once chance/
         // duration/damage are ALL set (see BleedEffect.isComplete()) - a half-configured bleed
         // (e.g. only chance set so far while an admin is still dialing in duration/damage via
         // ValueEditorMenu's one-field-at-a-time +/- buttons) simply never rolls. damageAmount/
@@ -204,7 +207,7 @@ public final class CombatDamageListener implements Listener {
             });
         }
 
-        // Stun: rolled independently of crit/bleed, off the same wielded weapon, only once
+        // Stun: rolled independently of crit/bleed, off the attacker's whole pooled equipped set, only once
         // chance/duration are BOTH set (see StunEffect.isComplete()). The defender's worn armor's
         // stunResistPercent scales the chance down multiplicatively before the roll - see
         // EquipmentResolver.resolveStunResistPercent's javadoc.
@@ -221,14 +224,21 @@ public final class CombatDamageListener implements Listener {
         // (weapon in hand, worn armor, trinkets alike - see EquipmentResolver.resolveReflectEffects),
         // since it has to trigger whether the item carrying it is held or worn. Each equipped
         // piece's effect rolls independently; successful rolls' reflected amounts (reflectPercent%
-        // of the fully-resolved total this hit dealt, crit/armor included) are summed and applied
-        // back to the attacker with no damager argument, so this doesn't re-enter this very
-        // listener and risk an infinite loop if both combatants have reflect configured.
+        // of the fully-resolved total this hit dealt, crit/armor included) are summed together
+        // with passiveReflectPercent's share of that same total (live/unversioned, pooled the same
+        // way as stunResistPercent/critResistPercent, no chance roll - see
+        // EquipmentResolver.resolvePassiveReflectPercent) and applied back to the attacker with no
+        // damager argument, so this doesn't re-enter this very listener and risk an infinite loop
+        // if both combatants have reflect configured.
         double reflected = 0;
         for (ReflectEffect effect : equipmentResolver.resolveReflectEffects(defender)) {
             if (ThreadLocalRandom.current().nextDouble(100) < effect.chancePercent()) {
                 reflected += total * effect.reflectPercent() / 100.0;
             }
+        }
+        double passiveReflectPercent = equipmentResolver.resolvePassiveReflectPercent(defender);
+        if (passiveReflectPercent > 0) {
+            reflected += total * passiveReflectPercent / 100.0;
         }
         if (reflected > 0) {
             attacker.damage(reflected);

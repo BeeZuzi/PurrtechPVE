@@ -342,6 +342,8 @@ public final class ValueEditorMenu {
                     service.findByKey(key).orElseThrow().stunResistPercent(), true, DamageMode.FLAT, ModifierContext.WIELDED);
             case CRIT_RESIST_PERCENT -> new CurrentState(
                     service.findByKey(key).orElseThrow().critResistPercent(), true, DamageMode.FLAT, ModifierContext.WIELDED);
+            case PASSIVE_REFLECT_PERCENT -> new CurrentState(
+                    service.findByKey(key).orElseThrow().passiveReflectPercent(), true, DamageMode.FLAT, ModifierContext.WIELDED);
             case MOB_DROP_AMOUNT -> new CurrentState(
                     mobDrop(plugin, key, holder.entryId()).map(MobDropEntry::amount).orElse(1),
                     true, DamageMode.FLAT, ModifierContext.WIELDED);
@@ -416,6 +418,7 @@ public final class ValueEditorMenu {
             case ARMOR_CLASS_AMOUNT -> service.setArmorAmount(key, newValue);
             case STUN_RESIST_PERCENT -> service.setStunResistPercent(key, newValue);
             case CRIT_RESIST_PERCENT -> service.setCritResistPercent(key, newValue);
+            case PASSIVE_REFLECT_PERCENT -> service.setPassiveReflectPercent(key, newValue);
             case MOB_DROP_AMOUNT -> {
                 UUID templateId = service.findByKey(key).orElseThrow().id();
                 double chance = plugin.getMobDropRepository().find(holder.entryId(), templateId)

@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Function;
 
 /**
  * Reads {@link ItemTemplate} data off a {@link LivingEntity}'s actual
@@ -180,19 +179,91 @@ public final class EquipmentResolver {
         return typed;
     }
 
-    /** The attacker's wielded weapon's {@link CriticalEffect}, if it has one configured - pinned to its snapshot like any other weapon stat. */
+    /**
+     * The attacker's {@link CriticalEffect}, pooled additively across their whole equipped set
+     * (weapon in hand, worn armor, trinkets alike, respecting each piece's allowedSlots) - so a
+     * single piece with just chance (or just bonus) set still contributes, whether it's held or
+     * worn, exactly like {@link #resolveReflectEffects} already works. Each contributing piece's
+     * {@code chancePercent}/{@code bonusDamagePercent} are summed; empty if no equipped piece has
+     * one configured at all.
+     */
     public Optional<CriticalEffect> resolveCriticalEffect(LivingEntity attacker) {
-        return resolveWieldedStat(attacker, TemplateSnapshot::criticalEffect);
+        EntityEquipment equipment = attacker.getEquipment();
+        if (equipment == null) {
+            return Optional.empty();
+        }
+        double chance = 0;
+        double bonus = 0;
+        boolean any = false;
+        for (Map.Entry<String, ItemStack> entry : allEquippedPieces(attacker, equipment).entrySet()) {
+            Optional<CriticalEffect> effect = resolvedItemOf(entry.getValue())
+                    .filter(item -> isAllowedInSlot(item.template(), entry.getKey()))
+                    .map(item -> item.snapshot().criticalEffect());
+            if (effect.isPresent()) {
+                chance += effect.get().chancePercent();
+                bonus += effect.get().bonusDamagePercent();
+                any = true;
+            }
+        }
+        return any ? Optional.of(new CriticalEffect(chance, bonus, true)) : Optional.empty();
     }
 
-    /** The attacker's wielded weapon's {@link BleedEffect}, if it has one configured - pinned to its snapshot like any other weapon stat. */
+    /**
+     * The attacker's {@link BleedEffect}, pooled additively across their whole equipped set - same
+     * whole-equipped-set treatment as {@link #resolveCriticalEffect}. Each contributing piece's
+     * {@code chancePercent}/{@code durationSeconds}/{@code damageAmount} are summed; {@code mode}
+     * isn't summable, so it's taken from whichever contributing piece was seen last (only matters
+     * if more than one piece has bleed configured at once).
+     */
     public Optional<BleedEffect> resolveBleedEffect(LivingEntity attacker) {
-        return resolveWieldedStat(attacker, TemplateSnapshot::bleedEffect);
+        EntityEquipment equipment = attacker.getEquipment();
+        if (equipment == null) {
+            return Optional.empty();
+        }
+        double chance = 0;
+        double duration = 0;
+        double damage = 0;
+        DamageMode mode = DamageMode.FLAT;
+        boolean any = false;
+        for (Map.Entry<String, ItemStack> entry : allEquippedPieces(attacker, equipment).entrySet()) {
+            Optional<BleedEffect> effect = resolvedItemOf(entry.getValue())
+                    .filter(item -> isAllowedInSlot(item.template(), entry.getKey()))
+                    .map(item -> item.snapshot().bleedEffect());
+            if (effect.isPresent()) {
+                chance += effect.get().chancePercent();
+                duration += effect.get().durationSeconds();
+                damage += effect.get().damageAmount();
+                mode = effect.get().mode();
+                any = true;
+            }
+        }
+        return any ? Optional.of(new BleedEffect(chance, duration, damage, mode, true)) : Optional.empty();
     }
 
-    /** The attacker's wielded weapon's {@link StunEffect}, if it has one configured - pinned to its snapshot like any other weapon stat. */
+    /**
+     * The attacker's {@link StunEffect}, pooled additively across their whole equipped set - same
+     * whole-equipped-set treatment as {@link #resolveCriticalEffect}. Each contributing piece's
+     * {@code chancePercent}/{@code durationSeconds} are summed.
+     */
     public Optional<StunEffect> resolveStunEffect(LivingEntity attacker) {
-        return resolveWieldedStat(attacker, TemplateSnapshot::stunEffect);
+        EntityEquipment equipment = attacker.getEquipment();
+        if (equipment == null) {
+            return Optional.empty();
+        }
+        double chance = 0;
+        double duration = 0;
+        boolean any = false;
+        for (Map.Entry<String, ItemStack> entry : allEquippedPieces(attacker, equipment).entrySet()) {
+            Optional<StunEffect> effect = resolvedItemOf(entry.getValue())
+                    .filter(item -> isAllowedInSlot(item.template(), entry.getKey()))
+                    .map(item -> item.snapshot().stunEffect());
+            if (effect.isPresent()) {
+                chance += effect.get().chancePercent();
+                duration += effect.get().durationSeconds();
+                any = true;
+            }
+        }
+        return any ? Optional.of(new StunEffect(chance, duration, true)) : Optional.empty();
     }
 
     /**
@@ -240,10 +311,10 @@ public final class EquipmentResolver {
 
     /**
      * Every equipped piece's (weapon in hand, worn armor, trinkets alike) {@link ReflectEffect}, if
-     * complete (see {@link ReflectEffect#isComplete()}) - unlike bleed/critical/stun, which only
-     * ever look at the attacker's wielded weapon, this is resolved off the DEFENDER's whole
+     * complete (see {@link ReflectEffect#isComplete()}) - this is resolved off the DEFENDER's whole
      * equipped set, respecting each piece's allowedSlots, since it has to trigger whether the item
-     * carrying it is held or worn (including trinkets). See {@code CombatDamageListener} for how
+     * carrying it is held or worn (including trinkets), same as bleed/critical/stun above and
+     * {@link #resolvePassiveReflectPercent} below. See {@code CombatDamageListener} for how
      * each entry is rolled independently and the reflected damage applied back to the attacker.
      */
     public List<ReflectEffect> resolveReflectEffects(LivingEntity defender) {
@@ -262,12 +333,26 @@ public final class EquipmentResolver {
         return effects;
     }
 
-    private <T> Optional<T> resolveWieldedStat(LivingEntity attacker, Function<TemplateSnapshot, T> extractor) {
-        EntityEquipment equipment = attacker.getEquipment();
+    /**
+     * Sum of {@link ItemTemplate#passiveReflectPercent} across the defender's whole equipped set, respecting each
+     * piece's {@code allowedSlots} - same live/unversioned, flatly-pooled treatment as {@link
+     * #resolveCritResistPercent}/{@link #resolveStunResistPercent}. Unlike {@link #resolveReflectEffects}, this
+     * always applies (no chance roll) - see {@code CombatDamageListener} for how it's folded into the same
+     * reflected-damage total.
+     */
+    public double resolvePassiveReflectPercent(LivingEntity defender) {
+        EntityEquipment equipment = defender.getEquipment();
         if (equipment == null) {
-            return Optional.empty();
+            return 0;
         }
-        return resolvedItemOf(equipment.getItemInMainHand()).map(item -> extractor.apply(item.snapshot()));
+        double total = 0;
+        for (Map.Entry<String, ItemStack> entry : allEquippedPieces(defender, equipment).entrySet()) {
+            total += resolvedItemOf(entry.getValue())
+                    .filter(item -> isAllowedInSlot(item.template(), entry.getKey()))
+                    .map(item -> item.template().passiveReflectPercent())
+                    .orElse(0.0);
+        }
+        return total;
     }
 
     /**
