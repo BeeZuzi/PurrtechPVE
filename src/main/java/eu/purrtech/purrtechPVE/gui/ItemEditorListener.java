@@ -1,13 +1,12 @@
 package eu.purrtech.purrtechPVE.gui;
 
 import eu.purrtech.purrtechPVE.PurrtechPVE;
-import io.papermc.paper.event.player.AsyncChatEvent;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 
@@ -85,16 +84,17 @@ public final class ItemEditorListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    public void onChat(AsyncChatEvent event) {
+    // Deprecated legacy event on purpose: chat plugins like CMI reformat/strip &-codes on Paper's
+    // AsyncChatEvent, while this one still hands over the raw typed string with codes intact.
+    @SuppressWarnings("deprecation")
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onChat(AsyncPlayerChatEvent event) {
         PendingInput prompt = pending.remove(event.getPlayer().getUniqueId());
         if (prompt == null) {
             return;
         }
         event.setCancelled(true);
-        // originalMessage(), not message(): chat plugins may already have turned &-codes into real
-        // styling in message(), which the plain-text serializer would then silently strip.
-        String rawInput = PlainTextComponentSerializer.plainText().serialize(event.originalMessage());
+        String rawInput = event.getMessage();
         Player player = event.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> prompt.handle(player, rawInput));
     }
