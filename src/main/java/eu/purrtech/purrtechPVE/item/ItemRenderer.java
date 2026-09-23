@@ -350,7 +350,7 @@ public final class ItemRenderer {
      */
     private static Component parseMiniMessage(String raw) {
         try {
-            return MINI_MESSAGE.deserialize(raw);
+            return MINI_MESSAGE.deserialize(LegacyColorTranslator.toMiniMessage(raw));
         } catch (RuntimeException e) {
             return Component.text(raw);
         }
