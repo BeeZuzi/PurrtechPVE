@@ -85,14 +85,16 @@ public final class ItemEditorListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onChat(AsyncChatEvent event) {
         PendingInput prompt = pending.remove(event.getPlayer().getUniqueId());
         if (prompt == null) {
             return;
         }
         event.setCancelled(true);
-        String rawInput = PlainTextComponentSerializer.plainText().serialize(event.message());
+        // originalMessage(), not message(): chat plugins may already have turned &-codes into real
+        // styling in message(), which the plain-text serializer would then silently strip.
+        String rawInput = PlainTextComponentSerializer.plainText().serialize(event.originalMessage());
         Player player = event.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> prompt.handle(player, rawInput));
     }
