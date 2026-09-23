@@ -208,9 +208,8 @@ public final class PurrtechPVE extends JavaPlugin {
      * else needs touching. Also retries {@link #trySetupMythicMobs}, so fixing whatever made
      * MythicMobs detection fail (installing it, updating it, restarting it) can be picked up here
      * too instead of needing a restart - see that method's javadoc for why detection can fail even
-     * when the installed version looks right. Finally force-resyncs every online player's stamped
-     * items (see {@link ItemSyncService#resyncAllOnlinePlayersFull()}) so a lang/design wording
-     * change shows up on items already handed out, not just ones given after this reload.
+     * when the installed version looks right. Finally resyncs online players' items, which a
+     * lang/locale change marks stale via their {@code lang_hash} stamp (see {@link ItemSyncService}).
      *
      * <p>Deliberately NOT reconstructed here: {@code EquipmentResolver}'s own captured {@code
      * MythicMobsBridge} reference (combat resolution keeps whatever MythicMobs state it started
@@ -233,11 +232,9 @@ public final class PurrtechPVE extends JavaPlugin {
         equipmentResolver.refresh(armorPenetrationConversionSettings);
         dropHologramListener.refresh(dropHologramSettings.enabled());
         mythicMobsSetup.run();
-        // Lang text is global, not per-template, so it never bumps any template's version - the
-        // normal syncedVersion-gated resync would never pick this up. Force every stamped stack
-        // already in circulation to re-render right now instead of waiting on an unrelated
-        // template edit to trigger a push.
-        itemSyncService.resyncAllOnlinePlayersFull();
+        // Stacks carry a lang_hash stamp, so a lang/locale change makes them stale on its own -
+        // online players are refreshed here, everything else lazily (see ItemSyncJoinListener).
+        itemSyncService.resyncAllOnlinePlayers();
 
         getLogger().info("Reloaded config.yml + lang/*.yml. World toggles: " + worldToggles.disabledWorlds().size()
                 + " disabled world(s), PvP " + (worldToggles.pvpEnabled() ? "on" : "off")

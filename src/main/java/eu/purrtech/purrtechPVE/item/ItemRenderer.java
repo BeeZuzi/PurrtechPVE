@@ -20,6 +20,7 @@ import org.bukkit.plugin.Plugin;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -46,6 +47,7 @@ public final class ItemRenderer {
     private Locale locale;
     private final NamespacedKey templateKeyPdc;
     private final NamespacedKey templateVersionPdc;
+    private final NamespacedKey langHashPdc;
 
     public ItemRenderer(Plugin plugin, Messages messages, Locale locale) {
         this.plugin = plugin;
@@ -53,6 +55,12 @@ public final class ItemRenderer {
         this.locale = locale;
         this.templateKeyPdc = new NamespacedKey(plugin, "template_key");
         this.templateVersionPdc = new NamespacedKey(plugin, "template_version");
+        this.langHashPdc = new NamespacedKey(plugin, "lang_hash");
+    }
+
+    /** Identifies the lang text + locale a stack was rendered with, so a lang edit marks every older stack stale. */
+    public int currentLangHash() {
+        return Objects.hash(messages.fingerprint(), locale.toLanguageTag());
     }
 
     /** See the {@code messages}/{@code locale} field comment - called by {@code PurrtechPVE.reload()}. */
@@ -136,6 +144,7 @@ public final class ItemRenderer {
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         pdc.set(templateKeyPdc, PersistentDataType.STRING, key);
         pdc.set(templateVersionPdc, PersistentDataType.INTEGER, version);
+        pdc.set(langHashPdc, PersistentDataType.INTEGER, currentLangHash());
 
         stack.setItemMeta(meta);
         return stack;
@@ -158,10 +167,11 @@ public final class ItemRenderer {
         if (key == null || version == null) {
             return Optional.empty();
         }
-        return Optional.of(new StampedTemplate(key, version));
+        return Optional.of(new StampedTemplate(key, version, pdc.get(langHashPdc, PersistentDataType.INTEGER)));
     }
 
-    public record StampedTemplate(String templateKey, int templateVersion) {
+    /** {@code langHash} is null on stacks rendered before lang stamping existed - treated as stale. */
+    public record StampedTemplate(String templateKey, int templateVersion, Integer langHash) {
     }
 
     /**

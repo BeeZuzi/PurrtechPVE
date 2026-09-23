@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Two flat key -> MiniMessage-template maps (cs/en), picked per-player by
@@ -41,6 +42,11 @@ public final class Messages {
     Messages(Map<String, String> cs, Map<String, String> en) {
         this.cs = cs;
         this.en = en;
+    }
+
+    /** Content hash of every loaded lang entry - stable across restarts, changes whenever any text does. */
+    public int fingerprint() {
+        return Objects.hash(cs, en);
     }
 
     public static Messages load(Plugin plugin) {

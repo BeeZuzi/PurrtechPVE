@@ -8,18 +8,20 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Re-renders circulating item stacks that are stamped with a
- * {@code template_key}/{@code template_version} older than that template's
- * {@code syncedVersion} - i.e. it catches items up to the last version an
- * admin explicitly pushed with {@code /pve item sync}, never further,
- * regardless of how many un-pushed edits have piled up on the live template
- * since. Online players are swept immediately; offline players catch up the
- * next time they join (see the join listener). Items sitting in world
- * containers/dropped on the ground are not covered yet - would need
- * chunk-load-triggered container scanning, left as a follow-up.
+ * Re-renders circulating item stacks that are stale in either of two ways:
+ * <ul>
+ *   <li>stamped with a {@code template_version} older than the template's {@code syncedVersion}
+ *       - caught up to the last version an admin explicitly pushed with {@code /pve item sync},
+ *       never further;</li>
+ *   <li>stamped with a {@code lang_hash} different from the currently loaded lang/locale - re-
+ *       rendered at the stack's own version with fresh text, so a lang edit never changes stats.</li>
+ * </ul>
+ * Online players are swept on push/reload, offline ones on join, and containers/dropped items
+ * lazily when opened/picked up (see {@code ItemSyncJoinListener}).
  */
 public final class ItemSyncService {
 
@@ -43,38 +45,18 @@ public final class ItemSyncService {
         return touched;
     }
 
-    /**
-     * Same sweep as {@link #resyncAllOnlinePlayers()}, but re-renders every stamped stack
-     * unconditionally instead of only ones behind their template's {@code syncedVersion}. Needed
-     * because a {@code lang/*.yml} (or locale) change doesn't bump any template's version - it's
-     * global text, not a per-template edit - so the normal stale check would never catch it.
-     * Called by {@code PurrtechPVE.reload()} so editing lang and running {@code /pve reload}
-     * updates already-issued items' name/lore too, not just future ones.
-     */
-    public int resyncAllOnlinePlayersFull() {
-        int touched = 0;
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            touched += resyncPlayer(player, true);
-        }
-        return touched;
-    }
-
     /** Sweeps one player's inventory (main + armor + offhand) + ender chest. Meant for both an explicit push and PlayerJoinEvent catch-up. */
     public int resyncPlayer(Player player) {
-        return resyncPlayer(player, false);
+        return resyncPlayerInventory(player.getInventory()) + resyncInventory(player.getEnderChest());
     }
 
-    private int resyncPlayer(Player player, boolean force) {
-        return resyncPlayerInventory(player.getInventory(), force) + resyncInventory(player.getEnderChest(), force);
-    }
-
-    private int resyncPlayerInventory(PlayerInventory inventory, boolean force) {
-        int touched = resyncInventory(inventory, force);
+    private int resyncPlayerInventory(PlayerInventory inventory) {
+        int touched = resyncInventory(inventory);
 
         ItemStack[] armor = inventory.getArmorContents();
         boolean armorChanged = false;
         for (int i = 0; i < armor.length; i++) {
-            Optional<ItemStack> updated = resyncStackIfStale(armor[i], force);
+            Optional<ItemStack> updated = resyncStack(armor[i]);
             if (updated.isPresent()) {
                 armor[i] = updated.get();
                 armorChanged = true;
@@ -85,7 +67,7 @@ public final class ItemSyncService {
             inventory.setArmorContents(armor);
         }
 
-        Optional<ItemStack> offhand = resyncStackIfStale(inventory.getItemInOffHand(), force);
+        Optional<ItemStack> offhand = resyncStack(inventory.getItemInOffHand());
         if (offhand.isPresent()) {
             inventory.setItemInOffHand(offhand.get());
             touched++;
@@ -94,11 +76,11 @@ public final class ItemSyncService {
         return touched;
     }
 
-    private int resyncInventory(Inventory inventory, boolean force) {
+    public int resyncInventory(Inventory inventory) {
         int touched = 0;
         ItemStack[] contents = inventory.getContents();
         for (int slot = 0; slot < contents.length; slot++) {
-            Optional<ItemStack> updated = resyncStackIfStale(contents[slot], force);
+            Optional<ItemStack> updated = resyncStack(contents[slot]);
             if (updated.isPresent()) {
                 inventory.setItem(slot, updated.get());
                 touched++;
@@ -107,24 +89,32 @@ public final class ItemSyncService {
         return touched;
     }
 
-    private Optional<ItemStack> resyncStackIfStale(ItemStack stack, boolean force) {
-        Optional<ItemRenderer.StampedTemplate> stamp = renderer.readStamp(stack);
-        if (stamp.isEmpty()) {
+    /** The re-rendered replacement for {@code stack}, or empty if it isn't ours or is already up to date. */
+    public Optional<ItemStack> resyncStack(ItemStack stack) {
+        Optional<ItemRenderer.StampedTemplate> stampOpt = renderer.readStamp(stack);
+        if (stampOpt.isEmpty()) {
             return Optional.empty();
         }
+        ItemRenderer.StampedTemplate stamp = stampOpt.get();
 
-        Optional<ItemTemplate> templateOpt = templateRepository.findByKey(stamp.get().templateKey());
+        Optional<ItemTemplate> templateOpt = templateRepository.findByKey(stamp.templateKey());
         if (templateOpt.isEmpty()) {
             // template was deleted since this item was given - leave the stack exactly as it is
             return Optional.empty();
         }
         ItemTemplate template = templateOpt.get();
-        if (!force && stamp.get().templateVersion() >= template.syncedVersion()) {
+
+        boolean versionStale = stamp.templateVersion() < template.syncedVersion();
+        boolean langStale = !Objects.equals(stamp.langHash(), renderer.currentLangHash());
+        if (!versionStale && !langStale) {
             return Optional.empty();
         }
 
-        TemplateSnapshot snapshot = snapshotRepository.find(template.id(), template.syncedVersion())
-                .orElseThrow(() -> new IllegalStateException("Missing snapshot v" + template.syncedVersion()
+        // A lang-only refresh keeps the stack's own version - it may legitimately be newer than
+        // syncedVersion (given from the live template), and a text change must not roll it back.
+        int targetVersion = versionStale ? template.syncedVersion() : stamp.templateVersion();
+        TemplateSnapshot snapshot = snapshotRepository.find(template.id(), targetVersion)
+                .orElseThrow(() -> new IllegalStateException("Missing snapshot v" + targetVersion
                         + " for template " + template.key() + " - every version bump must write one"));
 
         ItemStack rendered = renderer.renderSnapshot(snapshot);
