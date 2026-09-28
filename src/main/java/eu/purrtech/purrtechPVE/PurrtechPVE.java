@@ -177,7 +177,8 @@ public final class PurrtechPVE extends JavaPlugin {
                 combatFeedbackSettings, dpsTracker);
         getServer().getPluginManager().registerEvents(combatDamageListener, this);
         getServer().getPluginManager().registerEvents(new ItemSyncJoinListener(itemSyncService), this);
-        getServer().getPluginManager().registerEvents(new AccessoryMenuListener(accessoryRepository), this);
+        getServer().getPluginManager().registerEvents(
+                new AccessoryMenuListener(accessoryRepository, itemTemplateRepository, snapshotRepository, itemRenderer), this);
         trinketAttributeListener = new TrinketAttributeListener(this, accessoryRepository,
                 accessorySettings, itemTemplateRepository, snapshotRepository, itemRenderer);
         getServer().getPluginManager().registerEvents(trinketAttributeListener, this);
