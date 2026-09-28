@@ -9,6 +9,7 @@ import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
 import eu.purrtech.purrtechPVE.command.PveCommand;
 import eu.purrtech.purrtechPVE.config.AccessorySettings;
 import eu.purrtech.purrtechPVE.config.ArmorPenetrationConversionSettings;
+import eu.purrtech.purrtechPVE.config.ResistancePercentBounds;
 import eu.purrtech.purrtechPVE.config.CombatFeedbackSettings;
 import eu.purrtech.purrtechPVE.config.ConfigLoader;
 import eu.purrtech.purrtechPVE.config.DropHologramSettings;
@@ -77,6 +78,7 @@ public final class PurrtechPVE extends JavaPlugin {
     private ArmorClassProfileRepository armorClassProfileRepository;
     private CombatFeedbackSettings combatFeedbackSettings;
     private ArmorPenetrationConversionSettings armorPenetrationConversionSettings;
+    private ResistancePercentBounds resistancePercentBounds;
     private DpsTracker dpsTracker;
     private DebugModeService debugModeService;
     private ItemRenderer itemRenderer;
@@ -106,6 +108,7 @@ public final class PurrtechPVE extends JavaPlugin {
         accessorySettings = ConfigLoader.loadAccessorySettings(getConfig());
         combatFeedbackSettings = ConfigLoader.loadCombatFeedbackSettings(getConfig());
         armorPenetrationConversionSettings = ConfigLoader.loadArmorPenetrationConversion(getConfig());
+        resistancePercentBounds = ConfigLoader.loadResistancePercentBounds(getConfig());
         dropHologramSettings = ConfigLoader.loadDropHologramSettings(getConfig());
         dpsTracker = new DpsTracker();
         debugModeService = new DebugModeService();
@@ -164,7 +167,7 @@ public final class PurrtechPVE extends JavaPlugin {
         equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
                 mobDamageProfileRepository, armorClassProfileRepository, accessoryRepository, itemSetMemberRepository,
                 itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, mythicMobsBridge,
-                armorPenetrationConversionSettings);
+                armorPenetrationConversionSettings, resistancePercentBounds);
 
         getLogger().info("MythicMobs integration: " + (mythicMobsBridge != null ? "enabled" : "not found, running standalone"));
         getLogger().info("World toggles: " + worldToggles.disabledWorlds().size() + " disabled world(s), "
@@ -235,12 +238,13 @@ public final class PurrtechPVE extends JavaPlugin {
         accessorySettings = ConfigLoader.loadAccessorySettings(getConfig());
         combatFeedbackSettings = ConfigLoader.loadCombatFeedbackSettings(getConfig());
         armorPenetrationConversionSettings = ConfigLoader.loadArmorPenetrationConversion(getConfig());
+        resistancePercentBounds = ConfigLoader.loadResistancePercentBounds(getConfig());
         dropHologramSettings = ConfigLoader.loadDropHologramSettings(getConfig());
 
         itemRenderer.refresh(messages, defaultLocale);
         combatDamageListener.refresh(worldToggles, combatFeedbackSettings);
         trinketAttributeListener.refresh(accessorySettings);
-        equipmentResolver.refresh(armorPenetrationConversionSettings);
+        equipmentResolver.refresh(armorPenetrationConversionSettings, resistancePercentBounds);
         dropHologramListener.refresh(dropHologramSettings.enabled());
         mythicMobsSetup.run();
         // Stacks carry a lang_hash stamp, so a lang/locale change makes them stale on its own -

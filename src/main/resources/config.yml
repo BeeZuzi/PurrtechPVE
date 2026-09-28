@@ -28,6 +28,12 @@ combat:
   # it (deals more than the weapon's written damage), white = normal (deals exactly the
   # written damage), gray = target resists it (deals less than written). On by default.
   show-effectiveness-colors: true
+  # Hard floor/ceiling every resolved damage-type resistance percent is clamped into, no matter
+  # how many stacking sources (armor class profile, item modifiers, set bonuses, mob profile)
+  # pushed it past that line - applies to weapon hits, bleed ticks and the poison/wither/fire/
+  # frozen vanilla-effect linkage alike. Positive = resistance, negative = weakness.
+  resistance-percent-max: 95
+  resistance-percent-min: -200
 
 # virtual accessory (trinket) slots, in addition to vanilla equipment slots -
 # an item template can restrict itself to any of these by name

@@ -56,6 +56,14 @@ public final class ConfigLoader {
         return config.getString("locale", "cs");
     }
 
+    public static ResistancePercentBounds loadResistancePercentBounds(FileConfiguration config) {
+        ResistancePercentBounds defaults = ResistancePercentBounds.defaults();
+        ConfigurationSection combat = config.getConfigurationSection("combat");
+        double min = combat != null ? combat.getDouble("resistance-percent-min", defaults.minPercent()) : defaults.minPercent();
+        double max = combat != null ? combat.getDouble("resistance-percent-max", defaults.maxPercent()) : defaults.maxPercent();
+        return new ResistancePercentBounds(min, max);
+    }
+
     public static DropHologramSettings loadDropHologramSettings(FileConfiguration config) {
         DropHologramSettings defaults = DropHologramSettings.defaults();
         ConfigurationSection dropHologram = config.getConfigurationSection("drop-hologram");

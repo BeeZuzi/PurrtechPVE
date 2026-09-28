@@ -10,6 +10,7 @@ import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
 import eu.purrtech.purrtechPVE.config.ArmorPenetrationConversionSettings;
+import eu.purrtech.purrtechPVE.config.ResistancePercentBounds;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
 import eu.purrtech.purrtechPVE.item.ArmorPenetration;
 import eu.purrtech.purrtechPVE.item.BleedEffect;
@@ -39,7 +40,9 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -106,6 +109,7 @@ public final class EquipmentResolver {
     private final ItemRenderer renderer;
     private final MythicMobsBridge mythicMobsBridge;
     private ArmorPenetrationConversionSettings conversionSettings;
+    private ResistancePercentBounds resistancePercentBounds;
 
     public EquipmentResolver(ItemTemplateRepository templateRepository,
                               ItemTemplateSnapshotRepository snapshotRepository,
@@ -117,7 +121,8 @@ public final class EquipmentResolver {
                               ItemSetModifierThresholdRepository setModifierThresholdRepository,
                               ItemRenderer renderer,
                               MythicMobsBridge mythicMobsBridge,
-                              ArmorPenetrationConversionSettings conversionSettings) {
+                              ArmorPenetrationConversionSettings conversionSettings,
+                              ResistancePercentBounds resistancePercentBounds) {
         this.templateRepository = templateRepository;
         this.snapshotRepository = snapshotRepository;
         this.mobDamageProfileRepository = mobDamageProfileRepository;
@@ -129,11 +134,13 @@ public final class EquipmentResolver {
         this.renderer = renderer;
         this.mythicMobsBridge = mythicMobsBridge;
         this.conversionSettings = conversionSettings;
+        this.resistancePercentBounds = resistancePercentBounds;
     }
 
-    /** Re-reads {@code armor-penetration-conversion} on {@code /pve reload} - see {@code PurrtechPVE.reload}. */
-    public void refresh(ArmorPenetrationConversionSettings conversionSettings) {
+    /** Re-reads {@code armor-penetration-conversion}/{@code combat.resistance-percent-min/-max} on {@code /pve reload} - see {@code PurrtechPVE.reload}. */
+    public void refresh(ArmorPenetrationConversionSettings conversionSettings, ResistancePercentBounds resistancePercentBounds) {
         this.conversionSettings = conversionSettings;
+        this.resistancePercentBounds = resistancePercentBounds;
     }
 
     /**
@@ -404,14 +411,20 @@ public final class EquipmentResolver {
         EntityEquipment equipment = defender.getEquipment();
         if (equipment != null) {
             Map<String, ItemStack> pieces = allEquippedPieces(defender, equipment);
+            // A class's profile applies once per EQUIPPED CLASS, not once per piece - wearing all 4
+            // Heavy pieces gives the same resistance/weakness as wearing just one, it doesn't stack
+            // 4x. An item's own individually-set typeModifiers (below) still sum normally per piece.
+            Set<ArmorClass> equippedClasses = new HashSet<>();
             for (Map.Entry<String, ItemStack> entry : pieces.entrySet()) {
                 for (TypeModifier modifier : modifiersAllowedIn(entry.getValue(), entry.getKey())) {
                     resist.merge(modifier.damageTypeKey(), modifier.percent(), Double::sum);
                 }
-                classProfileModifiersAllowedIn(entry.getValue(), entry.getKey()).forEach((armorClass, byType) ->
-                        byType.forEach((type, percent) -> classProfileContribution
-                                .computeIfAbsent(armorClass, k -> new HashMap<>())
-                                .merge(type, percent, Double::sum)));
+                armorClassAllowedIn(entry.getValue(), entry.getKey()).ifPresent(equippedClasses::add);
+            }
+            for (ArmorClass armorClass : equippedClasses) {
+                Map<String, Double> profile = armorClassProfileRepository.findByArmorClass(armorClass.name());
+                classProfileContribution.put(armorClass, profile);
+                profile.forEach((type, percent) -> resist.merge(type, percent, Double::sum));
             }
 
             for (Map.Entry<UUID, Integer> setCount : countEquippedSetPieces(pieces).entrySet()) {
@@ -434,7 +447,21 @@ public final class EquipmentResolver {
         }
 
         applyArmorPenetration(attacker, classProfileContribution, resist);
+        clampResistance(resist);
         return resist;
+    }
+
+    /**
+     * Clamps every type's final resolved percent into {@code resistancePercentBounds}
+     * ({@code combat.resistance-percent-min}/{@code -max} in config.yml) - positive is resistance,
+     * negative is weakness, so max caps how resistant and min caps how weak an entity can ever be
+     * to any one type, no matter how many stacking sources (class profile, item modifiers, set
+     * bonuses, mob profile) pushed it past that line.
+     */
+    private void clampResistance(Map<String, Double> resist) {
+        double min = resistancePercentBounds.minPercent();
+        double max = resistancePercentBounds.maxPercent();
+        resist.replaceAll((type, percent) -> Math.max(min, Math.min(max, percent)));
     }
 
     /**
@@ -532,20 +559,6 @@ public final class EquipmentResolver {
         return pointsByClass.values().stream().mapToDouble(Double::doubleValue).sum();
     }
 
-    /** Just the armor-class-profile share of a piece's resistance (see {@link #modifiersAllowedIn}), grouped by class, for {@link #applyArmorPenetration}. */
-    private Map<ArmorClass, Map<String, Double>> classProfileModifiersAllowedIn(ItemStack stack, String slotName) {
-        return resolvedItemOf(stack)
-                .filter(item -> isAllowedInSlot(item.template(), slotName))
-                .map(item -> {
-                    ArmorClass armorClass = item.template().armorClass();
-                    if (armorClass == null) {
-                        return Map.<ArmorClass, Map<String, Double>>of();
-                    }
-                    return Map.of(armorClass, armorClassProfileRepository.findByArmorClass(armorClass.name()));
-                })
-                .orElse(Map.of());
-    }
-
     /** How many equipped pieces belong to each set - counts physical pieces, so two rings of the same set template count as 2. */
     private Map<UUID, Integer> countEquippedSetPieces(Map<String, ItemStack> equippedPieces) {
         Map<UUID, Integer> counts = new HashMap<>();
@@ -582,21 +595,23 @@ public final class EquipmentResolver {
                 .orElse(List.of());
     }
 
-    /** The item's own type modifiers, plus its armor class's profile (if it has one) - see ArmorClass's javadoc. */
+    /**
+     * Just the item's own type modifiers - its armor class's profile (if it has one) is applied
+     * separately, once per distinct equipped class rather than once per piece (see {@link
+     * #armorClassAllowedIn} and {@link #resolveResistance}'s javadoc).
+     */
     private List<TypeModifier> modifiersAllowedIn(ItemStack stack, String slotName) {
         return resolvedItemOf(stack)
                 .filter(item -> isAllowedInSlot(item.template(), slotName))
-                .map(item -> {
-                    ArmorClass armorClass = item.template().armorClass();
-                    if (armorClass == null) {
-                        return item.snapshot().typeModifiers();
-                    }
-                    List<TypeModifier> combined = new ArrayList<>(item.snapshot().typeModifiers());
-                    armorClassProfileRepository.findByArmorClass(armorClass.name())
-                            .forEach((type, percent) -> combined.add(new TypeModifier(type, percent, true)));
-                    return combined;
-                })
+                .map(item -> item.snapshot().typeModifiers())
                 .orElse(List.of());
+    }
+
+    /** The item's {@link ArmorClass}, if it has one and is allowed in {@code slotName} - see {@link #resolveResistance}. */
+    private Optional<ArmorClass> armorClassAllowedIn(ItemStack stack, String slotName) {
+        return resolvedItemOf(stack)
+                .filter(item -> isAllowedInSlot(item.template(), slotName))
+                .map(item -> item.template().armorClass());
     }
 
     /** An empty allowedSlots list means unrestricted - applies no matter where it's equipped. */
