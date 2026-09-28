@@ -150,6 +150,12 @@ damage-type:
     resist-full: "Odolnost proti nekrotickému poškození"
     weakness-full: "Slabina vůči nekrotickému poškození"
     icon: "⚰"
+  bite:
+    name: "Kousnutí"
+    name-full: "Poškození kousnutím"
+    resist-full: "Odolnost proti kousnutí"
+    weakness-full: "Slabina vůči kousnutí"
+    icon: "⚠"
 
 # Stejný "name"/"name-full" vzor jako damage-type výše, jen pro item.line.penetration - "Lehký"
 # s nadpisem zobrazeným, "Lehký armor" s nadpisem skrytým.

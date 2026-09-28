@@ -148,6 +148,12 @@ damage-type:
     resist-full: "Resistance to necrotic damage"
     weakness-full: "Weakness to necrotic damage"
     icon: "⚰"
+  bite:
+    name: "Bite"
+    name-full: "Bite damage"
+    resist-full: "Resistance to bite damage"
+    weakness-full: "Weakness to bite damage"
+    icon: "⚠"
 
 # Same "name"/"name-full" shape as damage-type above, just for item.line.penetration - "Light"
 # with the header shown, "Light armor" with the header hidden.

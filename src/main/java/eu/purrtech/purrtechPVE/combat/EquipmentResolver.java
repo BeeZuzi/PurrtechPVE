@@ -26,6 +26,8 @@ import eu.purrtech.purrtechPVE.item.TypeModifier;
 import eu.purrtech.purrtechPVE.itemset.SetThresholdDamage;
 import eu.purrtech.purrtechPVE.itemset.SetThresholdModifier;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobsBridge;
+import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
@@ -135,24 +137,26 @@ public final class EquipmentResolver {
     }
 
     /**
-     * The held weapon's WIELDED contributions split rawDamage into typed buckets (100% {@link
-     * DamageTypeRegistry#FALLBACK_PHYSICAL} if the held item has none/isn't one of our templates); every equipped
-     * piece's WORN contributions (respecting each template's allowedSlots restriction, if any) are added as bonus
-     * damage on top of that split, merged into the same buckets, and so are any active set-threshold bonuses.
+     * The held weapon's WIELDED contributions split rawDamage into typed buckets (see {@link
+     * #weaponFallbackType} for what's used if the held item has none/isn't one of our templates);
+     * every equipped piece's WORN contributions (respecting each template's allowedSlots
+     * restriction, if any) are added as bonus damage on top of that split, merged into the same
+     * buckets, and so are any active set-threshold bonuses.
      */
     public Map<String, Double> resolveOutgoingTypedDamage(LivingEntity attacker, double rawDamage) {
         EntityEquipment equipment = attacker.getEquipment();
         if (equipment == null) {
-            return Map.of(DamageTypeRegistry.FALLBACK_PHYSICAL, rawDamage);
+            return Map.of(weaponFallbackType(attacker, null), rawDamage);
         }
 
         Map<String, Double> typed = new HashMap<>();
-        List<DamageContribution> wielded = resolvedItemOf(equipment.getItemInMainHand())
+        ItemStack heldItem = equipment.getItemInMainHand();
+        List<DamageContribution> wielded = resolvedItemOf(heldItem)
                 .map(item -> item.snapshot().damageContributions())
                 .orElse(List.of())
                 .stream().filter(c -> c.context() == ModifierContext.WIELDED).toList();
         if (wielded.isEmpty()) {
-            typed.put(DamageTypeRegistry.FALLBACK_PHYSICAL, rawDamage);
+            typed.put(weaponFallbackType(attacker, heldItem), rawDamage);
         } else {
             for (DamageContribution c : wielded) {
                 typed.merge(c.damageTypeKey(), resolveAmount(c, rawDamage), Double::sum);
@@ -177,6 +181,32 @@ public final class EquipmentResolver {
             }
         }
         return typed;
+    }
+
+    /**
+     * What an unconfigured (no custom damage contributions) held item deals: {@link
+     * DamageTypeRegistry#MOB_FALLBACK} for a non-player attacker swinging bare hands (no weapon
+     * item at all - a mob wielding an actual weapon, vanilla or MythicMobs-equipped, still resolves
+     * to the weapon-material branch below like a player would), otherwise a weapon-material-based
+     * split of {@link DamageTypeRegistry#PHYSICAL_TYPES}'s three concrete subtypes: bow/crossbow/
+     * trident -> piercing, sword/axe -> slashing, anything else (tools, bare fist, blocks) -> blunt.
+     */
+    private String weaponFallbackType(LivingEntity attacker, ItemStack heldItem) {
+        boolean isEmpty = heldItem == null || heldItem.getType().isAir();
+        if (!(attacker instanceof Player) && isEmpty) {
+            return DamageTypeRegistry.MOB_FALLBACK;
+        }
+        if (isEmpty) {
+            return "blunt";
+        }
+        Material material = heldItem.getType();
+        if (material == Material.BOW || material == Material.CROSSBOW || material == Material.TRIDENT) {
+            return "piercing";
+        }
+        if (Tag.ITEMS_SWORDS.isTagged(material) || Tag.ITEMS_AXES.isTagged(material)) {
+            return "slashing";
+        }
+        return "blunt";
     }
 
     /**

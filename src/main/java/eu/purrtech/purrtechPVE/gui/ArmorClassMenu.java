@@ -215,6 +215,7 @@ public final class ArmorClassMenu {
             case "piercing" -> Material.ARROW;
             case "slashing" -> Material.IRON_SWORD;
             case "physical" -> Material.IRON_INGOT;
+            case "bite" -> Material.BONE;
             default -> Material.PAPER;
         };
     }

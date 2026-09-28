@@ -157,12 +157,19 @@ public final class CombatDamageListener implements Listener {
         DamagePipeline.Result result = DamagePipeline.applyDetailed(rawDamage, typedDamage, resistance);
 
         // Flat, vanilla-style armor points (ItemTemplate.armorAmount) - a separate multiplicative
-        // layer applied to the fully-resolved total, mirroring vanilla's own armor DamageModifier
-        // rather than folding into the percent-based resistance map above.
+        // layer mirroring vanilla's own armor DamageModifier, but scoped to DamageTypeRegistry
+        // .PHYSICAL_TYPES only (slashing/blunt/piercing, plus the legacy "physical" bucket) - a
+        // sword blocks armor, fire/poison/magic/bite etc. don't, same as any ARPG's separate
+        // physical/magic mitigation.
         double armorMultiplier = DamagePipeline.armorMultiplier(equipmentResolver.resolveArmorPoints(attacker, defender));
-        double armored = result.total() * armorMultiplier;
         Map<String, Double> perTypeArmored = new HashMap<>();
-        result.perType().forEach((type, amount) -> perTypeArmored.put(type, amount * armorMultiplier));
+        double armored = 0;
+        for (Map.Entry<String, Double> entry : result.perType().entrySet()) {
+            double amount = DamageTypeRegistry.PHYSICAL_TYPES.contains(entry.getKey())
+                    ? entry.getValue() * armorMultiplier : entry.getValue();
+            perTypeArmored.put(entry.getKey(), amount);
+            armored += amount;
+        }
 
         // Critical hits multiply the fully-resolved total - same convention as vanilla's own sword
         // crit - not any one typed bucket, so the per-type action bar breakdown below is scaled by

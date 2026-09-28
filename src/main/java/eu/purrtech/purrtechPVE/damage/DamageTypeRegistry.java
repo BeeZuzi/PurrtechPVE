@@ -3,6 +3,7 @@ package eu.purrtech.purrtechPVE.damage;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * In-memory registry of known damage types. Fáze 1 seeds it with a hardcoded
@@ -18,6 +19,19 @@ public final class DamageTypeRegistry {
      * pipeline usable even without any custom item involved.
      */
     public static final String FALLBACK_PHYSICAL = "physical";
+
+    /**
+     * Weapon-material-based fallback used instead of {@link #FALLBACK_PHYSICAL} whenever the
+     * attacker's held item has no configured damage-type split - see {@code
+     * EquipmentResolver#weaponFallbackType}. {@code physical} itself is kept registered (still
+     * selectable in the item editor, still what an already-imported ValhallaMMO/older template's
+     * flat damage lands on) but is no longer assigned automatically; these three plus {@code
+     * physical} are what {@code CombatDamageListener} scopes vanilla armor-point mitigation to.
+     */
+    public static final Set<String> PHYSICAL_TYPES = Set.of(FALLBACK_PHYSICAL, "slashing", "blunt", "piercing");
+
+    /** Bare-handed/unarmed mob attacks (no weapon item at all) - see {@code EquipmentResolver#weaponFallbackType}. */
+    public static final String MOB_FALLBACK = "bite";
 
     private final Map<String, DamageType> byKey = new LinkedHashMap<>();
 
@@ -59,6 +73,9 @@ public final class DamageTypeRegistry {
         register(DamageType.instant("sonic", "Zvukové", "♪"));
         register(DamageType.instant("gravity", "Gravitační", "↓"));
         register(DamageType.instant("necrotic", "Nekrotické", "⚰"));
+
+        // bare-handed mob attacks - see MOB_FALLBACK
+        register(DamageType.instant(MOB_FALLBACK, "Kousnutí", "⚠"));
     }
 
     public void register(DamageType damageType) {
