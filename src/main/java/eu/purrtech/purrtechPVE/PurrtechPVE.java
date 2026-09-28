@@ -1,7 +1,9 @@
 package eu.purrtech.purrtechPVE;
 
 import eu.purrtech.purrtechPVE.combat.BleedManager;
+import eu.purrtech.purrtechPVE.combat.DebugModeService;
 import eu.purrtech.purrtechPVE.combat.DpsTracker;
+import eu.purrtech.purrtechPVE.combat.EquipmentDebugListener;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
 import eu.purrtech.purrtechPVE.command.PveCommand;
 import eu.purrtech.purrtechPVE.config.AccessorySettings;
@@ -75,6 +77,7 @@ public final class PurrtechPVE extends JavaPlugin {
     private CombatFeedbackSettings combatFeedbackSettings;
     private ArmorPenetrationConversionSettings armorPenetrationConversionSettings;
     private DpsTracker dpsTracker;
+    private DebugModeService debugModeService;
     private ItemRenderer itemRenderer;
     private EquipmentResolver equipmentResolver;
     private CombatDamageListener combatDamageListener;
@@ -104,6 +107,7 @@ public final class PurrtechPVE extends JavaPlugin {
         armorPenetrationConversionSettings = ConfigLoader.loadArmorPenetrationConversion(getConfig());
         dropHologramSettings = ConfigLoader.loadDropHologramSettings(getConfig());
         dpsTracker = new DpsTracker();
+        debugModeService = new DebugModeService();
 
         damageTypeRegistry = new DamageTypeRegistry();
 
@@ -176,6 +180,7 @@ public final class PurrtechPVE extends JavaPlugin {
         combatDamageListener = new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager,
                 combatFeedbackSettings, dpsTracker);
         getServer().getPluginManager().registerEvents(combatDamageListener, this);
+        getServer().getPluginManager().registerEvents(new EquipmentDebugListener(this, debugModeService), this);
         getServer().getPluginManager().registerEvents(new ItemSyncJoinListener(itemSyncService), this);
         getServer().getPluginManager().registerEvents(
                 new AccessoryMenuListener(accessoryRepository, itemTemplateRepository, snapshotRepository, itemRenderer), this);
@@ -376,6 +381,10 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public DpsTracker getDpsTracker() {
         return dpsTracker;
+    }
+
+    public DebugModeService getDebugModeService() {
+        return debugModeService;
     }
 
     public ItemRenderer getItemRenderer() {

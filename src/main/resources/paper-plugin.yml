@@ -31,3 +31,6 @@ permissions:
   purrtechpve.dps.use:
     description: Toggle your own damage-per-second action-bar readout
     default: true
+  purrtechpve.debug.use:
+    description: Toggle your own equip/hold change debug messages
+    default: op

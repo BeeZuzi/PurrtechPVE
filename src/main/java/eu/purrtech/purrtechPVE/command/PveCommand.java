@@ -440,6 +440,9 @@ public final class PveCommand {
                 .then(Commands.literal("dps")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.dps.use"))
                         .executes(ctx -> toggleDps(plugin, ctx)))
+                .then(Commands.literal("debug")
+                        .requires(source -> source.getSender().hasPermission("purrtechpve.debug.use"))
+                        .executes(ctx -> toggleDebug(plugin, ctx)))
                 .then(Commands.literal("armorclass")
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .then(Commands.literal("set")
@@ -1570,6 +1573,17 @@ public final class PveCommand {
         }
         boolean nowEnabled = plugin.getDpsTracker().toggle(player.getUniqueId());
         player.sendMessage(plugin.getMessages().render(player.locale(), nowEnabled ? "dps.enabled" : "dps.disabled"));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int toggleDebug(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+            return 0;
+        }
+        boolean nowEnabled = plugin.getDebugModeService().toggle(player.getUniqueId());
+        player.sendMessage(plugin.getMessages().render(player.locale(), nowEnabled ? "debug.enabled" : "debug.disabled"));
         return Command.SINGLE_SUCCESS;
     }
 
