@@ -4,6 +4,7 @@ import eu.purrtech.purrtechPVE.combat.BleedManager;
 import eu.purrtech.purrtechPVE.combat.DebugModeService;
 import eu.purrtech.purrtechPVE.combat.DpsTracker;
 import eu.purrtech.purrtechPVE.combat.EquipmentDebugListener;
+import eu.purrtech.purrtechPVE.combat.VanillaEffectResistanceListener;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
 import eu.purrtech.purrtechPVE.command.PveCommand;
 import eu.purrtech.purrtechPVE.config.AccessorySettings;
@@ -176,6 +177,10 @@ public final class PurrtechPVE extends JavaPlugin {
         // one repeating task drives every active bleed at once (see BleedManager's javadoc).
         int bleedPeriodTicks = damageTypeRegistry.find("bleed").map(DamageType::dotPeriodTicks).orElse(20);
         getServer().getScheduler().runTaskTimer(this, () -> bleedManager.tick(equipmentResolver), bleedPeriodTicks, bleedPeriodTicks);
+
+        VanillaEffectResistanceListener vanillaEffectResistanceListener = new VanillaEffectResistanceListener(equipmentResolver);
+        getServer().getPluginManager().registerEvents(vanillaEffectResistanceListener, this);
+        getServer().getScheduler().runTaskTimer(this, vanillaEffectResistanceListener::tickFreeze, 5L, 5L);
 
         combatDamageListener = new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager,
                 combatFeedbackSettings, dpsTracker);
