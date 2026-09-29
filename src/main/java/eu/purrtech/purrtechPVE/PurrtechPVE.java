@@ -49,6 +49,7 @@ import eu.purrtech.purrtechPVE.lang.Messages;
 import eu.purrtech.purrtechPVE.listener.CombatDamageListener;
 import eu.purrtech.purrtechPVE.listener.ItemSyncJoinListener;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobDropListener;
+import eu.purrtech.purrtechPVE.mythicmobs.MobSpawnEquipFallbackListener;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobEquipmentListener;
 import eu.purrtech.purrtechPVE.mythicmobs.MythicMobsBridge;
 import eu.purrtech.purrtechPVE.trinket.AccessoryMenuListener;
@@ -313,6 +314,11 @@ public final class PurrtechPVE extends JavaPlugin {
         } catch (Throwable t) {
             getLogger().log(Level.WARNING,
                     "Failed to register the MythicMobs mob-equipment listener - mobs won't spawn with assigned equipment.", t);
+        }
+        try {
+            getServer().getPluginManager().registerEvents(new MobSpawnEquipFallbackListener(this), this);
+        } catch (Throwable t) {
+            getLogger().log(Level.WARNING, "Failed to register the spawn-equipment fallback listener.", t);
         }
         try {
             getServer().getPluginManager().registerEvents(

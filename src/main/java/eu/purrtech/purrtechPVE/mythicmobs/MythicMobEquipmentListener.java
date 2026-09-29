@@ -44,6 +44,9 @@ import java.util.logging.Level;
  */
 public final class MythicMobEquipmentListener implements Listener {
 
+    // Mob types already reported to the console by scheduleEquip - a spawner would otherwise spam it.
+    private static final java.util.Set<String> LOGGED_TYPES = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private final MobEquipmentRepository mobEquipmentRepository;
     private final ItemTemplateRepository templateRepository;
     private final DamageContributionRepository damageContributionRepository;
@@ -85,12 +88,35 @@ public final class MythicMobEquipmentListener implements Listener {
 
     @EventHandler
     public void onSpawn(MythicMobSpawnEvent event) {
-        String mobType = event.getMobType().getInternalName();
-        LivingEntity entity = event.getLivingEntity();
+        // getEntity() rather than the deprecated getLivingEntity(): same object, but the non-
+        // deprecated accessor is the one MythicMobs keeps stable across 5.x releases.
+        if (!(event.getEntity() instanceof LivingEntity entity)) {
+            return;
+        }
+        scheduleEquip(entity, event.getMobType().getInternalName(), "MythicMobSpawnEvent");
+    }
+
+    /**
+     * Equips right now, then again 1 and 10 ticks later. MythicMobs applies the mob's own configured
+     * equipment as part of spawning, in an order relative to {@link MythicMobSpawnEvent} that has
+     * differed between releases - a single set at event time can be overwritten straight afterwards,
+     * which looked exactly like "the assigned armor never shows up". Setting it again a moment later
+     * makes ours win either way; it is idempotent, so the extra passes are harmless when unneeded.
+     */
+    public void scheduleEquip(LivingEntity entity, String mobType, String source) {
         equip(entity, mobType);
-        // MythicMobs may apply its own configured equipment after this event fires - set ours again
-        // a tick later so the assigned items win instead of being silently overwritten.
-        Bukkit.getScheduler().runTask(JavaPlugin.getProvidingPlugin(MythicMobEquipmentListener.class), () -> equip(entity, mobType));
+        JavaPlugin plugin = JavaPlugin.getProvidingPlugin(MythicMobEquipmentListener.class);
+        for (long delay : new long[]{1L, 10L}) {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (entity.isValid()) {
+                    equip(entity, mobType);
+                }
+            }, delay);
+        }
+        if (LOGGED_TYPES.add(mobType)) {
+            plugin.getLogger().info("Mob type " + mobType + " spawned (via " + source + ") - applying its assigned equipment ("
+                    + mobEquipmentRepository.findByMob(mobType).size() + " slot(s) configured). Logged once per type.");
+        }
     }
 
     /** Sets {@code entity}'s equipment to whatever is currently configured for {@code mobType} - also used by the mob menu to re-equip mobs that are already alive. */
