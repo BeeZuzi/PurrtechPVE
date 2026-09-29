@@ -31,223 +31,223 @@ debug:
 # ("proti tupému poškození", ne "tupé").
 damage-type:
   physical:
-    name: "Fyzické"
-    name-full: "Fyzické poškození<reset>"
-    resist-full: "Odolnost proti fyzickému poškození<reset>"
-    weakness-full: "Slabina vůči fyzickému poškození<reset>"
+    name: "ꜰʏᴢɪᴄᴋé"
+    name-full: "ꜰʏᴢɪᴄᴋé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ꜰʏᴢɪᴄᴋéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ꜰʏᴢɪᴄᴋéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "⚔"
   blunt:
-    name: "Tupé"
-    name-full: "Tupé poškození<reset>"
-    resist-full: "Odolnost proti tupému poškození<reset>"
-    weakness-full: "Slabina vůči tupému poškození<reset>"
+    name: "ᴛᴜᴘé"
+    name-full: "ᴛᴜᴘé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴛᴜᴘéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴛᴜᴘéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "⚒"
   piercing:
-    name: "Bodné"
-    name-full: "Bodné poškození<reset>"
-    resist-full: "Odolnost proti bodnému poškození<reset>"
-    weakness-full: "Slabina vůči bodnému poškození<reset>"
+    name: "ʙᴏᴅɴé"
+    name-full: "ʙᴏᴅɴé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ʙᴏᴅɴéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ʙᴏᴅɴéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "†"
   slashing:
-    name: "Sečné"
-    name-full: "Sečné poškození<reset>"
-    resist-full: "Odolnost proti sečnému poškození<reset>"
-    weakness-full: "Slabina vůči sečnému poškození<reset>"
+    name: "ꜱᴇčɴé"
+    name-full: "ꜱᴇčɴé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ꜱᴇčɴéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ꜱᴇčɴéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "‡"
   fire:
-    name: "Ohnivé"
-    name-full: "Ohnivé poškození<reset>"
-    resist-full: "Odolnost proti ohnivému poškození<reset>"
-    weakness-full: "Slabina vůči ohnivému poškození<reset>"
+    name: "ᴏʜɴɪᴠé"
+    name-full: "ᴏʜɴɪᴠé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴏʜɴɪᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴏʜɴɪᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "♨"
   frozen:
-    name: "Mrazivé"
-    name-full: "Mrazivé poškození<reset>"
-    resist-full: "Odolnost proti mrazivému poškození<reset>"
-    weakness-full: "Slabina vůči mrazivému poškození<reset>"
+    name: "ᴍʀᴀᴢɪᴠé"
+    name-full: "ᴍʀᴀᴢɪᴠé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴍʀᴀᴢɪᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴍʀᴀᴢɪᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "❄"
   lightning:
-    name: "Bleskové"
-    name-full: "Bleskové poškození<reset>"
-    resist-full: "Odolnost proti bleskovému poškození<reset>"
-    weakness-full: "Slabina vůči bleskovému poškození<reset>"
+    name: "ʙʟᴇꜱᴋᴏᴠé"
+    name-full: "ʙʟᴇꜱᴋᴏᴠé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ʙʟᴇꜱᴋᴏᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ʙʟᴇꜱᴋᴏᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "⚡"
   acid:
-    name: "Kyselinové"
-    name-full: "Kyselinové poškození<reset>"
-    resist-full: "Odolnost proti kyselinovému poškození<reset>"
-    weakness-full: "Slabina vůči kyselinovému poškození<reset>"
+    name: "ᴋʏꜱᴇʟɪɴᴏᴠé"
+    name-full: "ᴋʏꜱᴇʟɪɴᴏᴠé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴋʏꜱᴇʟɪɴᴏᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴋʏꜱᴇʟɪɴᴏᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "☣"
   shadow:
-    name: "Temné"
-    name-full: "Temné poškození<reset>"
-    resist-full: "Odolnost proti temnému poškození<reset>"
-    weakness-full: "Slabina vůči temnému poškození<reset>"
+    name: "ᴛᴇᴍɴé"
+    name-full: "ᴛᴇᴍɴé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴛᴇᴍɴéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴛᴇᴍɴéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "☾"
   spirit:
-    name: "Duchovní"
-    name-full: "Duchovní poškození<reset>"
-    resist-full: "Odolnost proti duchovnímu poškození<reset>"
-    weakness-full: "Slabina vůči duchovnímu poškození<reset>"
+    name: "ᴅᴜᴄʜᴏᴠɴí"
+    name-full: "ᴅᴜᴄʜᴏᴠɴí ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴅᴜᴄʜᴏᴠɴíᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴅᴜᴄʜᴏᴠɴíᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "☯"
   radiant:
-    name: "Zářivé"
-    name-full: "Zářivé poškození<reset>"
-    resist-full: "Odolnost proti zářivému poškození<reset>"
-    weakness-full: "Slabina vůči zářivému poškození<reset>"
+    name: "ᴢářɪᴠé"
+    name-full: "ᴢářɪᴠé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴢářɪᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴢářɪᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "☀"
   holy:
-    name: "Svaté"
-    name-full: "Svaté poškození<reset>"
-    resist-full: "Odolnost proti svatému poškození<reset>"
-    weakness-full: "Slabina vůči svatému poškození<reset>"
+    name: "ꜱᴠᴀᴛé"
+    name-full: "ꜱᴠᴀᴛé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ꜱᴠᴀᴛéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ꜱᴠᴀᴛéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "✝"
   magic:
-    name: "Magické"
-    name-full: "Magické poškození<reset>"
-    resist-full: "Odolnost proti magickému poškození<reset>"
-    weakness-full: "Slabina vůči magickému poškození<reset>"
+    name: "ᴍᴀɢɪᴄᴋé"
+    name-full: "ᴍᴀɢɪᴄᴋé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴍᴀɢɪᴄᴋéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴍᴀɢɪᴄᴋéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "✦"
   bleed:
-    name: "Krvácení"
-    name-full: "Krvácení<reset>"
-    resist-full: "Odolnost proti krvácení<reset>"
-    weakness-full: "Slabina vůči krvácení<reset>"
+    name: "ᴋʀᴠáᴄᴇɴí"
+    name-full: "ᴋʀᴠáᴄᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴋʀᴠáᴄᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴋʀᴠáᴄᴇɴí<reset>"
     icon: "⚕"
   poison:
-    name: "Jed"
-    name-full: "Jedovaté poškození<reset>"
-    resist-full: "Odolnost proti jedovatému poškození<reset>"
-    weakness-full: "Slabina vůči jedovatému poškození<reset>"
+    name: "ᴊᴇᴅ"
+    name-full: "ᴊᴇᴅᴏᴠᴀᴛé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴊᴇᴅᴏᴠᴀᴛéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴊᴇᴅᴏᴠᴀᴛéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "☠"
   explosive:
-    name: "Výbušné"
-    name-full: "Výbušné poškození<reset>"
-    resist-full: "Odolnost proti výbušnému poškození<reset>"
-    weakness-full: "Slabina vůči výbušnému poškození<reset>"
+    name: "ᴠýʙᴜšɴé"
+    name-full: "ᴠýʙᴜšɴé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴠýʙᴜšɴéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴠýʙᴜšɴéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "☄"
   psychic:
-    name: "Psychické"
-    name-full: "Psychické poškození<reset>"
-    resist-full: "Odolnost proti psychickému poškození<reset>"
-    weakness-full: "Slabina vůči psychickému poškození<reset>"
+    name: "ᴘꜱʏᴄʜɪᴄᴋé"
+    name-full: "ᴘꜱʏᴄʜɪᴄᴋé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴘꜱʏᴄʜɪᴄᴋéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴘꜱʏᴄʜɪᴄᴋéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "Ψ"
   sonic:
-    name: "Zvukové"
-    name-full: "Zvukové poškození<reset>"
-    resist-full: "Odolnost proti zvukovému poškození<reset>"
-    weakness-full: "Slabina vůči zvukovému poškození<reset>"
+    name: "ᴢᴠᴜᴋᴏᴠé"
+    name-full: "ᴢᴠᴜᴋᴏᴠé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴢᴠᴜᴋᴏᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴢᴠᴜᴋᴏᴠéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "♪"
   gravity:
-    name: "Gravitační"
-    name-full: "Gravitační poškození<reset>"
-    resist-full: "Odolnost proti gravitačnímu poškození<reset>"
-    weakness-full: "Slabina vůči gravitačnímu poškození<reset>"
+    name: "ɢʀᴀᴠɪᴛᴀčɴí"
+    name-full: "ɢʀᴀᴠɪᴛᴀčɴí ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ɢʀᴀᴠɪᴛᴀčɴíᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ɢʀᴀᴠɪᴛᴀčɴíᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "↓"
   necrotic:
-    name: "Nekrotické"
-    name-full: "Nekrotické poškození<reset>"
-    resist-full: "Odolnost proti nekrotickému poškození<reset>"
-    weakness-full: "Slabina vůči nekrotickému poškození<reset>"
+    name: "ɴᴇᴋʀᴏᴛɪᴄᴋé"
+    name-full: "ɴᴇᴋʀᴏᴛɪᴄᴋé ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ɴᴇᴋʀᴏᴛɪᴄᴋéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ɴᴇᴋʀᴏᴛɪᴄᴋéᴍᴜ ᴘᴏšᴋᴏᴢᴇɴí<reset>"
     icon: "⚰"
   bite:
-    name: "Kousnutí"
-    name-full: "Poškození kousnutím<reset>"
-    resist-full: "Odolnost proti kousnutí<reset>"
-    weakness-full: "Slabina vůči kousnutí<reset>"
+    name: "ᴋᴏᴜꜱɴᴜᴛí"
+    name-full: "ᴘᴏšᴋᴏᴢᴇɴí ᴋᴏᴜꜱɴᴜᴛíᴍ<reset>"
+    resist-full: "ᴏᴅᴏʟɴᴏꜱᴛ ᴘʀᴏᴛɪ ᴋᴏᴜꜱɴᴜᴛí<reset>"
+    weakness-full: "ꜱʟᴀʙɪɴᴀ ᴠůčɪ ᴋᴏᴜꜱɴᴜᴛí<reset>"
     icon: "⚠"
 
 # Stejný "name"/"name-full" vzor jako damage-type výše, jen pro item.line.penetration - "Lehký"
 # s nadpisem zobrazeným, "Lehký armor" s nadpisem skrytým.
 armor-class:
   light:
-    name: "Lehké brnění"
-    penetration-full: "Penetrace lehkého armoru"
+    name: "ʟᴇʜᴋé ʙʀɴěɴí"
+    penetration-full: "ᴘᴇɴᴇᴛʀᴀᴄᴇ ʟᴇʜᴋéʜᴏ ᴀʀᴍᴏʀᴜ"
   medium:
-    name: "Střední brnění"
-    penetration-full: "Penetrace středního armoru"
+    name: "ꜱᴛřᴇᴅɴí ʙʀɴěɴí"
+    penetration-full: "ᴘᴇɴᴇᴛʀᴀᴄᴇ ꜱᴛřᴇᴅɴíʜᴏ ᴀʀᴍᴏʀᴜ"
   heavy:
-    name: "Těžké brnění"
-    penetration-full: "Penetrace těžkého armoru"
+    name: "ᴛěžᴋé ʙʀɴěɴí"
+    penetration-full: "ᴘᴇɴᴇᴛʀᴀᴄᴇ ᴛěžᴋéʜᴏ ᴀʀᴍᴏʀᴜ"
 
 # Zobrazovaný název vanilla Attribute (Messages.attributeName), klíčovaný jeho stálým registry
 # klíčem (attribute.getKey().value(), např. "attack_damage"), ne zastaralým OldEnum name() -
 # ukazuje se všude, kde se vypisuje atributový modifikátor, místo toho syrového registry klíče.
 attribute:
   max_health:
-    name: "Max. životy"
+    name: "ᴍᴀx. žɪᴠᴏᴛʏ"
   follow_range:
-    name: "Dosah sledování"
+    name: "ᴅᴏꜱᴀʜ ꜱʟᴇᴅᴏᴠáɴí"
   knockback_resistance:
-    name: "Odolnost vůči odhození"
+    name: "ᴏᴅᴏʟɴᴏꜱᴛ ᴠůčɪ ᴏᴅʜᴏᴢᴇɴí"
   movement_speed:
-    name: "Rychlost pohybu"
+    name: "ʀʏᴄʜʟᴏꜱᴛ ᴘᴏʜʏʙᴜ"
   flying_speed:
-    name: "Rychlost letu"
+    name: "ʀʏᴄʜʟᴏꜱᴛ ʟᴇᴛᴜ"
   attack_damage:
-    name: "Útočné poškození"
+    name: "úᴛᴏčɴé ᴘᴏšᴋᴏᴢᴇɴí"
   attack_knockback:
-    name: "Odhození útokem"
+    name: "ᴏᴅʜᴏᴢᴇɴí úᴛᴏᴋᴇᴍ"
   attack_speed:
-    name: "Rychlost útoku"
+    name: "ʀʏᴄʜʟᴏꜱᴛ úᴛᴏᴋᴜ"
   armor:
-    name: "Brnění"
+    name: "ʙʀɴěɴí"
   armor_toughness:
-    name: "Odolnost brnění"
+    name: "ᴏᴅᴏʟɴᴏꜱᴛ ʙʀɴěɴí"
   fall_damage_multiplier:
-    name: "Násobič pádového poškození"
+    name: "ɴáꜱᴏʙɪč ᴘáᴅᴏᴠéʜᴏ ᴘᴏšᴋᴏᴢᴇɴí"
   luck:
-    name: "Štěstí"
+    name: "šᴛěꜱᴛí"
   max_absorption:
-    name: "Max. absorpce"
+    name: "ᴍᴀx. ᴀʙꜱᴏʀᴘᴄᴇ"
   safe_fall_distance:
-    name: "Bezpečná pádová vzdálenost"
+    name: "ʙᴇᴢᴘᴇčɴá ᴘáᴅᴏᴠá ᴠᴢᴅáʟᴇɴᴏꜱᴛ"
   scale:
-    name: "Velikost"
+    name: "ᴠᴇʟɪᴋᴏꜱᴛ"
   step_height:
-    name: "Výška kroku"
+    name: "ᴠýšᴋᴀ ᴋʀᴏᴋᴜ"
   gravity:
-    name: "Gravitace"
+    name: "ɢʀᴀᴠɪᴛᴀᴄᴇ"
   jump_strength:
-    name: "Síla skoku"
+    name: "ꜱíʟᴀ ꜱᴋᴏᴋᴜ"
   burning_time:
-    name: "Doba hoření"
+    name: "ᴅᴏʙᴀ ʜᴏřᴇɴí"
   camera_distance:
-    name: "Vzdálenost kamery"
+    name: "ᴠᴢᴅáʟᴇɴᴏꜱᴛ ᴋᴀᴍᴇʀʏ"
   explosion_knockback_resistance:
-    name: "Odolnost vůči odhození výbuchem"
+    name: "ᴏᴅᴏʟɴᴏꜱᴛ ᴠůčɪ ᴏᴅʜᴏᴢᴇɴí ᴠýʙᴜᴄʜᴇᴍ"
   movement_efficiency:
-    name: "Efektivita pohybu"
+    name: "ᴇꜰᴇᴋᴛɪᴠɪᴛᴀ ᴘᴏʜʏʙᴜ"
   oxygen_bonus:
-    name: "Bonus kyslíku"
+    name: "ʙᴏɴᴜꜱ ᴋʏꜱʟíᴋᴜ"
   water_movement_efficiency:
-    name: "Efektivita pohybu ve vodě"
+    name: "ᴇꜰᴇᴋᴛɪᴠɪᴛᴀ ᴘᴏʜʏʙᴜ ᴠᴇ ᴠᴏᴅě"
   tempt_range:
-    name: "Dosah lákání"
+    name: "ᴅᴏꜱᴀʜ ʟáᴋáɴí"
   block_interaction_range:
-    name: "Dosah na bloky"
+    name: "ᴅᴏꜱᴀʜ ɴᴀ ʙʟᴏᴋʏ"
   entity_interaction_range:
-    name: "Dosah na entity"
+    name: "ᴅᴏꜱᴀʜ ɴᴀ ᴇɴᴛɪᴛʏ"
   block_break_speed:
-    name: "Rychlost těžby"
+    name: "ʀʏᴄʜʟᴏꜱᴛ ᴛěžʙʏ"
   mining_efficiency:
-    name: "Efektivita těžby"
+    name: "ᴇꜰᴇᴋᴛɪᴠɪᴛᴀ ᴛěžʙʏ"
   sneaking_speed:
-    name: "Rychlost plížení"
+    name: "ʀʏᴄʜʟᴏꜱᴛ ᴘʟížᴇɴí"
   submerged_mining_speed:
-    name: "Rychlost těžby pod vodou"
+    name: "ʀʏᴄʜʟᴏꜱᴛ ᴛěžʙʏ ᴘᴏᴅ ᴠᴏᴅᴏᴜ"
   sweeping_damage_ratio:
-    name: "Poměr plošného poškození"
+    name: "ᴘᴏᴍěʀ ᴘʟᴏšɴéʜᴏ ᴘᴏšᴋᴏᴢᴇɴí"
   spawn_reinforcements:
-    name: "Šance na posily"
+    name: "šᴀɴᴄᴇ ɴᴀ ᴘᴏꜱɪʟʏ"
   waypoint_transmit_range:
-    name: "Dosah vysílání waypointu"
+    name: "ᴅᴏꜱᴀʜ ᴠʏꜱíʟáɴí ᴡᴀʏᴘᴏɪɴᴛᴜ"
   waypoint_receive_range:
-    name: "Dosah příjmu waypointu"
+    name: "ᴅᴏꜱᴀʜ ᴘříᴊᴍᴜ ᴡᴀʏᴘᴏɪɴᴛᴜ"
 
 item:
   header:
-    damage: "<#7425E9>ᴘᴏškᴏᴢᴇɴí ᴘřɪ útᴏᴋᴜ:</#7425E9>"
+    damage: "<#7425E9>ᴘᴏšᴋᴏᴢᴇɴí ᴘřɪ úᴛᴏᴋᴜ:</#7425E9>"
     passive: "<#7425E9>ᴘᴀꜱɪᴠɴí ʙᴏɴᴜꜱ (ɴᴀꜱᴀᴢᴇɴᴏ):</#7425E9>"
     resist: "<#7425E9>ᴏᴅᴏʟɴᴏꜱᴛɪ / ꜱʟᴀʙɪɴʏ:</#7425E9>"
     penetration: "<#7425E9>ᴘᴇɴᴇᴛʀᴀᴄᴇ ᴀʀᴍᴏʀᴜ:</#7425E9>"
@@ -262,10 +262,10 @@ item:
     penetration-percent: "<#7425E9><gray>[</gray><#94F086><amount>%</#94F086><gray>]</gray></#7425E9><reset>"
     penetration-flat-full: "<#7425E9><gray>[</gray><#94F086><amount></#94F086><gray>]</gray> <class></#7425E9><reset>"
     penetration-percent-full: "<#7425E9><gray>[</gray><#94F086><amount>%</#94F086><gray>]</gray> <class></#7425E9><reset>"
-    bleed-flat: "<#7425E9><gray>[</gray><#94F086><chance>%</#94F086><gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><#94F086><duration>s</#94F086><gray>]</gray>, <gray>[</gray><#94F086>+<damage></#94F086><gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9><reset>"
-    bleed-percent: "<#7425E9><gray>[</gray><#94F086><chance>%</#94F086><gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><#94F086><duration>s</#94F086><gray>]</gray>, <gray>[</gray><#94F086>+<damage>%</#94F086><gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9><reset>"
-    critical: "<#7425E9><gray>[</gray><#94F086><chance>%</#94F086><gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀɪᴛ, <gray>[</gray><#94F086>+<bonus>%</#94F086><gray>]</gray> ᴘᴏškᴏᴢᴇɴí</#7425E9><reset>"
-    stun: "<#7425E9><gray>[</gray><#94F086><chance>%</#94F086><gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴏᴍáᴍᴇɴí, <gray>[</gray><#94F086><duration>s</#94F086><gray>]</gray><#94F086> ᴅéʟᴋᴀ</#7425E9><reset>"
+    bleed-flat: "<#7425E9><gray>[</gray><#94F086><chance>%</#94F086><gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><#94F086><duration>ꜱ</#94F086><gray>]</gray>, <gray>[</gray><#94F086>+<damage></#94F086><gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9><reset>"
+    bleed-percent: "<#7425E9><gray>[</gray><#94F086><chance>%</#94F086><gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀᴠáᴄᴇɴí ᴘᴏ ᴅᴏʙᴜ <gray>[</gray><#94F086><duration>ꜱ</#94F086><gray>]</gray>, <gray>[</gray><#94F086>+<damage>%</#94F086><gray>]</gray> ᴄᴇʟᴋᴇᴍ</#7425E9><reset>"
+    critical: "<#7425E9><gray>[</gray><#94F086><chance>%</#94F086><gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴋʀɪᴛ, <gray>[</gray><#94F086>+<bonus>%</#94F086><gray>]</gray> ᴘᴏšᴋᴏᴢᴇɴí</#7425E9><reset>"
+    stun: "<#7425E9><gray>[</gray><#94F086><chance>%</#94F086><gray>]</gray> šᴀɴᴄᴇ ɴᴀ ᴏᴍáᴍᴇɴí, <gray>[</gray><#94F086><duration>ꜱ</#94F086><gray>]</gray><#94F086> ᴅéʟᴋᴀ</#7425E9><reset>"
     reflect: "<#7425E9><gray>[</gray><#94F086><chance>%</#94F086><gray>]</gray> šᴀɴᴄᴇ ᴏᴅʀᴀᴢɪᴛ <gray>[</gray><#94F086><percent>%</#94F086><gray>]</gray> ᴘᴏšᴋᴏᴢᴇɴí</#7425E9><reset>"
     attribute: "<#7425E9><gray>[</gray><#94F086><amount></#94F086><gray>]</gray> <attribute></#7425E9> <gray>(<slot>)</gray><reset>"
   created: "<green>Šablona <white><key></white> vytvořena."

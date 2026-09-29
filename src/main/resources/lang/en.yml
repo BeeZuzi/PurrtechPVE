@@ -29,219 +29,219 @@ debug:
 # resistance line with no header would read like a damage bonus, not a resistance.
 damage-type:
   physical:
-    name: "Physical"
-    name-full: "Physical damage"
-    resist-full: "Resistance to physical damage"
-    weakness-full: "Weakness to physical damage"
+    name: "ᴘʜʏꜱɪᴄᴀʟ"
+    name-full: "ᴘʜʏꜱɪᴄᴀʟ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ᴘʜʏꜱɪᴄᴀʟ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ᴘʜʏꜱɪᴄᴀʟ ᴅᴀᴍᴀɢᴇ"
     icon: "⚔"
   blunt:
-    name: "Blunt"
-    name-full: "Blunt damage"
-    resist-full: "Resistance to blunt damage"
-    weakness-full: "Weakness to blunt damage"
+    name: "ʙʟᴜɴᴛ"
+    name-full: "ʙʟᴜɴᴛ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ʙʟᴜɴᴛ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ʙʟᴜɴᴛ ᴅᴀᴍᴀɢᴇ"
     icon: "⚒"
   piercing:
-    name: "Piercing"
-    name-full: "Piercing damage"
-    resist-full: "Resistance to piercing damage"
-    weakness-full: "Weakness to piercing damage"
+    name: "ᴘɪᴇʀᴄɪɴɢ"
+    name-full: "ᴘɪᴇʀᴄɪɴɢ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ᴘɪᴇʀᴄɪɴɢ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ᴘɪᴇʀᴄɪɴɢ ᴅᴀᴍᴀɢᴇ"
     icon: "†"
   slashing:
-    name: "Slashing"
-    name-full: "Slashing damage"
-    resist-full: "Resistance to slashing damage"
-    weakness-full: "Weakness to slashing damage"
+    name: "ꜱʟᴀꜱʜɪɴɢ"
+    name-full: "ꜱʟᴀꜱʜɪɴɢ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ꜱʟᴀꜱʜɪɴɢ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ꜱʟᴀꜱʜɪɴɢ ᴅᴀᴍᴀɢᴇ"
     icon: "‡"
   fire:
-    name: "Fire"
-    name-full: "Fire damage"
-    resist-full: "Resistance to fire damage"
-    weakness-full: "Weakness to fire damage"
+    name: "ꜰɪʀᴇ"
+    name-full: "ꜰɪʀᴇ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ꜰɪʀᴇ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ꜰɪʀᴇ ᴅᴀᴍᴀɢᴇ"
     icon: "♨"
   frozen:
-    name: "Frost"
-    name-full: "Frost damage"
-    resist-full: "Resistance to frost damage"
-    weakness-full: "Weakness to frost damage"
+    name: "ꜰʀᴏꜱᴛ"
+    name-full: "ꜰʀᴏꜱᴛ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ꜰʀᴏꜱᴛ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ꜰʀᴏꜱᴛ ᴅᴀᴍᴀɢᴇ"
     icon: "❄"
   lightning:
-    name: "Lightning"
-    name-full: "Lightning damage"
-    resist-full: "Resistance to lightning damage"
-    weakness-full: "Weakness to lightning damage"
+    name: "ʟɪɢʜᴛɴɪɴɢ"
+    name-full: "ʟɪɢʜᴛɴɪɴɢ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ʟɪɢʜᴛɴɪɴɢ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ʟɪɢʜᴛɴɪɴɢ ᴅᴀᴍᴀɢᴇ"
     icon: "⚡"
   acid:
-    name: "Acid"
-    name-full: "Acid damage"
-    resist-full: "Resistance to acid damage"
-    weakness-full: "Weakness to acid damage"
+    name: "ᴀᴄɪᴅ"
+    name-full: "ᴀᴄɪᴅ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ᴀᴄɪᴅ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ᴀᴄɪᴅ ᴅᴀᴍᴀɢᴇ"
     icon: "☣"
   shadow:
-    name: "Shadow"
-    name-full: "Shadow damage"
-    resist-full: "Resistance to shadow damage"
-    weakness-full: "Weakness to shadow damage"
+    name: "ꜱʜᴀᴅᴏᴡ"
+    name-full: "ꜱʜᴀᴅᴏᴡ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ꜱʜᴀᴅᴏᴡ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ꜱʜᴀᴅᴏᴡ ᴅᴀᴍᴀɢᴇ"
     icon: "☾"
   spirit:
-    name: "Spirit"
-    name-full: "Spirit damage"
-    resist-full: "Resistance to spirit damage"
-    weakness-full: "Weakness to spirit damage"
+    name: "ꜱᴘɪʀɪᴛ"
+    name-full: "ꜱᴘɪʀɪᴛ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ꜱᴘɪʀɪᴛ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ꜱᴘɪʀɪᴛ ᴅᴀᴍᴀɢᴇ"
     icon: "☯"
   radiant:
-    name: "Radiant"
-    name-full: "Radiant damage"
-    resist-full: "Resistance to radiant damage"
-    weakness-full: "Weakness to radiant damage"
+    name: "ʀᴀᴅɪᴀɴᴛ"
+    name-full: "ʀᴀᴅɪᴀɴᴛ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ʀᴀᴅɪᴀɴᴛ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ʀᴀᴅɪᴀɴᴛ ᴅᴀᴍᴀɢᴇ"
     icon: "☀"
   holy:
-    name: "Holy"
-    name-full: "Holy damage"
-    resist-full: "Resistance to holy damage"
-    weakness-full: "Weakness to holy damage"
+    name: "ʜᴏʟʏ"
+    name-full: "ʜᴏʟʏ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ʜᴏʟʏ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ʜᴏʟʏ ᴅᴀᴍᴀɢᴇ"
     icon: "✝"
   magic:
-    name: "Magic"
-    name-full: "Magic damage"
-    resist-full: "Resistance to magic damage"
-    weakness-full: "Weakness to magic damage"
+    name: "ᴍᴀɢɪᴄ"
+    name-full: "ᴍᴀɢɪᴄ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ᴍᴀɢɪᴄ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ᴍᴀɢɪᴄ ᴅᴀᴍᴀɢᴇ"
     icon: "✦"
   bleed:
-    name: "Bleed"
-    name-full: "Bleed"
-    resist-full: "Resistance to bleed"
-    weakness-full: "Weakness to bleed"
+    name: "ʙʟᴇᴇᴅ"
+    name-full: "ʙʟᴇᴇᴅ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ʙʟᴇᴇᴅ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ʙʟᴇᴇᴅ"
     icon: "⚕"
   poison:
-    name: "Poison"
-    name-full: "Poison damage"
-    resist-full: "Resistance to poison damage"
-    weakness-full: "Weakness to poison damage"
+    name: "ᴘᴏɪꜱᴏɴ"
+    name-full: "ᴘᴏɪꜱᴏɴ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ᴘᴏɪꜱᴏɴ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ᴘᴏɪꜱᴏɴ ᴅᴀᴍᴀɢᴇ"
     icon: "☠"
   explosive:
-    name: "Explosive"
-    name-full: "Explosive damage"
-    resist-full: "Resistance to explosive damage"
-    weakness-full: "Weakness to explosive damage"
+    name: "ᴇxᴘʟᴏꜱɪᴠᴇ"
+    name-full: "ᴇxᴘʟᴏꜱɪᴠᴇ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ᴇxᴘʟᴏꜱɪᴠᴇ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ᴇxᴘʟᴏꜱɪᴠᴇ ᴅᴀᴍᴀɢᴇ"
     icon: "☄"
   psychic:
-    name: "Psychic"
-    name-full: "Psychic damage"
-    resist-full: "Resistance to psychic damage"
-    weakness-full: "Weakness to psychic damage"
+    name: "ᴘꜱʏᴄʜɪᴄ"
+    name-full: "ᴘꜱʏᴄʜɪᴄ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ᴘꜱʏᴄʜɪᴄ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ᴘꜱʏᴄʜɪᴄ ᴅᴀᴍᴀɢᴇ"
     icon: "Ψ"
   sonic:
-    name: "Sonic"
-    name-full: "Sonic damage"
-    resist-full: "Resistance to sonic damage"
-    weakness-full: "Weakness to sonic damage"
+    name: "ꜱᴏɴɪᴄ"
+    name-full: "ꜱᴏɴɪᴄ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ꜱᴏɴɪᴄ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ꜱᴏɴɪᴄ ᴅᴀᴍᴀɢᴇ"
     icon: "♪"
   gravity:
-    name: "Gravity"
-    name-full: "Gravity damage"
-    resist-full: "Resistance to gravity damage"
-    weakness-full: "Weakness to gravity damage"
+    name: "ɢʀᴀᴠɪᴛʏ"
+    name-full: "ɢʀᴀᴠɪᴛʏ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ɢʀᴀᴠɪᴛʏ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ɢʀᴀᴠɪᴛʏ ᴅᴀᴍᴀɢᴇ"
     icon: "↓"
   necrotic:
-    name: "Necrotic"
-    name-full: "Necrotic damage"
-    resist-full: "Resistance to necrotic damage"
-    weakness-full: "Weakness to necrotic damage"
+    name: "ɴᴇᴄʀᴏᴛɪᴄ"
+    name-full: "ɴᴇᴄʀᴏᴛɪᴄ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ɴᴇᴄʀᴏᴛɪᴄ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ɴᴇᴄʀᴏᴛɪᴄ ᴅᴀᴍᴀɢᴇ"
     icon: "⚰"
   bite:
-    name: "Bite"
-    name-full: "Bite damage"
-    resist-full: "Resistance to bite damage"
-    weakness-full: "Weakness to bite damage"
+    name: "ʙɪᴛᴇ"
+    name-full: "ʙɪᴛᴇ ᴅᴀᴍᴀɢᴇ"
+    resist-full: "ʀᴇꜱɪꜱᴛᴀɴᴄᴇ ᴛᴏ ʙɪᴛᴇ ᴅᴀᴍᴀɢᴇ"
+    weakness-full: "ᴡᴇᴀᴋɴᴇꜱꜱ ᴛᴏ ʙɪᴛᴇ ᴅᴀᴍᴀɢᴇ"
     icon: "⚠"
 
 # Same "name"/"name-full" shape as damage-type above, just for item.line.penetration - "Light"
 # with the header shown, "Light armor" with the header hidden.
 armor-class:
   light:
-    name: "Light armor"
-    penetration-full: "Penetration of light armor"
+    name: "ʟɪɢʜᴛ ᴀʀᴍᴏʀ"
+    penetration-full: "ᴘᴇɴᴇᴛʀᴀᴛɪᴏɴ ᴏꜰ ʟɪɢʜᴛ ᴀʀᴍᴏʀ"
   medium:
-    name: "Medium armor"
-    penetration-full: "Penetration of medium armor"
+    name: "ᴍᴇᴅɪᴜᴍ ᴀʀᴍᴏʀ"
+    penetration-full: "ᴘᴇɴᴇᴛʀᴀᴛɪᴏɴ ᴏꜰ ᴍᴇᴅɪᴜᴍ ᴀʀᴍᴏʀ"
   heavy:
-    name: "Heavy armor"
-    penetration-full: "Penetration of heavy armor"
+    name: "ʜᴇᴀᴠʏ ᴀʀᴍᴏʀ"
+    penetration-full: "ᴘᴇɴᴇᴛʀᴀᴛɪᴏɴ ᴏꜰ ʜᴇᴀᴠʏ ᴀʀᴍᴏʀ"
 
 # Display name for a vanilla Attribute (Messages.attributeName), keyed by its stable registry key
 # (attribute.getKey().value(), e.g. "attack_damage") rather than the deprecated OldEnum name() -
 # shown wherever an attribute modifier is listed instead of that raw registry key.
 attribute:
   max_health:
-    name: "Max Health"
+    name: "ᴍᴀx ʜᴇᴀʟᴛʜ"
   follow_range:
-    name: "Follow Range"
+    name: "ꜰᴏʟʟᴏᴡ ʀᴀɴɢᴇ"
   knockback_resistance:
-    name: "Knockback Resistance"
+    name: "ᴋɴᴏᴄᴋʙᴀᴄᴋ ʀᴇꜱɪꜱᴛᴀɴᴄᴇ"
   movement_speed:
-    name: "Movement Speed"
+    name: "ᴍᴏᴠᴇᴍᴇɴᴛ ꜱᴘᴇᴇᴅ"
   flying_speed:
-    name: "Flying Speed"
+    name: "ꜰʟʏɪɴɢ ꜱᴘᴇᴇᴅ"
   attack_damage:
-    name: "Attack Damage"
+    name: "ᴀᴛᴛᴀᴄᴋ ᴅᴀᴍᴀɢᴇ"
   attack_knockback:
-    name: "Attack Knockback"
+    name: "ᴀᴛᴛᴀᴄᴋ ᴋɴᴏᴄᴋʙᴀᴄᴋ"
   attack_speed:
-    name: "Attack Speed"
+    name: "ᴀᴛᴛᴀᴄᴋ ꜱᴘᴇᴇᴅ"
   armor:
-    name: "Armor"
+    name: "ᴀʀᴍᴏʀ"
   armor_toughness:
-    name: "Armor Toughness"
+    name: "ᴀʀᴍᴏʀ ᴛᴏᴜɢʜɴᴇꜱꜱ"
   fall_damage_multiplier:
-    name: "Fall Damage Multiplier"
+    name: "ꜰᴀʟʟ ᴅᴀᴍᴀɢᴇ ᴍᴜʟᴛɪᴘʟɪᴇʀ"
   luck:
-    name: "Luck"
+    name: "ʟᴜᴄᴋ"
   max_absorption:
-    name: "Max Absorption"
+    name: "ᴍᴀx ᴀʙꜱᴏʀᴘᴛɪᴏɴ"
   safe_fall_distance:
-    name: "Safe Fall Distance"
+    name: "ꜱᴀꜰᴇ ꜰᴀʟʟ ᴅɪꜱᴛᴀɴᴄᴇ"
   scale:
-    name: "Scale"
+    name: "ꜱᴄᴀʟᴇ"
   step_height:
-    name: "Step Height"
+    name: "ꜱᴛᴇᴘ ʜᴇɪɢʜᴛ"
   gravity:
-    name: "Gravity"
+    name: "ɢʀᴀᴠɪᴛʏ"
   jump_strength:
-    name: "Jump Strength"
+    name: "ᴊᴜᴍᴘ ꜱᴛʀᴇɴɢᴛʜ"
   burning_time:
-    name: "Burning Time"
+    name: "ʙᴜʀɴɪɴɢ ᴛɪᴍᴇ"
   camera_distance:
-    name: "Camera Distance"
+    name: "ᴄᴀᴍᴇʀᴀ ᴅɪꜱᴛᴀɴᴄᴇ"
   explosion_knockback_resistance:
-    name: "Explosion Knockback Resistance"
+    name: "ᴇxᴘʟᴏꜱɪᴏɴ ᴋɴᴏᴄᴋʙᴀᴄᴋ ʀᴇꜱɪꜱᴛᴀɴᴄᴇ"
   movement_efficiency:
-    name: "Movement Efficiency"
+    name: "ᴍᴏᴠᴇᴍᴇɴᴛ ᴇꜰꜰɪᴄɪᴇɴᴄʏ"
   oxygen_bonus:
-    name: "Oxygen Bonus"
+    name: "ᴏxʏɢᴇɴ ʙᴏɴᴜꜱ"
   water_movement_efficiency:
-    name: "Water Movement Efficiency"
+    name: "ᴡᴀᴛᴇʀ ᴍᴏᴠᴇᴍᴇɴᴛ ᴇꜰꜰɪᴄɪᴇɴᴄʏ"
   tempt_range:
-    name: "Tempt Range"
+    name: "ᴛᴇᴍᴘᴛ ʀᴀɴɢᴇ"
   block_interaction_range:
-    name: "Block Interaction Range"
+    name: "ʙʟᴏᴄᴋ ɪɴᴛᴇʀᴀᴄᴛɪᴏɴ ʀᴀɴɢᴇ"
   entity_interaction_range:
-    name: "Entity Interaction Range"
+    name: "ᴇɴᴛɪᴛʏ ɪɴᴛᴇʀᴀᴄᴛɪᴏɴ ʀᴀɴɢᴇ"
   block_break_speed:
-    name: "Block Break Speed"
+    name: "ʙʟᴏᴄᴋ ʙʀᴇᴀᴋ ꜱᴘᴇᴇᴅ"
   mining_efficiency:
-    name: "Mining Efficiency"
+    name: "ᴍɪɴɪɴɢ ᴇꜰꜰɪᴄɪᴇɴᴄʏ"
   sneaking_speed:
-    name: "Sneaking Speed"
+    name: "ꜱɴᴇᴀᴋɪɴɢ ꜱᴘᴇᴇᴅ"
   submerged_mining_speed:
-    name: "Submerged Mining Speed"
+    name: "ꜱᴜʙᴍᴇʀɢᴇᴅ ᴍɪɴɪɴɢ ꜱᴘᴇᴇᴅ"
   sweeping_damage_ratio:
-    name: "Sweeping Damage Ratio"
+    name: "ꜱᴡᴇᴇᴘɪɴɢ ᴅᴀᴍᴀɢᴇ ʀᴀᴛɪᴏ"
   spawn_reinforcements:
-    name: "Spawn Reinforcements"
+    name: "ꜱᴘᴀᴡɴ ʀᴇɪɴꜰᴏʀᴄᴇᴍᴇɴᴛꜱ"
   waypoint_transmit_range:
-    name: "Waypoint Transmit Range"
+    name: "ᴡᴀʏᴘᴏɪɴᴛ ᴛʀᴀɴꜱᴍɪᴛ ʀᴀɴɢᴇ"
   waypoint_receive_range:
-    name: "Waypoint Receive Range"
+    name: "ᴡᴀʏᴘᴏɪɴᴛ ʀᴇᴄᴇɪᴠᴇ ʀᴀɴɢᴇ"
 
 item:
   header:
@@ -260,10 +260,10 @@ item:
     penetration-percent: "<#7425E9><gray>[</gray><amount>%<gray>]</gray></#7425E9>"
     penetration-flat-full: "<#7425E9><gray>[</gray><amount><gray>]</gray> <class></#7425E9>"
     penetration-percent-full: "<#7425E9><gray>[</gray><amount>%<gray>]</gray> <class></#7425E9>"
-    bleed-flat: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> ᴄʜᴀɴᴄᴇ ᴛᴏ ʙʟᴇᴇᴅ ꜰᴏʀ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage><gray>]</gray> ᴛᴏᴛᴀʟ</#7425E9>"
-    bleed-percent: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> ᴄʜᴀɴᴄᴇ ᴛᴏ ʙʟᴇᴇᴅ ꜰᴏʀ <gray>[</gray><duration>s<gray>]</gray>, <gray>[</gray>+<damage>%<gray>]</gray> ᴛᴏᴛᴀʟ</#7425E9>"
+    bleed-flat: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> ᴄʜᴀɴᴄᴇ ᴛᴏ ʙʟᴇᴇᴅ ꜰᴏʀ <gray>[</gray><duration>ꜱ<gray>]</gray>, <gray>[</gray>+<damage><gray>]</gray> ᴛᴏᴛᴀʟ</#7425E9>"
+    bleed-percent: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> ᴄʜᴀɴᴄᴇ ᴛᴏ ʙʟᴇᴇᴅ ꜰᴏʀ <gray>[</gray><duration>ꜱ<gray>]</gray>, <gray>[</gray>+<damage>%<gray>]</gray> ᴛᴏᴛᴀʟ</#7425E9>"
     critical: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> ᴄʀɪᴛ ᴄʜᴀɴᴄᴇ, <gray>[</gray>+<bonus>%<gray>]</gray> ᴅᴀᴍᴀɢᴇ</#7425E9>"
-    stun: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> ꜱᴛᴜɴ ᴄʜᴀɴᴄᴇ, <gray>[</gray><duration>s<gray>]</gray> ᴅᴜʀᴀᴛɪᴏɴ</#7425E9>"
+    stun: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> ꜱᴛᴜɴ ᴄʜᴀɴᴄᴇ, <gray>[</gray><duration>ꜱ<gray>]</gray> ᴅᴜʀᴀᴛɪᴏɴ</#7425E9>"
     reflect: "<#7425E9><gray>[</gray><chance>%<gray>]</gray> ᴄʜᴀɴᴄᴇ ᴛᴏ ʀᴇꜰʟᴇᴄᴛ <gray>[</gray><percent>%<gray>]</gray> ᴅᴀᴍᴀɢᴇ</#7425E9>"
     attribute: "<#7425E9><gray>[</gray><amount><gray>]</gray> <attribute></#7425E9> <gray>(<slot>)</gray>"
   created: "<green>Template <white><key></white> created."
