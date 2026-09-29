@@ -18,6 +18,8 @@ debug:
   enabled: "<green>Debug mode enabled.</green>"
   disabled: "<gray>Debug mode disabled.</gray>"
   equipment-change: "<yellow>[Debug]</yellow> <gray><slot></gray>: <white><old></white> <dark_gray>-></dark_gray> <white><new></white>"
+  combat-hit: "<yellow>[Debug]</yellow> <gray>hit</gray> <white><mode></white> <gray>raw</gray> <white><raw></white> <gray>total</gray> <white><total></white> <gray>types</gray> <white><types></white> <dark_gray>- action bar sent</dark_gray>"
+  combat-skipped: "<yellow>[Debug]</yellow> <red>Feedback skipped:</red> <gray>world</gray> <white><world></white> <gray>kind</gray> <white><kind></white> <dark_gray>(disabled in config.yml)</dark_gray>"
 
 # Each damage type's name + icon (a Unicode symbol) as shown in item lore and the GUI editor
 # (NOT in action-bar combat feedback - that still runs off the fixed values in DamageType.java).

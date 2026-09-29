@@ -186,7 +186,7 @@ public final class PurrtechPVE extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, vanillaEffectResistanceListener::tickFreeze, 5L, 5L);
 
         combatDamageListener = new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager,
-                combatFeedbackSettings, dpsTracker);
+                combatFeedbackSettings, dpsTracker, this, debugModeService);
         getServer().getPluginManager().registerEvents(combatDamageListener, this);
         getServer().getPluginManager().registerEvents(new EquipmentDebugListener(this, debugModeService), this);
         getServer().getPluginManager().registerEvents(new ItemSyncJoinListener(itemSyncService), this);

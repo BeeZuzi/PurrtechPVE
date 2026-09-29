@@ -18,6 +18,8 @@ debug:
   enabled: "<green>Debug mód zapnut.</green>"
   disabled: "<gray>Debug mód vypnut.</gray>"
   equipment-change: "<yellow>[Debug]</yellow> <gray><slot></gray>: <white><old></white> <dark_gray>-></dark_gray> <white><new></white>"
+  combat-hit: "<yellow>[Debug]</yellow> <gray>zásah</gray> <white><mode></white> <gray>raw</gray> <white><raw></white> <gray>celkem</gray> <white><total></white> <gray>typy</gray> <white><types></white> <dark_gray>- action bar odeslán</dark_gray>"
+  combat-skipped: "<yellow>[Debug]</yellow> <red>Feedback přeskočen:</red> <gray>svět</gray> <white><world></white> <gray>režim</gray> <white><kind></white> <dark_gray>(vypnuto v config.yml)</dark_gray>"
 
 # Jméno + ikonka (Unicode symbol) každého damage typu, jak se ukazuje v loru itemu a v GUI editoru
 # (NE v action-bar bojové zpětné vazbě - ta pořád jede z pevně daných hodnot v DamageType.java).

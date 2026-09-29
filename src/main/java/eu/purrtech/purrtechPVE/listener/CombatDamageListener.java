@@ -1,8 +1,11 @@
 package eu.purrtech.purrtechPVE.listener;
 
+import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.combat.BleedManager;
 import eu.purrtech.purrtechPVE.combat.CombatKind;
 import eu.purrtech.purrtechPVE.combat.DamageFeedback;
+import eu.purrtech.purrtechPVE.combat.DebugModeService;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import eu.purrtech.purrtechPVE.combat.DpsTracker;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
 import eu.purrtech.purrtechPVE.combat.WorldToggleEvaluator;
@@ -29,6 +32,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -104,6 +108,8 @@ public final class CombatDamageListener implements Listener {
     private final BleedManager bleedManager;
     private CombatFeedbackSettings combatFeedbackSettings;
     private final DpsTracker dpsTracker;
+    private final PurrtechPVE plugin;
+    private final DebugModeService debugModeService;
     // System.currentTimeMillis() an entity's stun expires at - see the class javadoc's stun
     // paragraph. Only ever touched from this listener's own event handler, always on the main
     // thread, so a plain HashMap is fine.
@@ -111,13 +117,39 @@ public final class CombatDamageListener implements Listener {
 
     public CombatDamageListener(WorldToggleSettings worldToggles, EquipmentResolver equipmentResolver,
                                  DamageTypeRegistry damageTypeRegistry, BleedManager bleedManager,
-                                 CombatFeedbackSettings combatFeedbackSettings, DpsTracker dpsTracker) {
+                                 CombatFeedbackSettings combatFeedbackSettings, DpsTracker dpsTracker,
+                                 PurrtechPVE plugin, DebugModeService debugModeService) {
         this.worldToggles = worldToggles;
         this.equipmentResolver = equipmentResolver;
         this.damageTypeRegistry = damageTypeRegistry;
         this.bleedManager = bleedManager;
         this.combatFeedbackSettings = combatFeedbackSettings;
         this.dpsTracker = dpsTracker;
+        this.plugin = plugin;
+        this.debugModeService = debugModeService;
+    }
+
+    /**
+     * {@code /pve debug} readout for one side of a hit, so a missing action bar can be told apart:
+     * a "skipped" line means this listener never got as far as sending it (world/PvP/PvE toggle),
+     * a "hit" line means it did send it - so if the bar still isn't visible, something else
+     * (another plugin's HUD) overwrote it. No-op for non-players and players without debug on.
+     */
+    private void debugSkipped(LivingEntity who, String worldName, CombatKind kind) {
+        if (who instanceof Player player && debugModeService.isEnabled(player.getUniqueId())) {
+            player.sendMessage(plugin.getMessages().render(player.locale(), "debug.combat-skipped",
+                    Placeholder.unparsed("world", worldName), Placeholder.unparsed("kind", kind.name())));
+        }
+    }
+
+    private void debugHit(LivingEntity who, double rawDamage, double total, Map<String, Double> perType) {
+        if (who instanceof Player player && debugModeService.isEnabled(player.getUniqueId())) {
+            player.sendMessage(plugin.getMessages().render(player.locale(), "debug.combat-hit",
+                    Placeholder.unparsed("mode", player.getGameMode().name().toLowerCase(Locale.ROOT)),
+                    Placeholder.unparsed("raw", DamageFeedback.formatAmount(rawDamage)),
+                    Placeholder.unparsed("total", DamageFeedback.formatAmount(total)),
+                    Placeholder.unparsed("types", String.valueOf(perType.keySet()))));
+        }
     }
 
     /** See the {@code worldToggles}/{@code combatFeedbackSettings} field comment. */
@@ -148,6 +180,8 @@ public final class CombatDamageListener implements Listener {
 
         String worldName = defender.getWorld().getName();
         if (!WorldToggleEvaluator.isActive(worldToggles, worldName, kind)) {
+            debugSkipped(attacker, worldName, kind);
+            debugSkipped(defender, worldName, kind);
             return;
         }
 
@@ -266,6 +300,8 @@ public final class CombatDamageListener implements Listener {
             }
             attackerPlayer.sendActionBar(feedback);
         }
+        debugHit(attacker, rawDamage, total, perTypeForDisplay);
+        debugHit(defender, rawDamage, total, perTypeForDisplay);
     }
 
     /** Whether {@code entity} is still within a previously-rolled stun's duration - see the class javadoc's stun paragraph. */
