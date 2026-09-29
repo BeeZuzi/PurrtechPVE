@@ -173,7 +173,10 @@ public final class ItemTemplateService {
         ItemTemplate template = requireTemplate(key);
         requireDamageType(damageTypeKey);
         requireContributable(damageTypeKey);
-        damageContributionRepository.upsert(template.id(), new DamageContribution(damageTypeKey, amount, mode, context, visible));
+        // "physical" is shorthand for all of blunt/piercing/slashing, each getting the same amount.
+        for (String type : DamageTypeRegistry.expandPhysical(damageTypeKey)) {
+            damageContributionRepository.upsert(template.id(), new DamageContribution(type, amount, mode, context, visible));
+        }
         return bumpVersion(template);
     }
 
@@ -190,7 +193,13 @@ public final class ItemTemplateService {
 
     public ItemTemplate removeDamageContribution(String key, String damageTypeKey, ModifierContext context) {
         ItemTemplate template = requireTemplate(key);
-        damageContributionRepository.remove(template.id(), damageTypeKey, context);
+        for (String type : DamageTypeRegistry.expandPhysical(damageTypeKey)) {
+            damageContributionRepository.remove(template.id(), type, context);
+        }
+        if (DamageTypeRegistry.FALLBACK_PHYSICAL.equals(damageTypeKey)) {
+            // also clears a legacy standalone "physical" row saved before it became a shorthand
+            damageContributionRepository.remove(template.id(), damageTypeKey, context);
+        }
         return bumpVersion(template);
     }
 
@@ -206,8 +215,10 @@ public final class ItemTemplateService {
     public ItemTemplate moveDamageContributionContext(String key, String damageTypeKey, ModifierContext from, ModifierContext to,
                                                        double amount, DamageMode mode, boolean visible) {
         ItemTemplate template = requireTemplate(key);
-        damageContributionRepository.remove(template.id(), damageTypeKey, from);
-        damageContributionRepository.upsert(template.id(), new DamageContribution(damageTypeKey, amount, mode, to, visible));
+        for (String type : DamageTypeRegistry.expandPhysical(damageTypeKey)) {
+            damageContributionRepository.remove(template.id(), type, from);
+            damageContributionRepository.upsert(template.id(), new DamageContribution(type, amount, mode, to, visible));
+        }
         return bumpVersion(template);
     }
 

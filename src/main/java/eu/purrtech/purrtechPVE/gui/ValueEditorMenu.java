@@ -25,6 +25,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -190,8 +192,9 @@ public final class ValueEditorMenu {
                 String damageTypeKey = parts[0];
                 ModifierContext current = ModifierContext.valueOf(parts[1]);
                 ModifierContext flipped = current == ModifierContext.WIELDED ? ModifierContext.WORN : ModifierContext.WIELDED;
+                List<String> storedTypes = DamageTypeRegistry.expandPhysical(damageTypeKey);
                 boolean collision = plugin.getItemTemplateService().damageContributions(holder.templateKey()).stream()
-                        .anyMatch(c -> c.damageTypeKey().equals(damageTypeKey) && c.context() == flipped);
+                        .anyMatch(c -> storedTypes.contains(c.damageTypeKey()) && c.context() == flipped);
                 if (collision) {
                     // The other context is already a separate contribution for this type - no
                     // silent overwrite, same "no-op at the boundary" convention as everywhere else
@@ -304,8 +307,12 @@ public final class ValueEditorMenu {
                 String[] parts = holder.entryId().split("\\|", 2);
                 String damageTypeKey = parts[0];
                 ModifierContext context = ModifierContext.valueOf(parts[1]);
+                // "physical" is stored as its three subtypes (see DamageTypeRegistry.expandPhysical),
+                // so read the first of them back (a legacy standalone "physical" row also matches).
+                List<String> storedTypes = DamageTypeRegistry.expandPhysical(damageTypeKey);
                 yield service.damageContributions(key).stream()
-                        .filter(c -> c.damageTypeKey().equals(damageTypeKey) && c.context() == context).findFirst()
+                        .filter(c -> (storedTypes.contains(c.damageTypeKey()) || c.damageTypeKey().equals(damageTypeKey))
+                                && c.context() == context).findFirst()
                         .map(c -> new CurrentState(c.amount(), c.visible(), c.mode(), context))
                         .orElse(new CurrentState(0, true, DamageMode.FLAT, context));
             }

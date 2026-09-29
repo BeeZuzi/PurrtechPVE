@@ -1,6 +1,7 @@
 package eu.purrtech.purrtechPVE.damage;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -29,6 +30,19 @@ public final class DamageTypeRegistry {
      * physical} are what {@code CombatDamageListener} scopes vanilla armor-point mitigation to.
      */
     public static final Set<String> PHYSICAL_TYPES = Set.of(FALLBACK_PHYSICAL, "slashing", "blunt", "piercing");
+
+    /** The concrete subtypes a "physical" damage contribution expands into - see {@link #expandPhysical}. */
+    public static final List<String> PHYSICAL_SUBTYPES = List.of("blunt", "piercing", "slashing");
+
+    /**
+     * Adding "physical" damage to an item means adding ALL physical subtypes (blunt, piercing,
+     * slashing), each with the same amount - so this maps {@code "physical"} to those three and any
+     * other key to just itself. Used by {@code ItemTemplateService}'s damage-contribution setters and
+     * by {@code ValueEditorMenu}'s read path so an alias entry reads back the values it wrote.
+     */
+    public static List<String> expandPhysical(String damageTypeKey) {
+        return FALLBACK_PHYSICAL.equals(damageTypeKey) ? PHYSICAL_SUBTYPES : List.of(damageTypeKey);
+    }
 
     /** Bare-handed/unarmed mob attacks (no weapon item at all) - see {@code EquipmentResolver#weaponFallbackType}. */
     public static final String MOB_FALLBACK = "bite";
