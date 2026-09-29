@@ -14,6 +14,7 @@ import eu.purrtech.purrtechPVE.combat.DamageFeedback;
 import eu.purrtech.purrtechPVE.gui.ItemEditorMenu;
 import eu.purrtech.purrtechPVE.gui.ItemEditorTab;
 import eu.purrtech.purrtechPVE.gui.ItemListMenu;
+import eu.purrtech.purrtechPVE.gui.MobMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorTab;
 import eu.purrtech.purrtechPVE.gui.ArmorClassMenu;
@@ -441,6 +442,16 @@ public final class PveCommand {
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
+                .then(Commands.literal("mobs")
+                        .requires(source -> source.getSender().hasPermission(PERMISSION))
+                        .executes(ctx -> {
+                            if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                ctx.getSource().getSender().sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+                                return 0;
+                            }
+                            MobMenu.openList(plugin, player, 0);
+                            return Command.SINGLE_SUCCESS;
+                        }))
                 .then(Commands.literal("drop")
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .then(Commands.argument("item", StringArgumentType.word())

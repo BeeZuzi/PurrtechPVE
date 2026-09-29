@@ -14,6 +14,8 @@ import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
 import eu.purrtech.purrtechPVE.item.ItemRenderer;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import io.lumine.mythic.bukkit.events.MythicMobSpawnEvent;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -24,6 +26,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /**
  * Equips a MythicMobs mob with whichever of our item templates are
@@ -82,12 +85,21 @@ public final class MythicMobEquipmentListener implements Listener {
 
     @EventHandler
     public void onSpawn(MythicMobSpawnEvent event) {
+        String mobType = event.getMobType().getInternalName();
+        LivingEntity entity = event.getLivingEntity();
+        equip(entity, mobType);
+        // MythicMobs may apply its own configured equipment after this event fires - set ours again
+        // a tick later so the assigned items win instead of being silently overwritten.
+        Bukkit.getScheduler().runTask(JavaPlugin.getProvidingPlugin(MythicMobEquipmentListener.class), () -> equip(entity, mobType));
+    }
+
+    /** Sets {@code entity}'s equipment to whatever is currently configured for {@code mobType} - also used by the mob menu to re-equip mobs that are already alive. */
+    public void equip(LivingEntity entity, String mobType) {
         try {
-            Map<String, UUID> equipment = mobEquipmentRepository.findByMob(event.getMobType().getInternalName());
+            Map<String, UUID> equipment = mobEquipmentRepository.findByMob(mobType);
             if (equipment.isEmpty()) {
                 return;
             }
-            LivingEntity entity = event.getLivingEntity();
             EntityEquipment entityEquipment = entity.getEquipment();
             if (entityEquipment == null) {
                 return;
@@ -114,7 +126,10 @@ public final class MythicMobEquipmentListener implements Listener {
                 entityEquipment.setItem(slot, rendered);
             }
         } catch (Throwable t) {
-            // an incompatible MythicMobs build, or any other surprise here, shouldn't break mob spawning
+            // Never lets a failure break mob spawning, but no longer swallows it silently either -
+            // a mob spawning without its assigned gear was otherwise impossible to diagnose.
+            JavaPlugin.getProvidingPlugin(MythicMobEquipmentListener.class).getLogger().log(Level.WARNING,
+                    "Failed to equip MythicMobs mob type " + mobType + " - it keeps whatever equipment it had.", t);
         }
     }
 

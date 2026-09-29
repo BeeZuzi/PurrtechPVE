@@ -3,8 +3,12 @@ package eu.purrtech.purrtechPVE.mythicmobs;
 import io.lumine.mythic.api.mobs.MythicMob;
 import io.lumine.mythic.bukkit.MythicBukkit;
 import io.lumine.mythic.core.mobs.ActiveMob;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,6 +58,19 @@ public final class MythicMobsBridge {
         return MythicBukkit.inst().getMobManager().getSkillCaster(entity.getUniqueId())
                 .filter(caster -> caster instanceof ActiveMob)
                 .map(caster -> ((ActiveMob) caster).getType().getInternalName());
+    }
+
+    /** Every currently loaded living entity that is an active MythicMobs mob of type {@code internalName}. */
+    public List<LivingEntity> activeMobsOfType(String internalName) {
+        List<LivingEntity> result = new ArrayList<>();
+        for (World world : Bukkit.getWorlds()) {
+            for (LivingEntity entity : world.getLivingEntities()) {
+                if (mythicMobInternalName(entity).filter(internalName::equals).isPresent()) {
+                    result.add(entity);
+                }
+            }
+        }
+        return result;
     }
 
     /** Every custom mob type's internal name, as configured on this server (for the GUI's "give this item to a mob type" list). */

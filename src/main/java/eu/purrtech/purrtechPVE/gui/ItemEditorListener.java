@@ -41,7 +41,8 @@ public final class ItemEditorListener implements Listener {
     public void onClick(InventoryClickEvent event) {
         Object holder = event.getInventory().getHolder();
         if (!(holder instanceof ItemEditorHolder) && !(holder instanceof SetEditorHolder) && !(holder instanceof ItemListHolder)
-                && !(holder instanceof ArmorClassHolder) && !(holder instanceof ValueEditorHolder) && !(holder instanceof LoreOrderHolder)) {
+                && !(holder instanceof ArmorClassHolder) && !(holder instanceof ValueEditorHolder) && !(holder instanceof LoreOrderHolder)
+                && !(holder instanceof MobMenuHolder)) {
             return;
         }
         int slot = event.getRawSlot();
@@ -70,6 +71,8 @@ public final class ItemEditorListener implements Listener {
             ValueEditorMenu.handleClick(plugin, player, valueEditorHolder, slot);
         } else if (holder instanceof LoreOrderHolder loreOrderHolder) {
             LoreOrderMenu.handleClick(plugin, player, loreOrderHolder, slot, event.getClick());
+        } else if (holder instanceof MobMenuHolder mobMenuHolder) {
+            MobMenu.handleClick(plugin, player, mobMenuHolder, slot, event.isShiftClick());
         }
     }
 
@@ -77,7 +80,8 @@ public final class ItemEditorListener implements Listener {
     public void onDrag(InventoryDragEvent event) {
         Object holder = event.getInventory().getHolder();
         if (holder instanceof ItemEditorHolder || holder instanceof SetEditorHolder || holder instanceof ItemListHolder
-                || holder instanceof ArmorClassHolder || holder instanceof ValueEditorHolder || holder instanceof LoreOrderHolder) {
+                || holder instanceof ArmorClassHolder || holder instanceof ValueEditorHolder || holder instanceof LoreOrderHolder
+                || holder instanceof MobMenuHolder) {
             // rebasing happens by clicking the preview slot while holding the item, not dragging -
             // keeps these GUIs free of cursor/partial-stack edge cases
             event.setCancelled(true);

@@ -34,6 +34,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -44,6 +46,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Reads {@link ItemTemplate} data off a {@link LivingEntity}'s actual
@@ -107,7 +110,7 @@ public final class EquipmentResolver {
     private final ItemSetDamageThresholdRepository setDamageThresholdRepository;
     private final ItemSetModifierThresholdRepository setModifierThresholdRepository;
     private final ItemRenderer renderer;
-    private final MythicMobsBridge mythicMobsBridge;
+    private final Supplier<MythicMobsBridge> mythicMobsBridge;
     private ArmorPenetrationConversionSettings conversionSettings;
     private ResistancePercentBounds resistancePercentBounds;
 
@@ -120,7 +123,7 @@ public final class EquipmentResolver {
                               ItemSetDamageThresholdRepository setDamageThresholdRepository,
                               ItemSetModifierThresholdRepository setModifierThresholdRepository,
                               ItemRenderer renderer,
-                              MythicMobsBridge mythicMobsBridge,
+                              Supplier<MythicMobsBridge> mythicMobsBridge,
                               ArmorPenetrationConversionSettings conversionSettings,
                               ResistancePercentBounds resistancePercentBounds) {
         this.templateRepository = templateRepository;
@@ -157,7 +160,7 @@ public final class EquipmentResolver {
         }
 
         Map<String, Double> typed = new HashMap<>();
-        ItemStack heldItem = equipment.getItemInMainHand();
+        ItemStack heldItem = liveIfMob(attacker, equipment.getItemInMainHand());
         List<DamageContribution> wielded = resolvedItemOf(heldItem)
                 .map(item -> item.snapshot().damageContributions())
                 .orElse(List.of())
@@ -436,9 +439,12 @@ public final class EquipmentResolver {
             }
         }
 
-        if (mythicMobsBridge != null) {
+        // Looked up on every call (not captured at construction) so a bridge that only came up
+        // after startup - or after a /pve reload - is picked up without a server restart.
+        MythicMobsBridge bridge = mythicMobsBridge.get();
+        if (bridge != null) {
             try {
-                mythicMobsBridge.mythicMobInternalName(defender).ifPresent(internalName ->
+                bridge.mythicMobInternalName(defender).ifPresent(internalName ->
                         mobDamageProfileRepository.findByMob(internalName)
                                 .forEach((type, percent) -> resist.merge(type, percent, Double::sum)));
             } catch (Throwable t) {
@@ -487,7 +493,7 @@ public final class EquipmentResolver {
         if (attackerEquipment == null) {
             return;
         }
-        List<ArmorPenetration> penetration = resolvedItemOf(attackerEquipment.getItemInMainHand())
+        List<ArmorPenetration> penetration = resolvedItemOf(liveIfMob(attacker, attackerEquipment.getItemInMainHand()))
                 .map(item -> item.snapshot().armorPenetration())
                 .orElse(List.of());
         for (ArmorPenetration p : penetration) {
@@ -540,7 +546,7 @@ public final class EquipmentResolver {
         if (attacker != null) {
             EntityEquipment attackerEquipment = attacker.getEquipment();
             List<ArmorPenetration> penetration = attackerEquipment == null ? List.of()
-                    : resolvedItemOf(attackerEquipment.getItemInMainHand())
+                    : resolvedItemOf(liveIfMob(attacker, attackerEquipment.getItemInMainHand()))
                             .map(item -> item.snapshot().armorPenetration())
                             .orElse(List.of());
             for (ArmorPenetration p : penetration) {
@@ -574,7 +580,7 @@ public final class EquipmentResolver {
     private Map<String, ItemStack> allEquippedPieces(LivingEntity entity, EntityEquipment equipment) {
         Map<String, ItemStack> pieces = new HashMap<>();
         for (EquipmentSlot slot : VANILLA_SLOTS) {
-            pieces.put(slot.name(), equipment.getItem(slot));
+            pieces.put(slot.name(), liveIfMob(entity, equipment.getItem(slot)));
         }
         if (entity instanceof Player player) {
             pieces.putAll(accessoryRepository.findAll(player.getUniqueId()));
@@ -617,6 +623,68 @@ public final class EquipmentResolver {
     /** An empty allowedSlots list means unrestricted - applies no matter where it's equipped. */
     private boolean isAllowedInSlot(ItemTemplate template, String slotName) {
         return template.allowedSlots().isEmpty() || template.allowedSlots().contains(slotName);
+    }
+
+    /**
+     * Gear held by anything that isn't a player is ephemeral (mob equipment, see {@code
+     * MythicMobEquipmentListener}), so it is never pinned to the version it spawned with the way a
+     * player's stack is until a sync: the stack is read at the template's CURRENT version instead,
+     * which makes an edit to the template take effect on mobs that are already alive. Returns a
+     * re-stamped copy only when the versions differ; players' stacks pass through untouched.
+     */
+    private ItemStack liveIfMob(LivingEntity holder, ItemStack stack) {
+        if (holder instanceof Player) {
+            return stack;
+        }
+        return renderer.readStamp(stack)
+                .flatMap(stamp -> templateRepository.findByKey(stamp.templateKey())
+                        .filter(template -> template.version() != stamp.templateVersion())
+                        .map(template -> {
+                            ItemStack copy = stack.clone();
+                            ItemMeta meta = copy.getItemMeta();
+                            meta.getPersistentDataContainer().set(renderer.templateVersionPdc(), PersistentDataType.INTEGER, template.version());
+                            copy.setItemMeta(meta);
+                            return copy;
+                        }))
+                .orElse(stack);
+    }
+
+    /**
+     * One-line-per-piece summary of what {@code entity} wears/holds and why its resistances are what
+     * they are, for {@code /pve debug}: which slots carry one of our items (template key, version
+     * actually used, armor class), the MythicMobs type and its mob profile if it has one. Shows
+     * {@code "-"} for anything it can't find, so an empty result tells you the target simply has
+     * no gear of ours on it.
+     */
+    public String describeTarget(LivingEntity entity) {
+        StringBuilder out = new StringBuilder();
+        EntityEquipment equipment = entity.getEquipment();
+        if (equipment != null) {
+            for (Map.Entry<String, ItemStack> entry : new java.util.TreeMap<>(allEquippedPieces(entity, equipment)).entrySet()) {
+                Optional<ResolvedItem> resolved = resolvedItemOf(entry.getValue());
+                if (resolved.isEmpty()) {
+                    continue;
+                }
+                ArmorClass armorClass = resolved.get().template().armorClass();
+                if (out.length() > 0) {
+                    out.append(", ");
+                }
+                out.append(entry.getKey().toLowerCase(java.util.Locale.ROOT)).append('=')
+                        .append(resolved.get().template().key()).append("(v").append(resolved.get().snapshot().version())
+                        .append(armorClass != null ? ", " + armorClass.name().toLowerCase(java.util.Locale.ROOT) : "").append(')');
+            }
+        }
+        String gear = out.length() == 0 ? "-" : out.toString();
+        String mob = "-";
+        MythicMobsBridge bridge = mythicMobsBridge.get();
+        if (bridge != null) {
+            try {
+                mob = bridge.mythicMobInternalName(entity).map(name -> name + " " + mobDamageProfileRepository.findByMob(name)).orElse("-");
+            } catch (Throwable t) {
+                mob = "?";
+            }
+        }
+        return gear + " | mm: " + mob;
     }
 
     private Optional<ResolvedItem> resolvedItemOf(ItemStack stack) {

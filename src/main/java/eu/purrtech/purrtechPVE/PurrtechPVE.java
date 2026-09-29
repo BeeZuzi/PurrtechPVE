@@ -96,6 +96,9 @@ public final class PurrtechPVE extends JavaPlugin {
     // that up with /pve reload instead of a full server restart. A no-op if the bridge is already
     // up (see trySetupMythicMobs) or MythicMobs still isn't enabled.
     private Runnable mythicMobsSetup;
+    // Only set once MythicMobs was detected and the listener registered - null otherwise, so
+    // callers (the mob menu) must null-check before asking it to re-equip living mobs.
+    private MythicMobEquipmentListener mobEquipmentListener;
 
     @Override
     public void onEnable() {
@@ -168,7 +171,7 @@ public final class PurrtechPVE extends JavaPlugin {
         mythicMobsSetup.run();
         equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
                 mobDamageProfileRepository, armorClassProfileRepository, accessoryRepository, itemSetMemberRepository,
-                itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, mythicMobsBridge,
+                itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, () -> mythicMobsBridge,
                 armorPenetrationConversionSettings, resistancePercentBounds);
 
         getLogger().info("MythicMobs integration: " + (mythicMobsBridge != null ? "enabled" : "not found, running standalone"));
@@ -300,11 +303,13 @@ public final class PurrtechPVE extends JavaPlugin {
         // establishment (the early return above skips this whole method once mythicMobsBridge is
         // set), so this can't double-register across repeated reload() calls.
         try {
-            getServer().getPluginManager().registerEvents(new MythicMobEquipmentListener(
+            MythicMobEquipmentListener equipmentListener = new MythicMobEquipmentListener(
                     mobEquipmentRepository, itemTemplateRepository, damageContributionRepository,
                     typeModifierRepository, enchantmentRepository, armorPenetrationRepository,
                     bleedEffectRepository, criticalEffectRepository, stunEffectRepository, reflectEffectRepository,
-                    attributeModifierRepository, itemRenderer), this);
+                    attributeModifierRepository, itemRenderer);
+            getServer().getPluginManager().registerEvents(equipmentListener, this);
+            mobEquipmentListener = equipmentListener;
         } catch (Throwable t) {
             getLogger().log(Level.WARNING,
                     "Failed to register the MythicMobs mob-equipment listener - mobs won't spawn with assigned equipment.", t);
@@ -369,6 +374,10 @@ public final class PurrtechPVE extends JavaPlugin {
     /** Null when MythicMobs isn't installed, or is but its API doesn't match what this plugin was built against. */
     public MythicMobsBridge getMythicMobsBridge() {
         return mythicMobsBridge;
+    }
+
+    public MythicMobEquipmentListener getMobEquipmentListener() {
+        return mobEquipmentListener;
     }
 
     public MobEquipmentRepository getMobEquipmentRepository() {
