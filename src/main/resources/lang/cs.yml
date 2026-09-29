@@ -254,6 +254,7 @@ item:
     attributes: "<#7425E9>ᴀᴛʀɪʙᴜᴛʏ:</#7425E9>"
   line:
     armor-class: "<#7425E9><class></#7425E9>"
+    armor-class-amount: "<#7425E9><gray>[</gray><#94F086><amount></#94F086><gray>]</gray> <class></#7425E9><reset>"
     damage-flat: "<#7425E9><gray>[</gray><#94F086><amount></#94F086><gray>]</gray> <type></#7425E9><reset>"
     damage-percent: "<#7425E9><gray>[</gray><#94F086><amount>%</#94F086><gray>]</gray> <type></#7425E9><reset>"
     resist: "<#7425E9><gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9><reset>"

@@ -117,7 +117,7 @@ public final class ItemSyncService {
                 .orElseThrow(() -> new IllegalStateException("Missing snapshot v" + targetVersion
                         + " for template " + template.key() + " - every version bump must write one"));
 
-        ItemStack rendered = renderer.renderSnapshot(snapshot, template.armorClass());
+        ItemStack rendered = renderer.renderSnapshot(snapshot, template.armorClass(), template.armorAmount());
         rendered.setAmount(stack.getAmount());
         return Optional.of(rendered);
     }

@@ -85,19 +85,19 @@ public final class ItemRenderer {
         return render(template.key(), template.version(), template.displayName(), template.customLore(), template.hiddenHeaders(),
                 template.loreOrder(), template.baseMaterial(), template.baseItemSnapshot(), template.customModelData(), contributions,
                 modifiers, enchantments, armorPenetration, bleedEffect, criticalEffect, stunEffect, reflectEffect, attributeModifiers,
-                template.armorClass());
+                template.armorClass(), template.armorAmount());
     }
 
     /**
      * Renders exactly as a given historical version looked - used to catch up a stack pinned behind the live version.
      * {@code armorClass} is the template's live value, not part of the snapshot (see {@code ItemTemplate}'s javadoc).
      */
-    public ItemStack renderSnapshot(TemplateSnapshot snapshot, ArmorClass armorClass) {
+    public ItemStack renderSnapshot(TemplateSnapshot snapshot, ArmorClass armorClass, double armorAmount) {
         return render(snapshot.templateKey(), snapshot.version(), snapshot.displayName(), snapshot.customLore(), snapshot.hiddenHeaders(),
                 snapshot.loreOrder(), snapshot.baseMaterial(), snapshot.baseItemSnapshot(), snapshot.customModelData(),
                 snapshot.damageContributions(), snapshot.typeModifiers(), snapshot.enchantments(), snapshot.armorPenetration(),
                 snapshot.bleedEffect(), snapshot.criticalEffect(), snapshot.stunEffect(), snapshot.reflectEffect(), snapshot.attributeModifiers(),
-                armorClass);
+                armorClass, armorAmount);
     }
 
     private ItemStack render(String key, int version, String displayName, List<String> customLore, List<String> hiddenHeaders,
@@ -105,7 +105,7 @@ public final class ItemRenderer {
                               List<DamageContribution> contributions, List<TypeModifier> modifiers, List<TemplateEnchantment> enchantments,
                               List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
                               StunEffect stunEffect, ReflectEffect reflectEffect, List<AttributeModifierEntry> attributeModifiers,
-                              ArmorClass armorClass) {
+                              ArmorClass armorClass, double armorAmount) {
         // Starts from a full clone of whatever real item this template was created/rebased from
         // (raw NBT, not just Bukkit's PersistentDataContainer view of it - see BaseItemSnapshots for
         // exactly why that distinction is the whole fix) instead of a bare new ItemStack, so
@@ -121,7 +121,7 @@ public final class ItemRenderer {
             meta.setCustomModelData(customModelData);
         }
         meta.lore(buildLore(customLore, hiddenHeaders, loreOrder, contributions, modifiers, armorPenetration, bleedEffect, criticalEffect,
-                stunEffect, reflectEffect, attributeModifiers, armorClass));
+                stunEffect, reflectEffect, attributeModifiers, armorClass, armorAmount));
 
         for (TemplateEnchantment enchantment : enchantments) {
             resolveEnchantment(enchantment.enchantmentKey())
@@ -190,9 +190,9 @@ public final class ItemRenderer {
                                        List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                        List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
                                        StunEffect stunEffect, ReflectEffect reflectEffect, List<AttributeModifierEntry> attributeModifiers,
-                                       ArmorClass armorClass) {
+                                       ArmorClass armorClass, double armorAmount) {
         List<LoreLine> candidates = lineCandidates(customLore, hiddenHeaders, contributions, modifiers,
-                armorPenetration, bleedEffect, criticalEffect, stunEffect, reflectEffect, attributeModifiers, armorClass);
+                armorPenetration, bleedEffect, criticalEffect, stunEffect, reflectEffect, attributeModifiers, armorClass, armorAmount);
         return LoreLine.canonicalize(loreOrder, candidates).stream().map(LoreLine::component).toList();
     }
 
@@ -209,7 +209,7 @@ public final class ItemRenderer {
                                           List<DamageContribution> contributions, List<TypeModifier> modifiers,
                                           List<ArmorPenetration> armorPenetration, BleedEffect bleedEffect, CriticalEffect criticalEffect,
                                           StunEffect stunEffect, ReflectEffect reflectEffect, List<AttributeModifierEntry> attributeModifiers,
-                                          ArmorClass armorClass) {
+                                          ArmorClass armorClass, double armorAmount) {
         List<LoreLine> lines = new ArrayList<>();
 
         // Admin-authored (or import-seeded) lore - see ItemTemplate's javadoc for why this exists.
@@ -220,8 +220,12 @@ public final class ItemRenderer {
 
         // "Light/medium/heavy armor" label - only for pieces that actually have a class (null = not armor).
         if (armorClass != null) {
-            lines.add(new LoreLine("armor-class", messages.render(locale, "item.line.armor-class",
-                    Placeholder.component("class", messages.armorClassName(locale, armorClass.name())))));
+            Component className = messages.armorClassName(locale, armorClass.name());
+            lines.add(new LoreLine("armor-class", armorAmount > 0
+                    ? messages.render(locale, "item.line.armor-class-amount",
+                            Placeholder.unparsed("amount", formatAmount(armorAmount)),
+                            Placeholder.component("class", className))
+                    : messages.render(locale, "item.line.armor-class", Placeholder.component("class", className))));
         }
 
         // Each category filters to its own visible-only entries before deciding whether to show
