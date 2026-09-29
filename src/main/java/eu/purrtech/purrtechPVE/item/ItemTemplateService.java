@@ -746,7 +746,7 @@ public final class ItemTemplateService {
         ReflectEffect reflect = reflectEffectRepository.findByTemplate(template.id()).orElse(null);
         List<AttributeModifierEntry> attributeModifiers = attributeModifierRepository.findByTemplate(template.id());
         List<LoreLine> candidates = renderer.lineCandidates(template.customLore(), template.hiddenHeaders(), contributions, modifiers,
-                armorPenetration, bleed, critical, stun, reflect, attributeModifiers);
+                armorPenetration, bleed, critical, stun, reflect, attributeModifiers, template.armorClass());
         return LoreLine.canonicalize(template.loreOrder(), candidates);
     }
 

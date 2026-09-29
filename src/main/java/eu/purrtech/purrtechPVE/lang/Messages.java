@@ -167,6 +167,10 @@ public final class Messages {
      * on the {@code item} package - same reason {@link #damageTypeName} takes a key, not a
      * {@code DamageType}.
      */
+    public Component armorClassName(Locale locale, String armorClass) {
+        return render(locale, "armor-class." + armorClass.toLowerCase(Locale.ROOT) + ".name");
+    }
+
     public Component armorClassPenetrationName(Locale locale, String armorClass) {
         return render(locale, "armor-class." + armorClass.toLowerCase(Locale.ROOT) + ".penetration-full");
     }

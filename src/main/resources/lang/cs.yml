@@ -161,10 +161,13 @@ damage-type:
 # s nadpisem zobrazeným, "Lehký armor" s nadpisem skrytým.
 armor-class:
   light:
+    name: "Lehké brnění"
     penetration-full: "Penetrace lehkého armoru"
   medium:
+    name: "Střední brnění"
     penetration-full: "Penetrace středního armoru"
   heavy:
+    name: "Těžké brnění"
     penetration-full: "Penetrace těžkého armoru"
 
 # Zobrazovaný název vanilla Attribute (Messages.attributeName), klíčovaný jeho stálým registry
@@ -250,6 +253,7 @@ item:
     penetration: "<#7425E9>ᴘᴇɴᴇᴛʀᴀᴄᴇ ᴀʀᴍᴏʀᴜ:</#7425E9>"
     attributes: "<#7425E9>ᴀᴛʀɪʙᴜᴛʏ:</#7425E9>"
   line:
+    armor-class: "<#7425E9><class></#7425E9>"
     damage-flat: "<#7425E9><gray>[</gray><amount><gray>]</gray> <type></#7425E9>"
     damage-percent: "<#7425E9><gray>[</gray><amount>%<gray>]</gray> <type></#7425E9>"
     resist: "<#7425E9><gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9>"

@@ -159,10 +159,13 @@ damage-type:
 # with the header shown, "Light armor" with the header hidden.
 armor-class:
   light:
+    name: "Light armor"
     penetration-full: "Penetration of light armor"
   medium:
+    name: "Medium armor"
     penetration-full: "Penetration of medium armor"
   heavy:
+    name: "Heavy armor"
     penetration-full: "Penetration of heavy armor"
 
 # Display name for a vanilla Attribute (Messages.attributeName), keyed by its stable registry key
@@ -248,6 +251,7 @@ item:
     penetration: "<#7425E9>ᴀʀᴍᴏʀ ᴘᴇɴᴇᴛʀᴀᴛɪᴏɴ:</#7425E9>"
     attributes: "<#7425E9>ᴀᴛᴛʀɪʙᴜᴛᴇꜱ:</#7425E9>"
   line:
+    armor-class: "<#7425E9><class></#7425E9>"
     damage-flat: "<#7425E9><gray>[</gray><amount><gray>]</gray> <type></#7425E9>"
     damage-percent: "<#7425E9><gray>[</gray><amount>%<gray>]</gray> <type></#7425E9>"
     resist: "<#7425E9><gray>[</gray><green>+<amount>%</green><gray>]</gray> <type></#7425E9>"
