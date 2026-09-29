@@ -6,6 +6,7 @@ error:
   invalid-material: "<red>Unknown item: <white><material></white>"
   invalid-mode-or-context: "<red>Invalid mode/context - use FLAT/PERCENT_OF_TOTAL and WIELDED/WORN."
   invalid-mode: "<red>Invalid mode - use FLAT or PERCENT_OF_TOTAL."
+  unknown-world: "<red>Unknown world: <white><world></white>"
 
 system:
   reloaded: "<green>config.yml and lang/*.yml reloaded."
@@ -18,7 +19,10 @@ debug:
   enabled: "<green>Debug mode enabled.</green>"
   disabled: "<gray>Debug mode disabled.</gray>"
   equipment-change: "<yellow>[Debug]</yellow> <gray><slot></gray>: <white><old></white> <dark_gray>-></dark_gray> <white><new></white>"
-  combat-hit: "<yellow>[Debug]</yellow> <gray>hit</gray> <white><mode></white> <gray>raw</gray> <white><raw></white> <gray>total</gray> <white><total></white> <gray>types</gray> <white><types></white> <dark_gray>- action bar sent</dark_gray>"
+  combat-hit: "<yellow>[Debug]</yellow> <gray>hit (<mode>)</gray> <white><raw></white> <dark_gray>-></dark_gray> <white><total></white><newline><gray>damage:</gray> <white><types></white><newline><gray>target resist:</gray> <white><resist></white> <dark_gray>|</dark_gray> <gray>armor cut physical by</gray> <white><armor>%</white>"
+  stats-damage: "<yellow>[Debug]</yellow> <gray>your damage (base <base>):</gray> <white><values></white>"
+  stats-resist: "<yellow>[Debug]</yellow> <gray>your resistances:</gray> <white><values></white>"
+  stats-armor: "<yellow>[Debug]</yellow> <gray>armor:</gray> <white><points></white> <gray>points, cuts physical by</gray> <white><cut>%</white>"
   combat-skipped: "<yellow>[Debug]</yellow> <red>Feedback skipped:</red> <gray>world</gray> <white><world></white> <gray>kind</gray> <white><kind></white> <dark_gray>(disabled in config.yml)</dark_gray>"
 
 # Each damage type's name + icon (a Unicode symbol) as shown in item lore and the GUI editor
@@ -277,6 +281,7 @@ item:
   unknown-damage-type: "<red>Unknown damage type: <white><type></white>"
   non-contributable-damage-type: "<red>Damage type <white><type></white> can't be added as a normal damage - set it through its own dedicated stat instead (e.g. Bleed).</red>"
   given: "<green>Gave item <white><key></white> to <white><player></white>."
+  dropped: "<green>Dropped <white><amount>x <key></white> at <white><x> <y> <z></white> in world <white><world></white>.</green>"
   list-empty: "<yellow>No templates created yet."
   list-entry: "<white><key></white> <gray>(<material>, v<version>)</gray>"
   damage-set: "<green>Damage <white><type></white> set on template <white><key></white>."

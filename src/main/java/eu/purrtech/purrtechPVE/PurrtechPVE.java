@@ -2,6 +2,7 @@ package eu.purrtech.purrtechPVE;
 
 import eu.purrtech.purrtechPVE.combat.BleedManager;
 import eu.purrtech.purrtechPVE.combat.DebugModeService;
+import eu.purrtech.purrtechPVE.combat.DebugStatsReporter;
 import eu.purrtech.purrtechPVE.combat.DpsTracker;
 import eu.purrtech.purrtechPVE.combat.EquipmentDebugListener;
 import eu.purrtech.purrtechPVE.combat.VanillaEffectResistanceListener;
@@ -81,6 +82,7 @@ public final class PurrtechPVE extends JavaPlugin {
     private ResistancePercentBounds resistancePercentBounds;
     private DpsTracker dpsTracker;
     private DebugModeService debugModeService;
+    private DebugStatsReporter debugStatsReporter;
     private ItemRenderer itemRenderer;
     private EquipmentResolver equipmentResolver;
     private CombatDamageListener combatDamageListener;
@@ -188,7 +190,8 @@ public final class PurrtechPVE extends JavaPlugin {
         combatDamageListener = new CombatDamageListener(worldToggles, equipmentResolver, damageTypeRegistry, bleedManager,
                 combatFeedbackSettings, dpsTracker, this, debugModeService);
         getServer().getPluginManager().registerEvents(combatDamageListener, this);
-        getServer().getPluginManager().registerEvents(new EquipmentDebugListener(this, debugModeService), this);
+        debugStatsReporter = new DebugStatsReporter(this, equipmentResolver);
+        getServer().getPluginManager().registerEvents(new EquipmentDebugListener(this, debugModeService, debugStatsReporter), this);
         getServer().getPluginManager().registerEvents(new ItemSyncJoinListener(itemSyncService), this);
         getServer().getPluginManager().registerEvents(
                 new AccessoryMenuListener(accessoryRepository, itemTemplateRepository, snapshotRepository, itemRenderer), this);
@@ -390,6 +393,10 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public DpsTracker getDpsTracker() {
         return dpsTracker;
+    }
+
+    public DebugStatsReporter getDebugStatsReporter() {
+        return debugStatsReporter;
     }
 
     public DebugModeService getDebugModeService() {

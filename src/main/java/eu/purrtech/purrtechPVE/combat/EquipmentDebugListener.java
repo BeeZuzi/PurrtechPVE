@@ -4,6 +4,7 @@ import eu.purrtech.purrtechPVE.PurrtechPVE;
 import io.papermc.paper.event.entity.EntityEquipmentChangedEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -31,10 +32,12 @@ public final class EquipmentDebugListener implements Listener {
 
     private final PurrtechPVE plugin;
     private final DebugModeService debugModeService;
+    private final DebugStatsReporter statsReporter;
 
-    public EquipmentDebugListener(PurrtechPVE plugin, DebugModeService debugModeService) {
+    public EquipmentDebugListener(PurrtechPVE plugin, DebugModeService debugModeService, DebugStatsReporter statsReporter) {
         this.plugin = plugin;
         this.debugModeService = debugModeService;
+        this.statsReporter = statsReporter;
     }
 
     @EventHandler
@@ -43,16 +46,22 @@ public final class EquipmentDebugListener implements Listener {
         if (!(entity instanceof Player player) || !debugModeService.isEnabled(player.getUniqueId())) {
             return;
         }
+        boolean anyChange = false;
         for (Map.Entry<EquipmentSlot, EntityEquipmentChangedEvent.EquipmentChange> entry : event.getEquipmentChanges().entrySet()) {
             ItemStack oldItem = entry.getValue().oldItem();
             ItemStack newItem = entry.getValue().newItem();
             if (sameIgnoringDurability(oldItem, newItem)) {
                 continue;
             }
+            anyChange = true;
             player.sendMessage(plugin.getMessages().render(player.locale(), "debug.equipment-change",
                     Placeholder.unparsed("slot", entry.getKey().name().toLowerCase(Locale.ROOT)),
                     Placeholder.unparsed("old", describe(oldItem)),
                     Placeholder.unparsed("new", describe(newItem))));
+        }
+        if (anyChange) {
+            // One tick later so the resolver reads the inventory as it is after this change.
+            Bukkit.getScheduler().runTask(plugin, () -> statsReporter.send(player));
         }
     }
 

@@ -10,6 +10,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import eu.purrtech.purrtechPVE.PurrtechPVE;
+import eu.purrtech.purrtechPVE.combat.DamageFeedback;
 import eu.purrtech.purrtechPVE.gui.ItemEditorMenu;
 import eu.purrtech.purrtechPVE.gui.ItemEditorTab;
 import eu.purrtech.purrtechPVE.gui.ItemListMenu;
@@ -47,6 +48,9 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -437,6 +441,17 @@ public final class PveCommand {
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
+                .then(Commands.literal("drop")
+                        .requires(source -> source.getSender().hasPermission(PERMISSION))
+                        .then(Commands.argument("item", StringArgumentType.word())
+                                .suggests(templateKeys)
+                                .then(Commands.argument("x", DoubleArgumentType.doubleArg())
+                                        .then(Commands.argument("y", DoubleArgumentType.doubleArg())
+                                                .then(Commands.argument("z", DoubleArgumentType.doubleArg())
+                                                        .then(Commands.argument("world", StringArgumentType.word())
+                                                                .suggests(worldNames())
+                                                                .then(Commands.argument("amount", IntegerArgumentType.integer(1, 4096))
+                                                                        .executes(ctx -> dropTemplate(plugin, ctx)))))))))
                 .then(Commands.literal("dps")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.dps.use"))
                         .executes(ctx -> toggleDps(plugin, ctx)))
@@ -837,6 +852,56 @@ public final class PveCommand {
         sender.sendMessage(plugin.getMessages().render(locale, "item.given",
                 Placeholder.unparsed("key", key),
                 Placeholder.unparsed("player", targets.size() == 1 ? targets.get(0).getName() : targets.size() + "x")));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static SuggestionProvider<CommandSourceStack> worldNames() {
+        return (ctx, builder) -> {
+            Bukkit.getWorlds().forEach(world -> builder.suggest(world.getName()));
+            return builder.buildFuture();
+        };
+    }
+
+    /**
+     * {@code /pve drop <item> <x> <y> <z> <world> <amount>} - drops {@code amount} copies of a
+     * template at a location, split into full stacks. Goes through {@code World.dropItem}, so the
+     * normal {@code ItemSpawnEvent} path (drop hologram, other plugins) still applies.
+     */
+    private static int dropTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        String key = StringArgumentType.getString(ctx, "item");
+        String worldName = StringArgumentType.getString(ctx, "world");
+        int amount = IntegerArgumentType.getInteger(ctx, "amount");
+
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            sender.sendMessage(plugin.getMessages().render(locale, "error.unknown-world", Placeholder.unparsed("world", worldName)));
+            return 0;
+        }
+
+        ItemStack template;
+        try {
+            template = plugin.getItemTemplateService().renderGiveable(key);
+        } catch (TemplateNotFoundException e) {
+            sender.sendMessage(plugin.getMessages().render(locale, "item.not-found", Placeholder.unparsed("key", key)));
+            return 0;
+        }
+
+        Location location = new Location(world, DoubleArgumentType.getDouble(ctx, "x"),
+                DoubleArgumentType.getDouble(ctx, "y"), DoubleArgumentType.getDouble(ctx, "z"));
+        int maxStack = Math.max(1, template.getMaxStackSize());
+        for (int remaining = amount; remaining > 0; remaining -= maxStack) {
+            ItemStack stack = template.clone();
+            stack.setAmount(Math.min(maxStack, remaining));
+            world.dropItem(location, stack);
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.dropped",
+                Placeholder.unparsed("key", key), Placeholder.unparsed("amount", String.valueOf(amount)),
+                Placeholder.unparsed("world", world.getName()),
+                Placeholder.unparsed("x", DamageFeedback.formatAmount(location.getX())),
+                Placeholder.unparsed("y", DamageFeedback.formatAmount(location.getY())),
+                Placeholder.unparsed("z", DamageFeedback.formatAmount(location.getZ()))));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -1584,6 +1649,9 @@ public final class PveCommand {
         }
         boolean nowEnabled = plugin.getDebugModeService().toggle(player.getUniqueId());
         player.sendMessage(plugin.getMessages().render(player.locale(), nowEnabled ? "debug.enabled" : "debug.disabled"));
+        if (nowEnabled) {
+            plugin.getDebugStatsReporter().send(player);
+        }
         return Command.SINGLE_SUCCESS;
     }
 

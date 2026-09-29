@@ -6,6 +6,7 @@ error:
   invalid-material: "<red>Neznámý item: <white><material></white>"
   invalid-mode-or-context: "<red>Neplatný mode/context - použij FLAT/PERCENT_OF_TOTAL a WIELDED/WORN."
   invalid-mode: "<red>Neplatný mode - použij FLAT nebo PERCENT_OF_TOTAL."
+  unknown-world: "<red>Neznámý svět: <white><world></white>"
 
 system:
   reloaded: "<green>Config.yml i lang/*.yml znovu načteny."
@@ -18,7 +19,10 @@ debug:
   enabled: "<green>Debug mód zapnut.</green>"
   disabled: "<gray>Debug mód vypnut.</gray>"
   equipment-change: "<yellow>[Debug]</yellow> <gray><slot></gray>: <white><old></white> <dark_gray>-></dark_gray> <white><new></white>"
-  combat-hit: "<yellow>[Debug]</yellow> <gray>zásah</gray> <white><mode></white> <gray>raw</gray> <white><raw></white> <gray>celkem</gray> <white><total></white> <gray>typy</gray> <white><types></white> <dark_gray>- action bar odeslán</dark_gray>"
+  combat-hit: "<yellow>[Debug]</yellow> <gray>zásah (<mode>)</gray> <white><raw></white> <dark_gray>-></dark_gray> <white><total></white><newline><gray>damage:</gray> <white><types></white><newline><gray>odolnosti cíle:</gray> <white><resist></white> <dark_gray>|</dark_gray> <gray>brnění ubralo z fyzického</gray> <white><armor>%</white>"
+  stats-damage: "<yellow>[Debug]</yellow> <gray>tvoje damage (základ <base>):</gray> <white><values></white>"
+  stats-resist: "<yellow>[Debug]</yellow> <gray>tvoje odolnosti:</gray> <white><values></white>"
+  stats-armor: "<yellow>[Debug]</yellow> <gray>brnění:</gray> <white><points></white> <gray>bodů, ubírá z fyzického</gray> <white><cut>%</white>"
   combat-skipped: "<yellow>[Debug]</yellow> <red>Feedback přeskočen:</red> <gray>svět</gray> <white><world></white> <gray>režim</gray> <white><kind></white> <dark_gray>(vypnuto v config.yml)</dark_gray>"
 
 # Jméno + ikonka (Unicode symbol) každého damage typu, jak se ukazuje v loru itemu a v GUI editoru
@@ -279,6 +283,7 @@ item:
   unknown-damage-type: "<red>Neznámý typ poškození: <white><type></white>"
   non-contributable-damage-type: "<red>Typ poškození <white><type></white> nejde přidat jako normální poškození - nastav ho přes jeho vlastní stat (např. Krvácení).</red>"
   given: "<green>Předmět <white><key></white> předán hráči <white><player></white>."
+  dropped: "<green>Dropnuto <white><amount>x <key></white> na <white><x> <y> <z></white> ve světě <white><world></white>.</green>"
   list-empty: "<yellow>Zatím nejsou vytvořené žádné šablony."
   list-entry: "<white><key></white> <gray>(<material>, v<version>)</gray>"
   damage-set: "<green>Poškození <white><type></white> nastaveno na šabloně <white><key></white>."

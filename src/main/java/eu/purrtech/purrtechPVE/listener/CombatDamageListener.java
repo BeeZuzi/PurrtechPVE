@@ -5,6 +5,7 @@ import eu.purrtech.purrtechPVE.combat.BleedManager;
 import eu.purrtech.purrtechPVE.combat.CombatKind;
 import eu.purrtech.purrtechPVE.combat.DamageFeedback;
 import eu.purrtech.purrtechPVE.combat.DebugModeService;
+import eu.purrtech.purrtechPVE.combat.DebugStatsReporter;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import eu.purrtech.purrtechPVE.combat.DpsTracker;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
@@ -35,6 +36,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -142,13 +144,16 @@ public final class CombatDamageListener implements Listener {
         }
     }
 
-    private void debugHit(LivingEntity who, double rawDamage, double total, Map<String, Double> perType) {
+    private void debugHit(LivingEntity who, double rawDamage, double total, Map<String, Double> perType,
+                          Map<String, Double> targetResistance, double armorMultiplier) {
         if (who instanceof Player player && debugModeService.isEnabled(player.getUniqueId())) {
             player.sendMessage(plugin.getMessages().render(player.locale(), "debug.combat-hit",
                     Placeholder.unparsed("mode", player.getGameMode().name().toLowerCase(Locale.ROOT)),
                     Placeholder.unparsed("raw", DamageFeedback.formatAmount(rawDamage)),
                     Placeholder.unparsed("total", DamageFeedback.formatAmount(total)),
-                    Placeholder.unparsed("types", String.valueOf(perType.keySet()))));
+                    Placeholder.unparsed("types", DebugStatsReporter.join(new TreeMap<>(perType), false)),
+                    Placeholder.unparsed("resist", DebugStatsReporter.join(new TreeMap<>(targetResistance), true)),
+                    Placeholder.unparsed("armor", DamageFeedback.formatAmount((1 - armorMultiplier) * 100.0))));
         }
     }
 
@@ -300,8 +305,8 @@ public final class CombatDamageListener implements Listener {
             }
             attackerPlayer.sendActionBar(feedback);
         }
-        debugHit(attacker, rawDamage, total, perTypeForDisplay);
-        debugHit(defender, rawDamage, total, perTypeForDisplay);
+        debugHit(attacker, rawDamage, total, perTypeForDisplay, resistance, armorMultiplier);
+        debugHit(defender, rawDamage, total, perTypeForDisplay, resistance, armorMultiplier);
     }
 
     /** Whether {@code entity} is still within a previously-rolled stun's duration - see the class javadoc's stun paragraph. */
