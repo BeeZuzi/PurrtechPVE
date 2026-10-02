@@ -105,7 +105,7 @@ public final class PurrtechPVE extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
 
-        database = new Database(getDataFolder());
+        database = new Database(getDataFolder(), getLogger());
         database.connect();
 
         messages = Messages.load(this);
