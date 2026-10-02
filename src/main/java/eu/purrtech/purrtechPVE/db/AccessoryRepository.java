@@ -25,8 +25,19 @@ public final class AccessoryRepository {
         this.database = database;
     }
 
+    // Read for every equipment resolve of a player, i.e. several times per combat event, and each
+    // read deserializes full ItemStacks - see ReadCache. Callers get clones, never the cached
+    // stacks themselves, so nothing can mutate what the next caller reads.
+    private final ReadCache<UUID, Map<String, ItemStack>> cache = new ReadCache<>(512);
+
     /** slotName -> item, only for slots that actually hold something. */
     public Map<String, ItemStack> findAll(UUID playerUuid) {
+        Map<String, ItemStack> out = new LinkedHashMap<>();
+        cache.get(playerUuid, () -> loadAll(playerUuid)).forEach((slot, stack) -> out.put(slot, stack.clone()));
+        return out;
+    }
+
+    private Map<String, ItemStack> loadAll(UUID playerUuid) {
         Map<String, ItemStack> out = new LinkedHashMap<>();
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
@@ -68,6 +79,9 @@ public final class AccessoryRepository {
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save accessory slots for " + playerUuid, e);
+        } finally {
+            // In finally: a failure halfway through has already changed rows (delete ran first).
+            CacheEpoch.bump();
         }
     }
 }

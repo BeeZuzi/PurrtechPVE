@@ -24,6 +24,7 @@ public final class ItemSetMemberRepository {
             statement.setString(1, setId.toString());
             statement.setString(2, templateId.toString());
             statement.executeUpdate();
+            CacheEpoch.bump();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to add member to set " + setId, e);
         }
@@ -36,7 +37,9 @@ public final class ItemSetMemberRepository {
                      """)) {
             statement.setString(1, setId.toString());
             statement.setString(2, templateId.toString());
-            return statement.executeUpdate() > 0;
+            boolean removed = statement.executeUpdate() > 0;
+            CacheEpoch.bump();
+            return removed;
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to remove member from set " + setId, e);
         }
@@ -46,9 +49,13 @@ public final class ItemSetMemberRepository {
         return findIds("SELECT template_id AS id FROM item_set_members WHERE set_id = ?", setId);
     }
 
-    /** Every set a given template is a member of - used by EquipmentResolver to count worn pieces per set. */
+    // Asked for every equipped piece on every combat event - see ReadCache. Returned lists are read-only.
+    private final ReadCache<UUID, List<UUID>> setIdsByTemplate = new ReadCache<>(2048);
+
+    /** Every set a given template is a member of - used by EquipmentResolver to count worn pieces per set. Read-only. */
     public List<UUID> findSetIdsContainingTemplate(UUID templateId) {
-        return findIds("SELECT set_id AS id FROM item_set_members WHERE template_id = ?", templateId);
+        return setIdsByTemplate.get(templateId,
+                () -> List.copyOf(findIds("SELECT set_id AS id FROM item_set_members WHERE template_id = ?", templateId)));
     }
 
     private List<UUID> findIds(String sql, UUID param) {

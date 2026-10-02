@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -31,6 +32,7 @@ public final class MobDamageProfileRepository {
             statement.setString(2, damageTypeKey);
             statement.setDouble(3, percent);
             statement.executeUpdate();
+            CacheEpoch.bump();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save mob damage profile for " + mythicMobInternalName, e);
         }
@@ -43,14 +45,23 @@ public final class MobDamageProfileRepository {
                      """)) {
             statement.setString(1, mythicMobInternalName);
             statement.setString(2, damageTypeKey);
-            return statement.executeUpdate() > 0;
+            boolean removed = statement.executeUpdate() > 0;
+            CacheEpoch.bump();
+            return removed;
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to remove mob damage profile for " + mythicMobInternalName, e);
         }
     }
 
-    /** damageTypeKey -> percent, ready to merge straight into a resistance map. */
+    // Read for every MythicMobs defender on every combat event - see ReadCache. Returned maps are read-only.
+    private final ReadCache<String, Map<String, Double>> cache = new ReadCache<>(1024);
+
+    /** damageTypeKey -> percent, ready to merge straight into a resistance map. Read-only. */
     public Map<String, Double> findByMob(String mythicMobInternalName) {
+        return cache.get(mythicMobInternalName, () -> Collections.unmodifiableMap(loadByMob(mythicMobInternalName)));
+    }
+
+    private Map<String, Double> loadByMob(String mythicMobInternalName) {
         Map<String, Double> out = new LinkedHashMap<>();
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""

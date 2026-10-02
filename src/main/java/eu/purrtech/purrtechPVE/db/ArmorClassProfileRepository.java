@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -32,6 +33,7 @@ public final class ArmorClassProfileRepository {
             statement.setString(2, damageTypeKey);
             statement.setDouble(3, percent);
             statement.executeUpdate();
+            CacheEpoch.bump();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save armor class profile for " + armorClass, e);
         }
@@ -44,14 +46,23 @@ public final class ArmorClassProfileRepository {
                      """)) {
             statement.setString(1, armorClass);
             statement.setString(2, damageTypeKey);
-            return statement.executeUpdate() > 0;
+            boolean removed = statement.executeUpdate() > 0;
+            CacheEpoch.bump();
+            return removed;
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to remove armor class profile for " + armorClass, e);
         }
     }
 
-    /** damageTypeKey -> percent, ready to merge straight into a resistance map. */
+    // Read for every defender on every combat event - see ReadCache. Returned maps are read-only.
+    private final ReadCache<String, Map<String, Double>> cache = new ReadCache<>(64);
+
+    /** damageTypeKey -> percent, ready to merge straight into a resistance map. Read-only. */
     public Map<String, Double> findByArmorClass(String armorClass) {
+        return cache.get(armorClass, () -> Collections.unmodifiableMap(loadByArmorClass(armorClass)));
+    }
+
+    private Map<String, Double> loadByArmorClass(String armorClass) {
         Map<String, Double> out = new LinkedHashMap<>();
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""

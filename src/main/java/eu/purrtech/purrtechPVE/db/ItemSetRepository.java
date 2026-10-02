@@ -30,6 +30,7 @@ public final class ItemSetRepository {
             statement.setLong(4, set.createdAt());
             statement.setLong(5, set.updatedAt());
             statement.executeUpdate();
+            CacheEpoch.bump();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to insert item set " + set.key(), e);
         }
@@ -74,7 +75,10 @@ public final class ItemSetRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("DELETE FROM item_sets WHERE key = ?")) {
             statement.setString(1, key);
-            return statement.executeUpdate() > 0;
+            boolean deleted = statement.executeUpdate() > 0;
+            // Cascades into the member/threshold tables other repositories cache.
+            CacheEpoch.bump();
+            return deleted;
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to delete item set " + key, e);
         }

@@ -32,6 +32,7 @@ public final class ItemSetDamageThresholdRepository {
             statement.setDouble(4, threshold.amount());
             statement.setString(5, threshold.mode().name());
             statement.executeUpdate();
+            CacheEpoch.bump();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save damage threshold for set " + setId, e);
         }
@@ -45,13 +46,22 @@ public final class ItemSetDamageThresholdRepository {
             statement.setString(1, setId.toString());
             statement.setInt(2, pieceCount);
             statement.setString(3, damageTypeKey);
-            return statement.executeUpdate() > 0;
+            boolean removed = statement.executeUpdate() > 0;
+            CacheEpoch.bump();
+            return removed;
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to remove damage threshold for set " + setId, e);
         }
     }
 
+    // Read for every worn set piece on every combat event - see ReadCache. Returned lists are read-only.
+    private final ReadCache<UUID, List<SetThresholdDamage>> cache = new ReadCache<>(1024);
+
     public List<SetThresholdDamage> findBySet(UUID setId) {
+        return cache.get(setId, () -> List.copyOf(loadBySet(setId)));
+    }
+
+    private List<SetThresholdDamage> loadBySet(UUID setId) {
         List<SetThresholdDamage> out = new ArrayList<>();
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""

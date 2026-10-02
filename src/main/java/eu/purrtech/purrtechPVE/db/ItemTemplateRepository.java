@@ -34,6 +34,7 @@ public final class ItemTemplateRepository {
                      """)) {
             bind(statement, template);
             statement.executeUpdate();
+            CacheEpoch.bump();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to insert item template " + template.key(), e);
         }
@@ -76,17 +77,22 @@ public final class ItemTemplateRepository {
             statement.setLong(18, template.updatedAt());
             statement.setString(19, template.id().toString());
             statement.executeUpdate();
+            CacheEpoch.bump();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to update item template " + template.key(), e);
         }
     }
 
+    // Read on every combat event (see ReadCache) - invalidated by insert/update/delete below.
+    private final ReadCache<String, Optional<ItemTemplate>> byKeyCache = new ReadCache<>(2048);
+    private final ReadCache<UUID, Optional<ItemTemplate>> byIdCache = new ReadCache<>(2048);
+
     public Optional<ItemTemplate> findByKey(String key) {
-        return findOne("SELECT * FROM item_templates WHERE key = ?", key);
+        return byKeyCache.get(key, () -> findOne("SELECT * FROM item_templates WHERE key = ?", key));
     }
 
     public Optional<ItemTemplate> findById(UUID id) {
-        return findOne("SELECT * FROM item_templates WHERE id = ?", id.toString());
+        return byIdCache.get(id, () -> findOne("SELECT * FROM item_templates WHERE id = ?", id.toString()));
     }
 
     private Optional<ItemTemplate> findOne(String sql, String param) {
@@ -120,7 +126,11 @@ public final class ItemTemplateRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("DELETE FROM item_templates WHERE key = ?")) {
             statement.setString(1, key);
-            return statement.executeUpdate() > 0;
+            boolean deleted = statement.executeUpdate() > 0;
+            // Cascades into tables other cached repositories read (set members, ...), so this
+            // has to invalidate every cache, not just this one.
+            CacheEpoch.bump();
+            return deleted;
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to delete item template " + key, e);
         }

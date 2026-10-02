@@ -83,13 +83,23 @@ public final class ItemTemplateSnapshotRepository {
             }
             statement.setLong(20, snapshot.createdAt());
             statement.executeUpdate();
+            CacheEpoch.bump();
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to save snapshot v" + snapshot.version()
                     + " for template " + snapshot.templateId(), e);
         }
     }
 
+    // A snapshot is immutable once written (a new version is a new row), and is read for every
+    // equipped piece on every combat event - see ReadCache. A miss is cached too (as an empty
+    // Optional), which stays correct because insert() below invalidates everything.
+    private final ReadCache<String, Optional<TemplateSnapshot>> cache = new ReadCache<>(1024);
+
     public Optional<TemplateSnapshot> find(UUID templateId, int version) {
+        return cache.get(templateId + ":" + version, () -> load(templateId, version));
+    }
+
+    private Optional<TemplateSnapshot> load(UUID templateId, int version) {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
                      SELECT * FROM item_template_snapshot WHERE template_id = ? AND version = ?
