@@ -30,11 +30,14 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.projectiles.ProjectileSource;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -327,26 +330,60 @@ public final class CombatDamageListener implements Listener {
      * what is actually taken off the target (vanilla armor/enchantments/resistance, MythicMobs damage
      * modifiers, invulnerability frames) - so a gap between the two is damage lost outside this plugin.
      */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onDamageResult(EntityDamageByEntityEvent event) {
         PendingFeedback pending = pendingFeedback.remove(event);
-        double dealt = event.getFinalDamage();
-        if (pending != null) {
-            sendFeedback(pending, dealt);
+        if (pending == null) {
+            return; // this plugin never handled the hit (toggled off, not a player involved, ...)
         }
-        if (!(event.getDamager() instanceof Player player) || !debugModeService.isEnabled(player.getUniqueId())
-                || !(event.getEntity() instanceof LivingEntity target)) {
+        List<Player> watching = new ArrayList<>(2);
+        if (event.getDamager() instanceof Player damager && debugModeService.isEnabled(damager.getUniqueId())) {
+            watching.add(damager);
+        }
+        if (event.getEntity() instanceof Player victim && victim != event.getDamager() && debugModeService.isEnabled(victim.getUniqueId())) {
+            watching.add(victim);
+        }
+        if (event.isCancelled()) {
+            // Runs at MONITOR with cancelled events included on purpose: if this plugin set a damage but
+            // nothing was dealt, this is the only place that can tell it was cancelled afterwards.
+            for (Player player : watching) {
+                player.sendMessage(plugin.getMessages().render(player.locale(), "debug.combat-cancelled",
+                        Placeholder.unparsed("plugins", pluginsAfterUs())));
+            }
+            return;
+        }
+        double dealt = event.getFinalDamage();
+        sendFeedback(pending, dealt);
+        if (watching.isEmpty() || !(event.getEntity() instanceof LivingEntity target)) {
             return;
         }
         AttributeInstance armor = target.getAttribute(Attribute.ARMOR);
         AttributeInstance toughness = target.getAttribute(Attribute.ARMOR_TOUGHNESS);
-        player.sendMessage(plugin.getMessages().render(player.locale(), "debug.combat-final",
-                Placeholder.unparsed("dealt", DamageFeedback.formatAmount(dealt)),
-                Placeholder.unparsed("crit", event.isCritical() ? "ano" : "ne"),
-                Placeholder.unparsed("health", DamageFeedback.formatAmount(target.getHealth())),
-                Placeholder.unparsed("immune", target.getNoDamageTicks() + "/" + target.getMaximumNoDamageTicks()),
-                Placeholder.unparsed("varmor", DamageFeedback.formatAmount(armor != null ? armor.getValue() : 0)
-                        + "/" + DamageFeedback.formatAmount(toughness != null ? toughness.getValue() : 0))));
+        for (Player player : watching) {
+            player.sendMessage(plugin.getMessages().render(player.locale(), "debug.combat-final",
+                    Placeholder.unparsed("dealt", DamageFeedback.formatAmount(dealt)),
+                    Placeholder.unparsed("crit", event.isCritical() ? "ano" : "ne"),
+                    Placeholder.unparsed("health", DamageFeedback.formatAmount(target.getHealth())),
+                    Placeholder.unparsed("immune", target.getNoDamageTicks() + "/" + target.getMaximumNoDamageTicks()),
+                    Placeholder.unparsed("varmor", DamageFeedback.formatAmount(armor != null ? armor.getValue() : 0)
+                            + "/" + DamageFeedback.formatAmount(toughness != null ? toughness.getValue() : 0))));
+        }
+    }
+
+    /**
+     * Plugins with a damage listener that runs AFTER this one (HIGH, HIGHEST) - the only ones that could
+     * have cancelled or zeroed a hit this plugin had already handled. Bukkit doesn't say who cancelled,
+     * so this narrows it down to a short list.
+     */
+    private static String pluginsAfterUs() {
+        java.util.Set<String> names = new java.util.TreeSet<>();
+        for (RegisteredListener listener : EntityDamageByEntityEvent.getHandlerList().getRegisteredListeners()) {
+            EventPriority priority = listener.getPriority();
+            if ((priority == EventPriority.HIGH || priority == EventPriority.HIGHEST) && !listener.getPlugin().getName().equals("PurrtechPVE")) {
+                names.add(listener.getPlugin().getName());
+            }
+        }
+        return names.isEmpty() ? "-" : String.join(", ", names);
     }
 
     /**

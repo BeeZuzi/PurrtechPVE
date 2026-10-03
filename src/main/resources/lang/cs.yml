@@ -25,6 +25,7 @@ debug:
   stats-armor: "<yellow>[Debug]</yellow> <gray>brnění:</gray> <white><points></white> <gray>bodů, ubírá z fyzického</gray> <white><cut>%</white>"
   stats-sources: "<yellow>[Debug]</yellow> <gray>zdroje damage:</gray> <white><values></white>"
   combat-final: "<yellow>[Debug]</yellow> <gray>reálně ubráno:</gray> <white><dealt></white> <gray>(vanilla crit: <crit>, HP cíle před zásahem: <health>, i-frames: <immune>, vanilla brnění cíle: <varmor>)</gray>"
+  combat-cancelled: "<yellow>[Debug]</yellow> <red>Zásah ZRUŠIL jiný plugin po PvE - nic se neudělilo.</red> <gray>Možní viníci (listenery po nás): <white><plugins></white></gray>"
   combat-skipped: "<yellow>[Debug]</yellow> <red>Feedback přeskočen:</red> <gray>svět</gray> <white><world></white> <gray>režim</gray> <white><kind></white> <dark_gray>(vypnuto v config.yml)</dark_gray>"
 
 # Jméno + ikonka (Unicode symbol) každého damage typu, jak se ukazuje v loru itemu a v GUI editoru

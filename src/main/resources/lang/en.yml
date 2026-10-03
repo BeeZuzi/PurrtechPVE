@@ -25,6 +25,7 @@ debug:
   stats-armor: "<yellow>[Debug]</yellow> <gray>armor:</gray> <white><points></white> <gray>points, cuts physical by</gray> <white><cut>%</white>"
   stats-sources: "<yellow>[Debug]</yellow> <gray>damage sources:</gray> <white><values></white>"
   combat-final: "<yellow>[Debug]</yellow> <gray>actually dealt:</gray> <white><dealt></white> <gray>(vanilla crit: <crit>, target HP before hit: <health>, i-frames: <immune>, target vanilla armor/toughness: <varmor>)</gray>"
+  combat-cancelled: "<yellow>[Debug]</yellow> <red>The hit was CANCELLED by another plugin after PvE - nothing was dealt.</red> <gray>Suspects (listeners after us): <white><plugins></white></gray>"
   combat-skipped: "<yellow>[Debug]</yellow> <red>Feedback skipped:</red> <gray>world</gray> <white><world></white> <gray>kind</gray> <white><kind></white> <dark_gray>(disabled in config.yml)</dark_gray>"
 
 # Each damage type's name + icon (a Unicode symbol) as shown in item lore and the GUI editor
