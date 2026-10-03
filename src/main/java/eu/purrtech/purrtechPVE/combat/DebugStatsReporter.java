@@ -7,6 +7,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
@@ -48,6 +49,9 @@ public final class DebugStatsReporter {
         player.sendMessage(messages.render(locale, "debug.stats-armor",
                 Placeholder.unparsed("points", DamageFeedback.formatAmount(armorPoints)),
                 Placeholder.unparsed("cut", DamageFeedback.formatAmount(armorCut))));
+        List<String> sources = equipmentResolver.describeDamageSources(player);
+        player.sendMessage(messages.render(locale, "debug.stats-sources",
+                Placeholder.unparsed("values", sources.isEmpty() ? "-" : String.join("; ", sources))));
     }
 
     /** {@code "fire 3, slashing 6.5"} or, for percents, {@code "fire +40%, frozen -25%"} - zero entries left out, {@code "-"} when nothing. */

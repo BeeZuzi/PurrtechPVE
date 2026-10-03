@@ -57,7 +57,7 @@ class DamageFeedbackTest {
     }
 
     @Test
-    void zeroOrNegativeAmountsAreOmitted() {
+    void zeroAmountsAreOmittedButNegativeOnesAreShown() {
         Map<String, Double> perType = new LinkedHashMap<>();
         perType.put("fire", 0.0);
         perType.put("frozen", -1.0);
@@ -65,8 +65,10 @@ class DamageFeedbackTest {
 
         String text = plain(DamageFeedback.render(perType, REGISTRY, NamedTextColor.RED));
 
+        // a negative component really lowers the total, so it must show up or the numbers don't add up
+        String frozenIcon = REGISTRY.find("frozen").orElseThrow().icon();
         String lightningIcon = REGISTRY.find("lightning").orElseThrow().icon();
-        assertEquals(lightningIcon + " 2", text);
+        assertEquals(frozenIcon + " -1  " + lightningIcon + " 2", text);
     }
 
     @Test

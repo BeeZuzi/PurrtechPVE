@@ -21,6 +21,8 @@ import eu.purrtech.purrtechPVE.item.DamageMode;
 import eu.purrtech.purrtechPVE.item.ReflectEffect;
 import eu.purrtech.purrtechPVE.item.StunEffect;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -38,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -113,6 +116,9 @@ public final class CombatDamageListener implements Listener {
     private final BleedManager bleedManager;
     private CombatFeedbackSettings combatFeedbackSettings;
     private final DpsTracker dpsTracker;
+    // Hits waiting for onDamageResult. Weak so a hit another plugin cancels in between (MONITOR skips
+    // cancelled events) can't leak; the events are only ever touched on the main thread.
+    private final Map<EntityDamageByEntityEvent, PendingFeedback> pendingFeedback = new WeakHashMap<>();
     private final PurrtechPVE plugin;
     private final DebugModeService debugModeService;
     // System.currentTimeMillis() an entity's stun expires at - see the class javadoc's stun
@@ -307,21 +313,10 @@ public final class CombatDamageListener implements Listener {
             attacker.damage(reflected);
         }
 
-        boolean effectivenessColors = combatFeedbackSettings.effectivenessColors();
-        if (defender instanceof Player defenderPlayer) {
-            defenderPlayer.sendActionBar(DamageFeedback.render(perTypeForDisplay, damageTypeRegistry, NamedTextColor.RED,
-                    isCritical, resistance, effectivenessColors));
-        }
-        if (attacker instanceof Player attackerPlayer) {
-            Component feedback = DamageFeedback.render(perTypeForDisplay, damageTypeRegistry, NamedTextColor.YELLOW,
-                    isCritical, resistance, effectivenessColors);
-            dpsTracker.record(attackerPlayer.getUniqueId(), total);
-            if (dpsTracker.isEnabled(attackerPlayer.getUniqueId())) {
-                double dps = dpsTracker.currentDps(attackerPlayer.getUniqueId());
-                feedback = feedback.append(Component.text("  DPS: " + DamageFeedback.formatAmount(dps), NamedTextColor.AQUA));
-            }
-            attackerPlayer.sendActionBar(feedback);
-        }
+        // The action bar and DPS are shown from onDamageResult (MONITOR), once everything else has had its
+        // say, so they report the damage that was actually taken off the target - not just what this
+        // listener set on the event, which vanilla armor / MythicMobs modifiers can still reduce.
+        pendingFeedback.put(event, new PendingFeedback(attacker, defender, perTypeForDisplay, total, isCritical, resistance));
         debugHit(attacker, defender, rawDamage, total, perTypeForDisplay, resistance, armorMultiplier);
         debugHit(defender, defender, rawDamage, total, perTypeForDisplay, resistance, armorMultiplier);
     }
@@ -334,15 +329,54 @@ public final class CombatDamageListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDamageResult(EntityDamageByEntityEvent event) {
+        PendingFeedback pending = pendingFeedback.remove(event);
+        double dealt = event.getFinalDamage();
+        if (pending != null) {
+            sendFeedback(pending, dealt);
+        }
         if (!(event.getDamager() instanceof Player player) || !debugModeService.isEnabled(player.getUniqueId())
                 || !(event.getEntity() instanceof LivingEntity target)) {
             return;
         }
+        AttributeInstance armor = target.getAttribute(Attribute.ARMOR);
+        AttributeInstance toughness = target.getAttribute(Attribute.ARMOR_TOUGHNESS);
         player.sendMessage(plugin.getMessages().render(player.locale(), "debug.combat-final",
-                Placeholder.unparsed("dealt", DamageFeedback.formatAmount(event.getFinalDamage())),
+                Placeholder.unparsed("dealt", DamageFeedback.formatAmount(dealt)),
                 Placeholder.unparsed("crit", event.isCritical() ? "ano" : "ne"),
                 Placeholder.unparsed("health", DamageFeedback.formatAmount(target.getHealth())),
-                Placeholder.unparsed("immune", target.getNoDamageTicks() + "/" + target.getMaximumNoDamageTicks())));
+                Placeholder.unparsed("immune", target.getNoDamageTicks() + "/" + target.getMaximumNoDamageTicks()),
+                Placeholder.unparsed("varmor", DamageFeedback.formatAmount(armor != null ? armor.getValue() : 0)
+                        + "/" + DamageFeedback.formatAmount(toughness != null ? toughness.getValue() : 0))));
+    }
+
+    /**
+     * Shows the per-type breakdown scaled so it adds up to {@code dealt}: if something after this
+     * listener (vanilla armor, another plugin) shaved the hit down, every number is shrunk by the same
+     * ratio instead of showing damage that never happened.
+     */
+    private void sendFeedback(PendingFeedback pending, double dealt) {
+        double ratio = pending.total() > 0 ? dealt / pending.total() : 1.0;
+        Map<String, Double> shown = new HashMap<>();
+        pending.perType().forEach((type, amount) -> shown.put(type, amount * ratio));
+        boolean effectivenessColors = combatFeedbackSettings.effectivenessColors();
+        if (pending.defender() instanceof Player defenderPlayer) {
+            defenderPlayer.sendActionBar(DamageFeedback.render(shown, damageTypeRegistry, NamedTextColor.RED,
+                    pending.critical(), pending.resistance(), effectivenessColors));
+        }
+        if (pending.attacker() instanceof Player attackerPlayer) {
+            Component feedback = DamageFeedback.render(shown, damageTypeRegistry, NamedTextColor.YELLOW,
+                    pending.critical(), pending.resistance(), effectivenessColors);
+            dpsTracker.record(attackerPlayer.getUniqueId(), dealt);
+            if (dpsTracker.isEnabled(attackerPlayer.getUniqueId())) {
+                double dps = dpsTracker.currentDps(attackerPlayer.getUniqueId());
+                feedback = feedback.append(Component.text("  DPS: " + DamageFeedback.formatAmount(dps), NamedTextColor.AQUA));
+            }
+            attackerPlayer.sendActionBar(feedback);
+        }
+    }
+
+    private record PendingFeedback(LivingEntity attacker, LivingEntity defender, Map<String, Double> perType, double total,
+                                   boolean critical, Map<String, Double> resistance) {
     }
 
     /** Whether {@code entity} is still within a previously-rolled stun's duration - see the class javadoc's stun paragraph. */

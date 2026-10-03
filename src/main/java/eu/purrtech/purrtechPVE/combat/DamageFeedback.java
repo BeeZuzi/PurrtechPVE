@@ -46,7 +46,10 @@ public final class DamageFeedback {
                 : Component.empty();
         boolean first = true;
         for (Map.Entry<String, Double> entry : perType.entrySet()) {
-            if (entry.getValue() <= 0) {
+            // Only a true zero is left out: a NEGATIVE component (e.g. an item with -80% of one type)
+            // really reduces the total, and hiding it made the shown numbers add up to more than
+            // was dealt.
+            if (Math.abs(entry.getValue()) < 0.05) {
                 continue;
             }
             if (!first) {

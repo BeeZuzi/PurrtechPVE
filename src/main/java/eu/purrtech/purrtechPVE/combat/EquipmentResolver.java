@@ -687,6 +687,46 @@ public final class EquipmentResolver {
         return gear + " | mm: " + mob;
     }
 
+    /**
+     * For {@code /pve debug}: every damage entry that feeds {@link #resolveOutgoingTypedDamage}, with the
+     * piece it comes from - the wielded item's WIELDED entries, every worn piece's WORN entries and any
+     * active set bonus. A percent entry is a share of the hit's base damage (so `-80%` of a 6.5 hit is
+     * -5.2), which is how a negative number can appear in the breakdown with no obvious cause.
+     */
+    public List<String> describeDamageSources(LivingEntity attacker) {
+        List<String> out = new ArrayList<>();
+        EntityEquipment equipment = attacker.getEquipment();
+        if (equipment == null) {
+            return out;
+        }
+        resolvedItemOf(liveIfMob(attacker, equipment.getItemInMainHand())).ifPresent(item ->
+                item.snapshot().damageContributions().stream()
+                        .filter(c -> c.context() == ModifierContext.WIELDED)
+                        .forEach(c -> out.add("held " + item.template().key() + ": " + describeContribution(c))));
+        Map<String, ItemStack> pieces = new java.util.TreeMap<>(allEquippedPieces(attacker, equipment));
+        for (Map.Entry<String, ItemStack> entry : pieces.entrySet()) {
+            resolvedItemOf(entry.getValue())
+                    .filter(item -> isAllowedInSlot(item.template(), entry.getKey()))
+                    .ifPresent(item -> item.snapshot().damageContributions().stream()
+                            .filter(c -> c.context() == ModifierContext.WORN)
+                            .forEach(c -> out.add(entry.getKey().toLowerCase(java.util.Locale.ROOT) + " " + item.template().key()
+                                    + " (worn): " + describeContribution(c))));
+        }
+        for (Map.Entry<UUID, Integer> setCount : countEquippedSetPieces(pieces).entrySet()) {
+            for (SetThresholdDamage t : setDamageThresholdRepository.findBySet(setCount.getKey())) {
+                if (t.pieceCount() <= setCount.getValue()) {
+                    out.add("set bonus (" + t.pieceCount() + " pcs): " + t.damageTypeKey() + " " + t.amount()
+                            + (t.mode() == DamageMode.PERCENT_OF_TOTAL ? "%" : ""));
+                }
+            }
+        }
+        return out;
+    }
+
+    private static String describeContribution(DamageContribution c) {
+        return c.damageTypeKey() + " " + c.amount() + (c.mode() == DamageMode.PERCENT_OF_TOTAL ? "%" : "");
+    }
+
     private Optional<ResolvedItem> resolvedItemOf(ItemStack stack) {
         return renderer.readStamp(stack).flatMap(stamp ->
                 templateRepository.findByKey(stamp.templateKey()).flatMap(template ->
