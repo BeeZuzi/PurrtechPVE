@@ -100,6 +100,9 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class CombatDamageListener implements Listener {
 
+    /** Vanilla's critical-hit damage multiplier (jump/falling melee hit). */
+    private static final double VANILLA_CRIT_MULTIPLIER = 1.5;
+
     // Not final - see refresh(), called by PurrtechPVE.reload() so an admin flipping pvp.enabled/
     // pve.enabled/combat.show-effectiveness-colors in config.yml and running /pve reload takes
     // effect immediately, instead of needing a server restart (this listener is registered once
@@ -192,9 +195,16 @@ public final class CombatDamageListener implements Listener {
         }
 
         double rawDamage = event.getDamage();
-        Map<String, Double> typedDamage = equipmentResolver.resolveOutgoingTypedDamage(attacker, rawDamage);
+        // Vanilla's own critical (a jump hit) multiplies the event's damage by 1.5, but a FLAT damage
+        // contribution ignores rawDamage entirely - so for a weapon with fixed damage that multiplier
+        // simply vanished and a crit hit barely differed from a normal one. Resolve against the
+        // non-crit base instead and apply the 1.5 to the finished result below, which also keeps
+        // percent contributions (they scale with rawDamage) from being boosted twice.
+        double vanillaCritFactor = event.isCritical() && event.getDamager() instanceof Player ? VANILLA_CRIT_MULTIPLIER : 1.0;
+        double baseDamage = rawDamage / vanillaCritFactor;
+        Map<String, Double> typedDamage = equipmentResolver.resolveOutgoingTypedDamage(attacker, baseDamage);
         Map<String, Double> resistance = equipmentResolver.resolveResistance(attacker, defender);
-        DamagePipeline.Result result = DamagePipeline.applyDetailed(rawDamage, typedDamage, resistance);
+        DamagePipeline.Result result = DamagePipeline.applyDetailed(baseDamage, typedDamage, resistance);
 
         // Flat, vanilla-style armor points (ItemTemplate.armorAmount) - a separate multiplicative
         // layer mirroring vanilla's own armor DamageModifier, but scoped to DamageTypeRegistry
@@ -228,6 +238,12 @@ public final class CombatDamageListener implements Listener {
             total *= critFactor;
             Map<String, Double> scaled = new HashMap<>();
             perTypeArmored.forEach((type, amount) -> scaled.put(type, amount * critFactor));
+            perTypeForDisplay = scaled;
+        }
+        if (vanillaCritFactor != 1.0) {
+            total *= vanillaCritFactor;
+            Map<String, Double> scaled = new HashMap<>();
+            perTypeForDisplay.forEach((type, amount) -> scaled.put(type, amount * vanillaCritFactor));
             perTypeForDisplay = scaled;
         }
         event.setDamage(total);
@@ -308,6 +324,25 @@ public final class CombatDamageListener implements Listener {
         }
         debugHit(attacker, defender, rawDamage, total, perTypeForDisplay, resistance, armorMultiplier);
         debugHit(defender, defender, rawDamage, total, perTypeForDisplay, resistance, armorMultiplier);
+    }
+
+    /**
+     * {@code /pve debug} only: what the hit really did once every other plugin and vanilla had their
+     * say. The earlier debug line shows what THIS plugin set on the event; {@code getFinalDamage()} is
+     * what is actually taken off the target (vanilla armor/enchantments/resistance, MythicMobs damage
+     * modifiers, invulnerability frames) - so a gap between the two is damage lost outside this plugin.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDamageResult(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player player) || !debugModeService.isEnabled(player.getUniqueId())
+                || !(event.getEntity() instanceof LivingEntity target)) {
+            return;
+        }
+        player.sendMessage(plugin.getMessages().render(player.locale(), "debug.combat-final",
+                Placeholder.unparsed("dealt", DamageFeedback.formatAmount(event.getFinalDamage())),
+                Placeholder.unparsed("crit", event.isCritical() ? "ano" : "ne"),
+                Placeholder.unparsed("health", DamageFeedback.formatAmount(target.getHealth())),
+                Placeholder.unparsed("immune", target.getNoDamageTicks() + "/" + target.getMaximumNoDamageTicks())));
     }
 
     /** Whether {@code entity} is still within a previously-rolled stun's duration - see the class javadoc's stun paragraph. */
