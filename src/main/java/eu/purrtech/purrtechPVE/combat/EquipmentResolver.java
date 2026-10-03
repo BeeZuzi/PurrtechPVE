@@ -148,7 +148,7 @@ public final class EquipmentResolver {
 
     /**
      * The held weapon's WIELDED contributions split rawDamage into typed buckets (see {@link
-     * #weaponFallbackType} for what's used if the held item has none/isn't one of our templates);
+     * #weaponFallbackType} for the base type the hit's own damage always starts in);
      * every equipped piece's WORN contributions (respecting each template's allowedSlots
      * restriction, if any) are added as bonus damage on top of that split, merged into the same
      * buckets, and so are any active set-threshold bonuses.
@@ -165,12 +165,13 @@ public final class EquipmentResolver {
                 .map(item -> item.snapshot().damageContributions())
                 .orElse(List.of())
                 .stream().filter(c -> c.context() == ModifierContext.WIELDED).toList();
-        if (wielded.isEmpty()) {
-            typed.put(weaponFallbackType(attacker, heldItem), rawDamage);
-        } else {
-            for (DamageContribution c : wielded) {
-                typed.merge(c.damageTypeKey(), resolveAmount(c, rawDamage), Double::sum);
-            }
+        // The hit's own damage is the weapon's BASE type (a stone-sword-based mace is slashing, a bow
+        // piercing, see weaponFallbackType) and always counts; every contribution then adds to or
+        // takes away from its own type. So "-80% slashing" on that mace turns a 5 slash base into 1,
+        // instead of being subtracted from the rest of the hit.
+        typed.merge(weaponFallbackType(attacker, heldItem), rawDamage, Double::sum);
+        for (DamageContribution c : wielded) {
+            typed.merge(c.damageTypeKey(), resolveAmount(c, rawDamage), Double::sum);
         }
 
         Map<String, ItemStack> pieces = allEquippedPieces(attacker, equipment);
@@ -190,6 +191,15 @@ public final class EquipmentResolver {
                 }
             }
         }
+        return nonNegative(typed);
+    }
+
+    /**
+     * Each type is its own bucket and bottoms out at 0: a penalty can shrink its own type until it
+     * does nothing, but never goes negative and so never eats into the damage of another type.
+     */
+    static Map<String, Double> nonNegative(Map<String, Double> typed) {
+        typed.replaceAll((type, amount) -> Math.max(0.0, amount));
         return typed;
     }
 
@@ -699,6 +709,7 @@ public final class EquipmentResolver {
         if (equipment == null) {
             return out;
         }
+        out.add("base hit: " + weaponFallbackType(attacker, liveIfMob(attacker, equipment.getItemInMainHand())));
         resolvedItemOf(liveIfMob(attacker, equipment.getItemInMainHand())).ifPresent(item ->
                 item.snapshot().damageContributions().stream()
                         .filter(c -> c.context() == ModifierContext.WIELDED)
