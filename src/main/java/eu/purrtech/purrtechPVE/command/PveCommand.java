@@ -443,16 +443,18 @@ public final class PveCommand {
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
-                .then(Commands.literal("upgrade")
-                        .requires(source -> source.getSender().hasPermission("purrtechpve.upgrade.use"))
-                        .executes(ctx -> {
-                            if (!(ctx.getSource().getSender() instanceof Player player)) {
-                                ctx.getSource().getSender().sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
-                                return 0;
-                            }
-                            UpgradeMenu.open(plugin, player);
-                            return Command.SINGLE_SUCCESS;
-                        }))
+                // Per-item upgrades (UpgradeMenu / ItemUpgradeService) are built but switched off until a
+                // future update: re-add this literal to enable them.
+                // .then(Commands.literal("upgrade")
+                //         .requires(source -> source.getSender().hasPermission("purrtechpve.upgrade.use"))
+                //         .executes(ctx -> {
+                //             if (!(ctx.getSource().getSender() instanceof Player player)) {
+                //                 ctx.getSource().getSender().sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+                //                 return 0;
+                //             }
+                //             UpgradeMenu.open(plugin, player);
+                //             return Command.SINGLE_SUCCESS;
+                //         }))
                 .then(Commands.literal("mobs")
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .executes(ctx -> {
