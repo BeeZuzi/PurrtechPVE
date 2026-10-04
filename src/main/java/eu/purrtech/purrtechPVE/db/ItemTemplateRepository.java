@@ -219,12 +219,31 @@ public final class ItemTemplateRepository {
         );
     }
 
+    /**
+     * What a lone blank line is stored as. Joining {@code [""]} with newlines gives {@code ""}, which
+     * {@link #decodeLore} has to read as "no lore at all" (that is also how a template with no custom
+     * lore is stored), so a template whose only custom line is a spacer would silently lose it. Any
+     * other list - including two or more blank lines - round-trips through the plain join untouched.
+     * A control character, so it can't be typed into a lore line by accident.
+     */
+    private static final String SINGLE_BLANK_LINE = "\u0001";
+
     /** Newline-joined, not comma-joined like allowedSlots - lore lines are free MiniMessage text that could legitimately contain commas. */
     static String encodeLore(List<String> customLore) {
-        return customLore.isEmpty() ? null : String.join("\n", customLore);
+        if (customLore.isEmpty()) {
+            return null;
+        }
+        String joined = String.join("\n", customLore);
+        return joined.isEmpty() ? SINGLE_BLANK_LINE : joined;
     }
 
     static List<String> decodeLore(String raw) {
-        return raw == null || raw.isEmpty() ? List.of() : Arrays.asList(raw.split("\n", -1));
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        }
+        if (raw.equals(SINGLE_BLANK_LINE)) {
+            return List.of("");
+        }
+        return Arrays.asList(raw.split("\n", -1));
     }
 }
