@@ -263,6 +263,7 @@ public final class CombatDamageListener implements Listener {
             perTypeForDisplay = scaled;
         }
         event.setDamage(total);
+        ignoreEnchantmentProtection(event);
 
         // Bleed: rolled independently of crit, off the attacker's whole pooled equipped set, only once chance/
         // duration/damage are ALL set (see BleedEffect.isComplete()) - a half-configured bleed
@@ -375,6 +376,26 @@ public final class CombatDamageListener implements Listener {
                     Placeholder.unparsed("varmor", DamageFeedback.formatAmount(armor != null ? armor.getValue() : 0)
                             + "/" + DamageFeedback.formatAmount(toughness != null ? toughness.getValue() : 0)),
                     Placeholder.unparsed("mods", vanillaModifiers(event))));
+        }
+    }
+
+    /**
+     * Vanilla's own {@code MAGIC} damage modifier is the armor's Protection-type enchantments
+     * (nothing to do with this plugin's {@code magic} damage type). It runs on top of the typed
+     * damage and resistances already worked out above and can swallow up to 80% of a hit, so
+     * resistances would effectively be decided by what is enchanted on the armor instead of by the
+     * item templates. Zeroing it hands that job back to the plugin; vanilla armor points are left
+     * alone. Must run right after {@code setDamage(total)}, because that call recomputes the
+     * modifiers from the new base damage.
+     */
+    @SuppressWarnings("deprecation")
+    private void ignoreEnchantmentProtection(EntityDamageByEntityEvent event) {
+        try {
+            if (event.isApplicable(EntityDamageEvent.DamageModifier.MAGIC)) {
+                event.setDamage(EntityDamageEvent.DamageModifier.MAGIC, 0);
+            }
+        } catch (RuntimeException e) {
+            plugin.getLogger().warning("Couldn't zero the vanilla enchantment-protection modifier: " + e);
         }
     }
 
