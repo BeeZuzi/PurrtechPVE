@@ -58,7 +58,7 @@ public final class StackStateCarrier {
             carryAttributeModifiers(oldMeta, baselineMeta, meta);
         }
         carryDurability(old, fresh, oldMeta, meta);
-        carryText(oldMeta, meta);
+        carryText(oldMeta, baselineMeta, meta);
         // replace=false: the new render's own stamp (template key/version, lang hash, text fingerprints) must win
         oldMeta.getPersistentDataContainer().copyTo(meta.getPersistentDataContainer(), false);
         fresh.setItemMeta(meta);
@@ -120,20 +120,32 @@ public final class StackStateCarrier {
         return Math.max(0, Math.min(scaled, newMax - 1));
     }
 
-    /** A renamed item keeps its name, and lore lines the renderer didn't write are appended after the new lore. */
-    private void carryText(ItemMeta oldMeta, ItemMeta meta) {
+    /**
+     * A renamed item keeps its name, and lore lines the renderer didn't write are appended after the new
+     * lore. "Ours" comes from the fingerprints stamped on the stack; a stack rendered before those existed
+     * has none, so the freshly rendered {@code baselineMeta} (its own template version, which is what its
+     * name and lore were built from) stands in for them. Lore lines that depend on live data can differ
+     * between the two and then count as foreign, which only ever errs towards keeping a line.
+     */
+    private void carryText(ItemMeta oldMeta, ItemMeta baselineMeta, ItemMeta meta) {
         PersistentDataContainer oldPdc = oldMeta.getPersistentDataContainer();
 
         Integer renderedName = oldPdc.get(renderer.renderedNameHashPdc(), PersistentDataType.INTEGER);
+        if (renderedName == null && baselineMeta != null && baselineMeta.displayName() != null) {
+            renderedName = ItemRenderer.textHash(baselineMeta.displayName());
+        }
         Component oldName = oldMeta.displayName();
         if (renderedName != null && oldName != null && ItemRenderer.textHash(oldName) != renderedName) {
             meta.displayName(oldName);
         }
 
         int[] renderedLore = oldPdc.get(renderer.renderedLoreHashesPdc(), PersistentDataType.INTEGER_ARRAY);
+        if (renderedLore == null && baselineMeta != null && baselineMeta.lore() != null) {
+            renderedLore = baselineMeta.lore().stream().mapToInt(ItemRenderer::textHash).toArray();
+        }
         List<Component> oldLore = oldMeta.lore();
         if (renderedLore == null || oldLore == null) {
-            return; // stacks rendered before the fingerprints existed: nothing to tell ours from theirs
+            return; // nothing to tell ours from theirs
         }
         Set<Integer> ours = new HashSet<>();
         for (int hash : renderedLore) {
