@@ -31,6 +31,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -372,8 +373,34 @@ public final class CombatDamageListener implements Listener {
                     Placeholder.unparsed("health", DamageFeedback.formatAmount(target.getHealth())),
                     Placeholder.unparsed("immune", target.getNoDamageTicks() + "/" + target.getMaximumNoDamageTicks()),
                     Placeholder.unparsed("varmor", DamageFeedback.formatAmount(armor != null ? armor.getValue() : 0)
-                            + "/" + DamageFeedback.formatAmount(toughness != null ? toughness.getValue() : 0))));
+                            + "/" + DamageFeedback.formatAmount(toughness != null ? toughness.getValue() : 0)),
+                    Placeholder.unparsed("mods", vanillaModifiers(event))));
         }
+    }
+
+    /**
+     * {@code /pve debug} only: what vanilla took off this hit after our listener set it, per modifier
+     * (armor, resistance effect, enchantment protection, absorption, ...). Shows where a big gap
+     * between "hit ... -> X" and "actually dealt" comes from. Uses Bukkit's deprecated DamageModifier
+     * API, which Paper still ships and which is the only per-modifier readout the event offers.
+     */
+    @SuppressWarnings("deprecation")
+    private static String vanillaModifiers(EntityDamageByEntityEvent event) {
+        StringBuilder out = new StringBuilder();
+        for (EntityDamageEvent.DamageModifier modifier : EntityDamageEvent.DamageModifier.values()) {
+            if (modifier == EntityDamageEvent.DamageModifier.BASE || !event.isApplicable(modifier)) {
+                continue;
+            }
+            double amount = event.getDamage(modifier);
+            if (amount == 0) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(", ");
+            }
+            out.append(modifier.name().toLowerCase(Locale.ROOT)).append(' ').append(DamageFeedback.formatAmount(amount));
+        }
+        return out.length() == 0 ? "-" : out.toString();
     }
 
     /**
