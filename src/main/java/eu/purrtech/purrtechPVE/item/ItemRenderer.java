@@ -38,6 +38,14 @@ public final class ItemRenderer {
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
+    /**
+     * Bumped whenever how a stack LOOKS changes without its template or the lang text changing (so
+     * nothing else would mark circulating stacks stale) - it is folded into {@link #currentLangHash},
+     * which makes every older stack re-render once. 2: lore italic is set explicitly (custom lore
+     * normal, generated lines italic).
+     */
+    private static final int RENDER_REVISION = 2;
+
     private final Plugin plugin;
     // Not final - see refresh(), called by PurrtechPVE.reload() so an admin editing lang.yml or
     // the locale in config.yml and running /pve reload doesn't need a server restart to see it in
@@ -70,7 +78,7 @@ public final class ItemRenderer {
 
     /** Identifies the lang text + locale a stack was rendered with, so a lang edit marks every older stack stale. */
     public int currentLangHash() {
-        return Objects.hash(messages.fingerprint(), locale.toLanguageTag());
+        return Objects.hash(messages.fingerprint(), locale.toLanguageTag(), RENDER_REVISION);
     }
 
     /** See the {@code messages}/{@code locale} field comment - called by {@code PurrtechPVE.reload()}. */
@@ -249,7 +257,20 @@ public final class ItemRenderer {
                                        ArmorClass armorClass, double armorAmount) {
         List<LoreLine> candidates = lineCandidates(customLore, hiddenHeaders, contributions, modifiers,
                 armorPenetration, bleedEffect, criticalEffect, stunEffect, reflectEffect, attributeModifiers, armorClass, armorAmount);
-        return LoreLine.canonicalize(loreOrder, candidates).stream().map(LoreLine::component).toList();
+        return LoreLine.canonicalize(loreOrder, candidates).stream().map(ItemRenderer::withDefaultItalic).toList();
+    }
+
+    /**
+     * The client draws every lore line italic unless told otherwise, so the italic of each line is set
+     * explicitly: lines this plugin generates (headers, damage, resistances, effects, ...) are italic,
+     * admin-written custom lore is not. Only a DEFAULT - {@code decorationIfAbsent} leaves alone anything
+     * the text itself already decided, such as {@code <i>...</i>} or {@code &o} in a custom line, which
+     * therefore stays italic exactly where the author asked for it.
+     */
+    static Component withDefaultItalic(LoreLine line) {
+        boolean custom = line.key().startsWith("custom#");
+        return line.component().decorationIfAbsent(TextDecoration.ITALIC,
+                custom ? TextDecoration.State.FALSE : TextDecoration.State.TRUE);
     }
 
     /**

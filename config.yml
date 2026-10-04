@@ -1,0 +1,65 @@
+# PurrtechPVE configuration
+
+# storage.type is currently always sqlite; reserved for a future mysql backend
+storage:
+  type: sqlite
+
+worlds:
+  # worlds where the whole custom damage/resistance/trinket system is disabled
+  disabled: []
+
+pvp:
+  enabled: false
+  disabled-worlds: []
+
+pve:
+  enabled: true
+  disabled-worlds: []
+
+drop-hologram:
+  # Server-wide switch for the floating name hologram above items dropped in the world by this
+  # plugin (mob drops, /pve item give, etc). Off here overrides every per-item toggle - turn it
+  # off here instead of having to disable it on each item individually.
+  enabled: true
+
+combat:
+  # Colors each damage-type number in the action-bar hit feedback by how effective it was
+  # against the target instead of a flat attacker/defender color: yellow = target is weak to
+  # it (deals more than the weapon's written damage), white = normal (deals exactly the
+  # written damage), gray = target resists it (deals less than written). On by default.
+  show-effectiveness-colors: true
+  # Hard floor/ceiling every resolved damage-type resistance percent is clamped into, no matter
+  # how many stacking sources (armor class profile, item modifiers, set bonuses, mob profile)
+  # pushed it past that line - applies to weapon hits, bleed ticks and the poison/wither/fire/
+  # frozen vanilla-effect linkage alike. Positive = resistance, negative = weakness.
+  resistance-percent-max: 77
+  resistance-percent-min: -200
+
+# virtual accessory (trinket) slots, in addition to vanilla equipment slots -
+# an item template can restrict itself to any of these by name
+accessory-slots:
+  - RING_1
+  - RING_2
+  - AMULET
+  - BELT
+
+# cs or en - used for console/non-player senders; players always see
+# messages in their own client language if a translation exists, English
+# otherwise, regardless of this setting
+locale: cs
+
+# How much of a weapon's armor-penetration against one armor class ALSO counts against a
+# differently-classed defender - see ArmorPenetration's javadoc. 1.0 means fully effective
+# cross-class (default - a light-penetration hit against medium/heavy armor still removes just
+# as much as it would against light); lower it toward 0 to make penetration only work well
+# against its own matching class.
+armor-penetration-conversion:
+  light:
+    medium: 1.0
+    heavy: 1.0
+  medium:
+    light: 1.0
+    heavy: 1.0
+  heavy:
+    light: 1.0
+    medium: 1.0
