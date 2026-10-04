@@ -11,6 +11,7 @@ import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.EntityRemoveEvent;
 import org.bukkit.event.entity.ItemDespawnEvent;
 import org.bukkit.event.entity.ItemMergeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
@@ -82,6 +83,19 @@ public final class DropHologramListener implements Listener {
         // Only the merged-away source entity needs cleanup - the surviving target's own hologram
         // (if any) is still valid and untouched by this event.
         removeHologram(event.getEntity());
+    }
+
+    /**
+     * Catch-all for every other way the item entity can go away - lava, fire, cactus, explosions,
+     * the void, a command - none of which fire the despawn/pickup/merge events above, and which
+     * leave the display passenger floating where the item was. Runs before the entity is removed,
+     * so its passengers are still attached.
+     */
+    @EventHandler
+    public void onRemove(EntityRemoveEvent event) {
+        if (event.getEntity() instanceof Item item) {
+            removeHologram(item);
+        }
     }
 
     private void removeHologram(Item item) {
