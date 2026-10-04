@@ -15,6 +15,7 @@ import eu.purrtech.purrtechPVE.gui.ItemEditorMenu;
 import eu.purrtech.purrtechPVE.gui.ItemEditorTab;
 import eu.purrtech.purrtechPVE.gui.ItemListMenu;
 import eu.purrtech.purrtechPVE.gui.MobMenu;
+import eu.purrtech.purrtechPVE.gui.UpgradeMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorTab;
 import eu.purrtech.purrtechPVE.gui.ArmorClassMenu;
@@ -442,6 +443,16 @@ public final class PveCommand {
                 .then(Commands.literal("accessory")
                         .requires(source -> source.getSender().hasPermission("purrtechpve.accessory.use"))
                         .executes(ctx -> openAccessoryMenu(plugin, ctx)))
+                .then(Commands.literal("upgrade")
+                        .requires(source -> source.getSender().hasPermission("purrtechpve.upgrade.use"))
+                        .executes(ctx -> {
+                            if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                ctx.getSource().getSender().sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+                                return 0;
+                            }
+                            UpgradeMenu.open(plugin, player);
+                            return Command.SINGLE_SUCCESS;
+                        }))
                 .then(Commands.literal("mobs")
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
                         .executes(ctx -> {

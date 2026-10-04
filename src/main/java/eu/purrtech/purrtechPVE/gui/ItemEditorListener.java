@@ -42,7 +42,7 @@ public final class ItemEditorListener implements Listener {
         Object holder = event.getInventory().getHolder();
         if (!(holder instanceof ItemEditorHolder) && !(holder instanceof SetEditorHolder) && !(holder instanceof ItemListHolder)
                 && !(holder instanceof ArmorClassHolder) && !(holder instanceof ValueEditorHolder) && !(holder instanceof LoreOrderHolder)
-                && !(holder instanceof MobMenuHolder)) {
+                && !(holder instanceof MobMenuHolder) && !(holder instanceof UpgradeMenuHolder)) {
             return;
         }
         int slot = event.getRawSlot();
@@ -73,6 +73,8 @@ public final class ItemEditorListener implements Listener {
             LoreOrderMenu.handleClick(plugin, player, loreOrderHolder, slot, event.getClick());
         } else if (holder instanceof MobMenuHolder mobMenuHolder) {
             MobMenu.handleClick(plugin, player, mobMenuHolder, slot, event.getClick());
+        } else if (holder instanceof UpgradeMenuHolder upgradeMenuHolder) {
+            UpgradeMenu.handleClick(plugin, player, upgradeMenuHolder, slot, event.getClick());
         }
     }
 
@@ -81,7 +83,7 @@ public final class ItemEditorListener implements Listener {
         Object holder = event.getInventory().getHolder();
         if (holder instanceof ItemEditorHolder || holder instanceof SetEditorHolder || holder instanceof ItemListHolder
                 || holder instanceof ArmorClassHolder || holder instanceof ValueEditorHolder || holder instanceof LoreOrderHolder
-                || holder instanceof MobMenuHolder) {
+                || holder instanceof MobMenuHolder || holder instanceof UpgradeMenuHolder) {
             // rebasing happens by clicking the preview slot while holding the item, not dragging -
             // keeps these GUIs free of cursor/partial-stack edge cases
             event.setCancelled(true);

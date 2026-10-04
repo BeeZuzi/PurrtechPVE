@@ -8,6 +8,8 @@ import eu.purrtech.purrtechPVE.db.ItemSetMemberRepository;
 import eu.purrtech.purrtechPVE.db.ItemSetModifierThresholdRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateRepository;
 import eu.purrtech.purrtechPVE.db.ItemTemplateSnapshotRepository;
+import eu.purrtech.purrtechPVE.db.ItemUpgradeRepository;
+import eu.purrtech.purrtechPVE.item.UpgradeApplier;
 import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
 import eu.purrtech.purrtechPVE.config.ArmorPenetrationConversionSettings;
 import eu.purrtech.purrtechPVE.config.ResistancePercentBounds;
@@ -110,6 +112,7 @@ public final class EquipmentResolver {
     private final ItemSetDamageThresholdRepository setDamageThresholdRepository;
     private final ItemSetModifierThresholdRepository setModifierThresholdRepository;
     private final ItemRenderer renderer;
+    private final ItemUpgradeRepository upgradeRepository;
     private final Supplier<MythicMobsBridge> mythicMobsBridge;
     private ArmorPenetrationConversionSettings conversionSettings;
     private ResistancePercentBounds resistancePercentBounds;
@@ -123,6 +126,7 @@ public final class EquipmentResolver {
                               ItemSetDamageThresholdRepository setDamageThresholdRepository,
                               ItemSetModifierThresholdRepository setModifierThresholdRepository,
                               ItemRenderer renderer,
+                              ItemUpgradeRepository upgradeRepository,
                               Supplier<MythicMobsBridge> mythicMobsBridge,
                               ArmorPenetrationConversionSettings conversionSettings,
                               ResistancePercentBounds resistancePercentBounds) {
@@ -135,6 +139,7 @@ public final class EquipmentResolver {
         this.setDamageThresholdRepository = setDamageThresholdRepository;
         this.setModifierThresholdRepository = setModifierThresholdRepository;
         this.renderer = renderer;
+        this.upgradeRepository = upgradeRepository;
         this.mythicMobsBridge = mythicMobsBridge;
         this.conversionSettings = conversionSettings;
         this.resistancePercentBounds = resistancePercentBounds;
@@ -738,11 +743,22 @@ public final class EquipmentResolver {
         return c.damageTypeKey() + " " + c.amount() + (c.mode() == DamageMode.PERCENT_OF_TOTAL ? "%" : "");
     }
 
+    /**
+     * The single choke point every combat lookup goes through, so a circulating item's per-item
+     * upgrades (see {@link UpgradeApplier}) are folded into its snapshot here once and every
+     * damage/resistance/effect resolution above sees them.
+     */
     private Optional<ResolvedItem> resolvedItemOf(ItemStack stack) {
         return renderer.readStamp(stack).flatMap(stamp ->
                 templateRepository.findByKey(stamp.templateKey()).flatMap(template ->
                         snapshotRepository.find(template.id(), stamp.templateVersion())
-                                .map(snapshot -> new ResolvedItem(template, snapshot))));
+                                .map(snapshot -> new ResolvedItem(template, withUpgrades(stack, snapshot)))));
+    }
+
+    private TemplateSnapshot withUpgrades(ItemStack stack, TemplateSnapshot snapshot) {
+        return renderer.readInstanceId(stack)
+                .map(id -> UpgradeApplier.apply(snapshot, upgradeRepository.find(id)))
+                .orElse(snapshot);
     }
 
     private record ResolvedItem(ItemTemplate template, TemplateSnapshot snapshot) {

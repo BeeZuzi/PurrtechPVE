@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Turns a stored {@link ItemTemplate} (+ its damage contributions/type
@@ -51,6 +52,8 @@ public final class ItemRenderer {
     private final NamespacedKey langHashPdc;
     private final NamespacedKey renderedNameHashPdc;
     private final NamespacedKey renderedLoreHashesPdc;
+    private final NamespacedKey instanceIdPdc;
+    private final NamespacedKey duplicatedPdc;
 
     public ItemRenderer(Plugin plugin, Messages messages, Locale locale) {
         this.plugin = plugin;
@@ -61,6 +64,8 @@ public final class ItemRenderer {
         this.langHashPdc = new NamespacedKey(plugin, "lang_hash");
         this.renderedNameHashPdc = new NamespacedKey(plugin, "rendered_name_hash");
         this.renderedLoreHashesPdc = new NamespacedKey(plugin, "rendered_lore_hashes");
+        this.instanceIdPdc = new NamespacedKey(plugin, "instance_id");
+        this.duplicatedPdc = new NamespacedKey(plugin, "duplicated");
     }
 
     /** Identifies the lang text + locale a stack was rendered with, so a lang edit marks every older stack stale. */
@@ -80,6 +85,31 @@ public final class ItemRenderer {
 
     public NamespacedKey templateVersionPdc() {
         return templateVersionPdc;
+    }
+
+    /** PDC key of the per-item id that per-item DB data (upgrades) hangs off - absent until an item first needs one. */
+    public NamespacedKey instanceIdPdc() {
+        return instanceIdPdc;
+    }
+
+    /** PDC flag set (see {@code ItemDuplicationListener}) on an item that was cloned from one carrying an instance id. */
+    public NamespacedKey duplicatedPdc() {
+        return duplicatedPdc;
+    }
+
+    public Optional<UUID> readInstanceId(ItemStack stack) {
+        if (stack == null || !stack.hasItemMeta()) {
+            return Optional.empty();
+        }
+        String raw = stack.getItemMeta().getPersistentDataContainer().get(instanceIdPdc, PersistentDataType.STRING);
+        if (raw == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(UUID.fromString(raw));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     public NamespacedKey renderedNameHashPdc() {

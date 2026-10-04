@@ -31,6 +31,9 @@ permissions:
   purrtechpve.dps.use:
     description: Toggle your own damage-per-second action-bar readout
     default: true
+  purrtechpve.upgrade.use:
+    description: Open the per-item upgrade menu for the item in your main hand (no cost - grant deliberately)
+    default: op
   purrtechpve.debug.use:
     description: Toggle your own equip/hold change debug messages
     default: op

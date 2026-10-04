@@ -36,7 +36,10 @@ import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
 import eu.purrtech.purrtechPVE.db.MobDropRepository;
 import eu.purrtech.purrtechPVE.db.ReflectEffectRepository;
 import eu.purrtech.purrtechPVE.db.StunEffectRepository;
+import eu.purrtech.purrtechPVE.db.ItemUpgradeRepository;
 import eu.purrtech.purrtechPVE.db.MobAttackDamageRepository;
+import eu.purrtech.purrtechPVE.item.ItemUpgradeService;
+import eu.purrtech.purrtechPVE.listener.ItemDuplicationListener;
 import eu.purrtech.purrtechPVE.db.MobEquipmentRepository;
 import eu.purrtech.purrtechPVE.combat.AttackRegistry;
 import eu.purrtech.purrtechPVE.mythicmobs.PveDamageMechanicListener;
@@ -81,6 +84,8 @@ public final class PurrtechPVE extends JavaPlugin {
     private MythicMobsBridge mythicMobsBridge;
     private MobEquipmentRepository mobEquipmentRepository;
     private MobAttackDamageRepository mobAttackDamageRepository;
+    private ItemUpgradeRepository itemUpgradeRepository;
+    private ItemUpgradeService itemUpgradeService;
     private final AttackRegistry attackRegistry = new AttackRegistry();
     private MobDropRepository mobDropRepository;
     private ArmorClassProfileRepository armorClassProfileRepository;
@@ -148,6 +153,7 @@ public final class PurrtechPVE extends JavaPlugin {
         accessoryRepository = new AccessoryRepository(database);
         mobEquipmentRepository = new MobEquipmentRepository(database);
         mobAttackDamageRepository = new MobAttackDamageRepository(database);
+        itemUpgradeRepository = new ItemUpgradeRepository(database);
         mobDropRepository = new MobDropRepository(database);
         itemHologramRepository = new ItemHologramRepository(database);
         ItemSetRepository itemSetRepository = new ItemSetRepository(database);
@@ -169,7 +175,8 @@ public final class PurrtechPVE extends JavaPlugin {
                 snapshotRepository,
                 damageTypeRegistry,
                 itemRenderer);
-        itemSyncService = new ItemSyncService(itemTemplateRepository, snapshotRepository, itemRenderer);
+        itemSyncService = new ItemSyncService(itemTemplateRepository, snapshotRepository, itemRenderer, itemUpgradeRepository);
+        itemUpgradeService = new ItemUpgradeService(itemRenderer, itemUpgradeRepository, itemSyncService);
         itemSetService = new ItemSetService(
                 itemSetRepository,
                 itemSetMemberRepository,
@@ -184,7 +191,7 @@ public final class PurrtechPVE extends JavaPlugin {
         mythicMobsSetup.run();
         equipmentResolver = new EquipmentResolver(itemTemplateRepository, snapshotRepository,
                 mobDamageProfileRepository, armorClassProfileRepository, accessoryRepository, itemSetMemberRepository,
-                itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, () -> mythicMobsBridge,
+                itemSetDamageThresholdRepository, itemSetModifierThresholdRepository, itemRenderer, itemUpgradeRepository, () -> mythicMobsBridge,
                 armorPenetrationConversionSettings, resistancePercentBounds);
 
         getLogger().info("MythicMobs integration: " + (mythicMobsBridge != null ? "enabled" : "not found, running standalone"));
@@ -216,6 +223,7 @@ public final class PurrtechPVE extends JavaPlugin {
         getServer().getPluginManager().registerEvents(trinketAttributeListener, this);
         itemEditorListener = new ItemEditorListener(this);
         getServer().getPluginManager().registerEvents(itemEditorListener, this);
+        getServer().getPluginManager().registerEvents(new ItemDuplicationListener(itemRenderer), this);
         dropHologramListener = new DropHologramListener(this, dropHologramSettings.enabled());
         getServer().getPluginManager().registerEvents(dropHologramListener, this);
 
@@ -403,6 +411,14 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public MythicMobEquipmentListener getMobEquipmentListener() {
         return mobEquipmentListener;
+    }
+
+    public ItemUpgradeRepository getItemUpgradeRepository() {
+        return itemUpgradeRepository;
+    }
+
+    public ItemUpgradeService getItemUpgradeService() {
+        return itemUpgradeService;
     }
 
     public MobAttackDamageRepository getMobAttackDamageRepository() {

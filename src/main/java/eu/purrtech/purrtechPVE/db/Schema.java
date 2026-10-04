@@ -272,6 +272,20 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_mob_equipment_template ON mob_equipment(template_id)");
 
+            // What a single circulating item (the instance_id stamped on it, see ItemRenderer) has been
+            // upgraded by - non-negative deltas on top of its template version, per category
+            // (DAMAGE/RESIST/EFFECT) and entry key (see ItemUpgrades). Live data, deliberately not part
+            // of any template snapshot: a template edit or sync never touches it.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS item_instance_upgrade (
+                        instance_id TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        entry_key TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        PRIMARY KEY (instance_id, category, entry_key)
+                    )
+                    """);
+
             // Typed damage a MythicMobs skill deals through the `pvedamage{id=...}` mechanic (see
             // PveDamageMechanic), per mob type + attack id + damage type. Live/global config like
             // mob_equipment above, set from the /pve mobs menu - flat amounts only, since a skill has
