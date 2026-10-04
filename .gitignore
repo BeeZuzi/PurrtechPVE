@@ -5,3 +5,10 @@ out/
 .idea/
 *.iml
 .DS_Store
+
+# runtime data the plugin writes into its data folder - never commit
+/config.yml
+/lang/
+/mclicense.txt
+/purrtechpve.db
+/purrtechpve.db-*
