@@ -58,6 +58,7 @@ import eu.purrtech.purrtechPVE.mythicmobs.MythicMobsBridge;
 import eu.purrtech.purrtechPVE.trinket.AccessoryMenuListener;
 import eu.purrtech.purrtechPVE.trinket.TrinketAttributeListener;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Locale;
@@ -108,6 +109,11 @@ public final class PurrtechPVE extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        if (!MCLicense.validateKey(this, "6a909c5c8fdcba0e503193ba")) {
+            Bukkit.getPluginManager().disablePlugin(this);
+            getLogger().warning("Something went wrong. Please contact support.");
+            return;
+        }
         saveDefaultConfig();
 
         database = new Database(getDataFolder(), getLogger());

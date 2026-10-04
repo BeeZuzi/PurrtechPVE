@@ -39,6 +39,8 @@ dependencies {
     implementation("com.zaxxer:HikariCP:7.1.0")
     implementation("org.xerial:sqlite-jdbc:3.53.2.1")
 
+    implementation("org.json:json:20240303")
+
     testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     testImplementation("com.google.code.gson:gson:2.13.2")
 
