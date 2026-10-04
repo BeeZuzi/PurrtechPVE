@@ -109,7 +109,7 @@ public final class PurrtechPVE extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (!MCLicense.validateKey(this, "6a909c5c8fdcba0e503193ba")) {
+        if (!MCLicense.validateKey(this, "59c5tvix")) {
             Bukkit.getPluginManager().disablePlugin(this);
             getLogger().warning("Something went wrong. Please contact support.");
             return;

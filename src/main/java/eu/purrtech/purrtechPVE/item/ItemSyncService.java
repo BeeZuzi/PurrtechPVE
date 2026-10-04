@@ -28,12 +28,14 @@ public final class ItemSyncService {
     private final ItemTemplateRepository templateRepository;
     private final ItemTemplateSnapshotRepository snapshotRepository;
     private final ItemRenderer renderer;
+    private final StackStateCarrier stateCarrier;
 
     public ItemSyncService(ItemTemplateRepository templateRepository, ItemTemplateSnapshotRepository snapshotRepository,
                             ItemRenderer renderer) {
         this.templateRepository = templateRepository;
         this.snapshotRepository = snapshotRepository;
         this.renderer = renderer;
+        this.stateCarrier = new StackStateCarrier(renderer);
     }
 
     /** Sweeps every online player's inventory + ender chest. Returns how many stacks were re-rendered. */
@@ -118,6 +120,14 @@ public final class ItemSyncService {
                         + " for template " + template.key() + " - every version bump must write one"));
 
         ItemStack rendered = renderer.renderSnapshot(snapshot, template.armorClass(), template.armorAmount());
+        // The old stack's version rendered fresh is what tells template-given enchants/attributes from
+        // the ones a player added since; null (snapshot gone) just means those two aren't carried.
+        ItemStack baseline = targetVersion == stamp.templateVersion()
+                ? rendered
+                : snapshotRepository.find(template.id(), stamp.templateVersion())
+                        .map(old -> renderer.renderSnapshot(old, template.armorClass(), template.armorAmount()))
+                        .orElse(null);
+        stateCarrier.carry(stack, baseline, rendered);
         rendered.setAmount(stack.getAmount());
         return Optional.of(rendered);
     }

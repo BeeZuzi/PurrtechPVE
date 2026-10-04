@@ -5,6 +5,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
@@ -48,6 +49,8 @@ public final class ItemRenderer {
     private final NamespacedKey templateKeyPdc;
     private final NamespacedKey templateVersionPdc;
     private final NamespacedKey langHashPdc;
+    private final NamespacedKey renderedNameHashPdc;
+    private final NamespacedKey renderedLoreHashesPdc;
 
     public ItemRenderer(Plugin plugin, Messages messages, Locale locale) {
         this.plugin = plugin;
@@ -56,6 +59,8 @@ public final class ItemRenderer {
         this.templateKeyPdc = new NamespacedKey(plugin, "template_key");
         this.templateVersionPdc = new NamespacedKey(plugin, "template_version");
         this.langHashPdc = new NamespacedKey(plugin, "lang_hash");
+        this.renderedNameHashPdc = new NamespacedKey(plugin, "rendered_name_hash");
+        this.renderedLoreHashesPdc = new NamespacedKey(plugin, "rendered_lore_hashes");
     }
 
     /** Identifies the lang text + locale a stack was rendered with, so a lang edit marks every older stack stale. */
@@ -75,6 +80,19 @@ public final class ItemRenderer {
 
     public NamespacedKey templateVersionPdc() {
         return templateVersionPdc;
+    }
+
+    public NamespacedKey renderedNameHashPdc() {
+        return renderedNameHashPdc;
+    }
+
+    public NamespacedKey renderedLoreHashesPdc() {
+        return renderedLoreHashesPdc;
+    }
+
+    /** Hash of a component's plain text - formatting is ignored, so it survives the item's NBT round trip. */
+    public static int textHash(Component component) {
+        return PlainTextComponentSerializer.plainText().serialize(component).hashCode();
     }
 
     /** Renders from the template's current live data - always the newest version, used for freshly given items. */
@@ -116,12 +134,14 @@ public final class ItemRenderer {
         ItemStack stack = BaseItemSnapshots.restore(baseItemSnapshot, baseMaterial);
         ItemMeta meta = stack.getItemMeta();
 
-        meta.displayName(parseMiniMessage(displayName).decoration(TextDecoration.ITALIC, false));
+        Component renderedName = parseMiniMessage(displayName).decoration(TextDecoration.ITALIC, false);
+        meta.displayName(renderedName);
         if (customModelData != null) {
             meta.setCustomModelData(customModelData);
         }
-        meta.lore(buildLore(customLore, hiddenHeaders, loreOrder, contributions, modifiers, armorPenetration, bleedEffect, criticalEffect,
-                stunEffect, reflectEffect, attributeModifiers, armorClass, armorAmount));
+        List<Component> renderedLore = buildLore(customLore, hiddenHeaders, loreOrder, contributions, modifiers, armorPenetration,
+                bleedEffect, criticalEffect, stunEffect, reflectEffect, attributeModifiers, armorClass, armorAmount);
+        meta.lore(renderedLore);
 
         for (TemplateEnchantment enchantment : enchantments) {
             resolveEnchantment(enchantment.enchantmentKey())
@@ -151,6 +171,12 @@ public final class ItemRenderer {
         pdc.set(templateKeyPdc, PersistentDataType.STRING, key);
         pdc.set(templateVersionPdc, PersistentDataType.INTEGER, version);
         pdc.set(langHashPdc, PersistentDataType.INTEGER, currentLangHash());
+        // Fingerprints of the name/lore lines WE wrote, so a later re-render can tell them apart from
+        // anything a player or another plugin added afterwards (an anvil rename, a "soulbound" line, ...)
+        // and carry those over instead of wiping them - see StackStateCarrier.
+        pdc.set(renderedNameHashPdc, PersistentDataType.INTEGER, textHash(renderedName));
+        pdc.set(renderedLoreHashesPdc, PersistentDataType.INTEGER_ARRAY,
+                renderedLore.stream().mapToInt(ItemRenderer::textHash).toArray());
 
         stack.setItemMeta(meta);
         return stack;
