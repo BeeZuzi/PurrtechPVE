@@ -10,7 +10,7 @@ Každý zásah se počítá ve stejném pořadí:
 
 1. **Zbraň (nebo útok moba) určí, kolik poškození a jakého druhu se pošle.** Například 10 sečného a 4 ohnivého.
 2. **Cíl má odolnosti nebo slabosti na jednotlivé druhy.** Každý druh se upraví zvlášť.
-3. **Brnění ubere z fyzického poškození.** Z ohně, jedu, magie a podobných druhů neubírá nic.
+3. **Brnění ubere z fyzického poškození.** Z ohně, jedu, magie a podobných druhů neubírá nic. Zbraň s **pronikáním brnění** ale část brnění cíle na ten zásah ignoruje.
 4. **Kritický zásah** (pokud padne) všechno vynásobí.
 5. **Vanilla Minecraft** na konci přidá svoje vlastní úpravy (brnění z atributů, efekty).
 
@@ -132,6 +132,8 @@ Brnění je **druhá, samostatná vrstva** vedle odolností. Funguje jinak:
 | 14 | 56 % |
 | 20 a víc | 80 % |
 
+> **Pozor:** hodnoty v tabulce platí, jen když útočník nemá **pronikání brnění**. Zbraň s pronikáním z tvých bodů brnění pro ten zásah část odečte (viz sekce *Pronikání brnění* níže). 10 bodů brnění proti zbrani s 50% pronikáním funguje jako 5 bodů.
+
 ### Třídy brnění: lehké, střední, těžké
 
 Každý kus vybavení patří do jedné ze tří tříd. Třída s sebou nese **společné odolnosti nebo slabosti**, které si nastavuje admin pro celý server. Příklad: těžké brnění může být odolné proti sečnému a slabé proti blesku.
@@ -225,6 +227,20 @@ Pokud padne kritický zásah (25 %): 10,8 × 1,5 = **16,2**.
 
 Všimni si, že oheň prošel plnou silou i přes brnění, a že slabost na oheň ho ještě zvýšila.
 
+### Stejný zásah se zbraní s pronikáním brnění
+
+Dejme tomu, že meč má **50% pronikání brnění**. Cíl má pořád 10 bodů brnění, ale pro tenhle zásah se z nich odečte polovina, takže platí jen **5 bodů = −20 % fyzického**.
+
+| Krok | Sečné | Ohnivé |
+|---|---|---|
+| Co zbraň posílá | 10 | 4 |
+| Odolnost cíle | 10 × 0,8 = **8** | 4 × 1,5 = **6** |
+| Brnění (5 bodů po pronikání = −20 %) | 8 × 0,8 = **6,4** | 6 (oheň není fyzický) |
+
+**Celkem: 6,4 + 6 = 12,4** (místo 10,8).
+
+Pronikání zvedlo sečnou část z 4,8 na 6,4. Na oheň nemá žádný vliv, protože ten brnění obchází tak jako tak.
+
 ---
 
 ## Co se děje navíc (vanilla Minecraft)
@@ -260,6 +276,9 @@ Server má navíc speciální sloty: **prsten 1, prsten 2, amulet a opasek**. Ot
 
 **Proč jsem dostal míň, než je napsáno na útoku?**
 Pravděpodobně máš odolnost na ten druh, brnění (pokud je poškození fyzické) nebo vanilla brnění z kusů vybavení.
+
+**Proč mi brnění pomáhá míň, než jsem čekal?**
+Útočník může mít zbraň s **pronikáním brnění**. Ta na jeden zásah sníží tvoje body brnění i bonus třídy brnění. Na tvém vybavení se přitom nic nezmění, jen ten jeden zásah se počítá, jako bys měl míň brnění.
 
 **Proč mi brnění nepomáhá proti ohni?**
 Brnění ubírá jen fyzické poškození (tupé, bodné, sečné). Proti ohni, ledu, blesku a podobným druhům potřebuješ odolnosti.
