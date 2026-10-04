@@ -36,7 +36,10 @@ import eu.purrtech.purrtechPVE.db.MobDamageProfileRepository;
 import eu.purrtech.purrtechPVE.db.MobDropRepository;
 import eu.purrtech.purrtechPVE.db.ReflectEffectRepository;
 import eu.purrtech.purrtechPVE.db.StunEffectRepository;
+import eu.purrtech.purrtechPVE.db.MobAttackDamageRepository;
 import eu.purrtech.purrtechPVE.db.MobEquipmentRepository;
+import eu.purrtech.purrtechPVE.combat.AttackRegistry;
+import eu.purrtech.purrtechPVE.mythicmobs.PveDamageMechanicListener;
 import eu.purrtech.purrtechPVE.db.TemplateEnchantmentRepository;
 import eu.purrtech.purrtechPVE.db.TypeModifierRepository;
 import eu.purrtech.purrtechPVE.gui.ItemEditorListener;
@@ -76,6 +79,8 @@ public final class PurrtechPVE extends JavaPlugin {
     private ItemEditorListener itemEditorListener;
     private MythicMobsBridge mythicMobsBridge;
     private MobEquipmentRepository mobEquipmentRepository;
+    private MobAttackDamageRepository mobAttackDamageRepository;
+    private final AttackRegistry attackRegistry = new AttackRegistry();
     private MobDropRepository mobDropRepository;
     private ArmorClassProfileRepository armorClassProfileRepository;
     private CombatFeedbackSettings combatFeedbackSettings;
@@ -136,6 +141,7 @@ public final class PurrtechPVE extends JavaPlugin {
         armorClassProfileRepository = new ArmorClassProfileRepository(database);
         accessoryRepository = new AccessoryRepository(database);
         mobEquipmentRepository = new MobEquipmentRepository(database);
+        mobAttackDamageRepository = new MobAttackDamageRepository(database);
         mobDropRepository = new MobDropRepository(database);
         itemHologramRepository = new ItemHologramRepository(database);
         ItemSetRepository itemSetRepository = new ItemSetRepository(database);
@@ -316,6 +322,13 @@ public final class PurrtechPVE extends JavaPlugin {
                     "Failed to register the MythicMobs mob-equipment listener - mobs won't spawn with assigned equipment.", t);
         }
         try {
+            getServer().getPluginManager().registerEvents(
+                    new PveDamageMechanicListener(this, mythicMobsBridge, mobAttackDamageRepository, attackRegistry), this);
+        } catch (Throwable t) {
+            getLogger().log(Level.WARNING,
+                    "Failed to register the pvedamage skill mechanic - skills using it won't deal damage.", t);
+        }
+        try {
             getServer().getPluginManager().registerEvents(new MobSpawnEquipFallbackListener(this), this);
         } catch (Throwable t) {
             getLogger().log(Level.WARNING, "Failed to register the spawn-equipment fallback listener.", t);
@@ -384,6 +397,14 @@ public final class PurrtechPVE extends JavaPlugin {
 
     public MythicMobEquipmentListener getMobEquipmentListener() {
         return mobEquipmentListener;
+    }
+
+    public MobAttackDamageRepository getMobAttackDamageRepository() {
+        return mobAttackDamageRepository;
+    }
+
+    public AttackRegistry getAttackRegistry() {
+        return attackRegistry;
     }
 
     public MobEquipmentRepository getMobEquipmentRepository() {

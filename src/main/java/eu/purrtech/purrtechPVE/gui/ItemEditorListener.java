@@ -72,7 +72,7 @@ public final class ItemEditorListener implements Listener {
         } else if (holder instanceof LoreOrderHolder loreOrderHolder) {
             LoreOrderMenu.handleClick(plugin, player, loreOrderHolder, slot, event.getClick());
         } else if (holder instanceof MobMenuHolder mobMenuHolder) {
-            MobMenu.handleClick(plugin, player, mobMenuHolder, slot, event.isShiftClick());
+            MobMenu.handleClick(plugin, player, mobMenuHolder, slot, event.getClick());
         }
     }
 

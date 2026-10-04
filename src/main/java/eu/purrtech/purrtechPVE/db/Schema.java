@@ -272,6 +272,20 @@ final class Schema {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_mob_equipment_template ON mob_equipment(template_id)");
 
+            // Typed damage a MythicMobs skill deals through the `pvedamage{id=...}` mechanic (see
+            // PveDamageMechanic), per mob type + attack id + damage type. Live/global config like
+            // mob_equipment above, set from the /pve mobs menu - flat amounts only, since a skill has
+            // no weapon hit for a percent contribution to scale off.
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS mob_attack_damage (
+                        mythic_mob_internal_name TEXT NOT NULL,
+                        attack_id TEXT NOT NULL,
+                        damage_type_key TEXT NOT NULL,
+                        amount REAL NOT NULL,
+                        PRIMARY KEY (mythic_mob_internal_name, attack_id, damage_type_key)
+                    )
+                    """);
+
             // Which of our item templates a MythicMobs mob type drops on death, how many, and with
             // what % chance. Separate from mob_equipment above (a mob-template pairing is either
             // worn/held gear or a loot drop, never both at once) - rolled fresh on every death by

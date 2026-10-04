@@ -2,6 +2,9 @@ package eu.purrtech.purrtechPVE.gui;
 
 import eu.purrtech.purrtechPVE.PurrtechPVE;
 import eu.purrtech.purrtechPVE.combat.DamageFeedback;
+import eu.purrtech.purrtechPVE.damage.DamageType;
+import eu.purrtech.purrtechPVE.damage.DamageTypeRegistry;
+import org.bukkit.event.inventory.ClickType;
 import eu.purrtech.purrtechPVE.item.ItemTemplate;
 import eu.purrtech.purrtechPVE.item.TemplateNotFoundException;
 import eu.purrtech.purrtechPVE.lang.Messages;
@@ -48,6 +51,8 @@ public final class MobMenu {
     private static final int INFO_SLOT = 4;
     private static final int NEXT_SLOT = 5;
     private static final int CLOSE_SLOT = 8;
+    // On the MOB screen, next to the equipment slots - opens the mob's pvedamage attacks.
+    private static final int ATTACKS_SLOT = 31;
     private static final int CONTENT_START = 9;
     private static final int PAGE_SIZE = LIST_SIZE - CONTENT_START;
 
@@ -101,6 +106,29 @@ public final class MobMenu {
         player.openInventory(inventory);
     }
 
+    public static void openAttacks(PurrtechPVE plugin, Player player, String mobType, int page, int returnPage) {
+        Locale locale = player.locale();
+        List<String> attacks = attackIds(plugin, mobType);
+        int clamped = clampPage(page, attacks.size());
+        MobMenuHolder holder = new MobMenuHolder(MobMenuHolder.View.ATTACKS, mobType, null, clamped, returnPage);
+        Inventory inventory = Bukkit.createInventory(holder, LIST_SIZE,
+                plugin.getMessages().render(locale, "gui.mobs.title-attacks", Placeholder.unparsed("mob", mobType)));
+        holder.setInventory(inventory);
+        renderAttacks(plugin, inventory, mobType, clamped, attacks, locale);
+        player.openInventory(inventory);
+    }
+
+    /** @param attacksPage page of the attack list to go back to, carried like {@code returnPage} */
+    public static void openAttack(PurrtechPVE plugin, Player player, String mobType, String attackId, int attacksPage, int returnPage) {
+        Locale locale = player.locale();
+        MobMenuHolder holder = new MobMenuHolder(MobMenuHolder.View.ATTACK, mobType, null, attackId, attacksPage, returnPage);
+        Inventory inventory = Bukkit.createInventory(holder, LIST_SIZE, plugin.getMessages().render(locale, "gui.mobs.title-attack",
+                Placeholder.unparsed("mob", mobType), Placeholder.unparsed("attack", attackId)));
+        holder.setInventory(inventory);
+        renderAttack(plugin, inventory, mobType, attackId, locale);
+        player.openInventory(inventory);
+    }
+
     // ---- render ----
 
     private static void renderList(PurrtechPVE plugin, Inventory inventory, int page, List<String> mobs, Locale locale) {
@@ -151,6 +179,12 @@ public final class MobMenu {
         info.setItemMeta(infoMeta);
         inventory.setItem(INFO_SLOT, info);
 
+        ItemStack attacks = named(Material.IRON_SWORD, messages.render(locale, "gui.mobs.attacks-button"));
+        ItemMeta attacksMeta = attacks.getItemMeta();
+        attacksMeta.lore(List.of(messages.render(locale, "gui.mobs.attacks-hint")));
+        attacks.setItemMeta(attacksMeta);
+        inventory.setItem(ATTACKS_SLOT, attacks);
+
         Map<String, UUID> assigned = plugin.getMobEquipmentRepository().findByMob(mobType);
         List<ItemTemplate> templates = plugin.getItemTemplateService().listAll();
         for (int i = 0; i < SLOTS.length; i++) {
@@ -162,6 +196,78 @@ public final class MobMenu {
             inventory.setItem(SLOT_POSITIONS[i], template.isPresent()
                     ? assignedIcon(plugin, template.get(), label, locale)
                     : emptyIcon(messages, label, locale));
+        }
+    }
+
+    private static void renderAttacks(PurrtechPVE plugin, Inventory inventory, String mobType, int page, List<String> attacks, Locale locale) {
+        Messages messages = plugin.getMessages();
+        renderPager(messages, inventory, page, attacks.size(), locale);
+        inventory.setItem(BACK_SLOT, named(Material.ARROW, messages.render(locale, "gui.back")));
+        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
+        if (attacks.isEmpty()) {
+            inventory.setItem(CONTENT_START, named(Material.PAPER, messages.render(locale, "gui.mobs.attacks-none")));
+            return;
+        }
+        int start = page * PAGE_SIZE;
+        for (int i = 0; i < PAGE_SIZE && start + i < attacks.size(); i++) {
+            String attack = attacks.get(start + i);
+            ItemStack icon = named(Material.IRON_SWORD, messages.render(locale, "gui.mobs.attack-icon", Placeholder.unparsed("attack", attack)));
+            ItemMeta meta = icon.getItemMeta();
+            List<Component> lore = new ArrayList<>();
+            Map<String, Double> configured = new TreeMap<>(plugin.getMobAttackDamageRepository().findByAttack(mobType, attack));
+            if (configured.isEmpty()) {
+                lore.add(messages.render(locale, "gui.mobs.attack-unset"));
+            } else {
+                configured.forEach((type, amount) -> lore.add(attackLine(plugin, locale, type, amount)));
+            }
+            lore.add(Component.empty());
+            lore.add(messages.render(locale, "gui.mobs.hint-open"));
+            meta.lore(lore);
+            icon.setItemMeta(meta);
+            inventory.setItem(CONTENT_START + i, icon);
+        }
+    }
+
+    private static Component attackLine(PurrtechPVE plugin, Locale locale, String typeKey, double amount) {
+        String glyph = plugin.getDamageTypeRegistry().find(typeKey).map(DamageType::icon).orElse("");
+        return plugin.getMessages().render(locale, "gui.mobs.attack-line", Placeholder.unparsed("icon", glyph),
+                Placeholder.unparsed("type", typeKey), Placeholder.unparsed("amount", DamageFeedback.formatAmount(amount)));
+    }
+
+    /** One slot per damage type (the "physical" alias is skipped - its three subtypes are listed on their own). */
+    private static List<DamageType> attackTypes(PurrtechPVE plugin) {
+        return plugin.getDamageTypeRegistry().all().values().stream()
+                .filter(type -> !DamageTypeRegistry.FALLBACK_PHYSICAL.equals(type.key()))
+                .sorted(Comparator.comparing(DamageType::key))
+                .toList();
+    }
+
+    private static void renderAttack(PurrtechPVE plugin, Inventory inventory, String mobType, String attackId, Locale locale) {
+        Messages messages = plugin.getMessages();
+        inventory.setItem(BACK_SLOT, named(Material.ARROW, messages.render(locale, "gui.back")));
+        inventory.setItem(CLOSE_SLOT, named(Material.BARRIER, messages.render(locale, "gui.close")));
+        Map<String, Double> configured = plugin.getMobAttackDamageRepository().findByAttack(mobType, attackId);
+        double total = configured.values().stream().mapToDouble(Double::doubleValue).sum();
+        ItemStack info = named(Material.IRON_SWORD, messages.render(locale, "gui.mobs.attack-icon", Placeholder.unparsed("attack", attackId)));
+        ItemMeta infoMeta = info.getItemMeta();
+        infoMeta.lore(List.of(messages.render(locale, "gui.mobs.attack-total", Placeholder.unparsed("amount", DamageFeedback.formatAmount(total)))));
+        info.setItemMeta(infoMeta);
+        inventory.setItem(INFO_SLOT, info);
+
+        List<DamageType> types = attackTypes(plugin);
+        for (int i = 0; i < types.size() && CONTENT_START + i < inventory.getSize(); i++) {
+            DamageType type = types.get(i);
+            double amount = configured.getOrDefault(type.key(), 0.0);
+            ItemStack icon = named(amount > 0 ? Material.RED_DYE : Material.GRAY_DYE, messages.render(locale, "gui.mobs.type-icon",
+                    Placeholder.unparsed("icon", type.icon()), Placeholder.unparsed("type", type.key())));
+            ItemMeta meta = icon.getItemMeta();
+            meta.lore(List.of(
+                    messages.render(locale, "gui.mobs.type-amount", Placeholder.unparsed("amount", DamageFeedback.formatAmount(amount))),
+                    Component.empty(),
+                    messages.render(locale, "gui.mobs.type-hint-1"),
+                    messages.render(locale, "gui.mobs.type-hint-2")));
+            icon.setItemMeta(meta);
+            inventory.setItem(CONTENT_START + i, icon);
         }
     }
 
@@ -239,12 +345,78 @@ public final class MobMenu {
 
     // ---- clicks ----
 
-    public static void handleClick(PurrtechPVE plugin, Player player, MobMenuHolder holder, int slot, boolean shift) {
+    public static void handleClick(PurrtechPVE plugin, Player player, MobMenuHolder holder, int slot, ClickType click) {
         switch (holder.view()) {
             case LIST -> handleListClick(plugin, player, holder, slot);
-            case MOB -> handleMobClick(plugin, player, holder, slot, shift);
+            case MOB -> handleMobClick(plugin, player, holder, slot, click.isShiftClick());
             case PICK -> handlePickClick(plugin, player, holder, slot);
+            case ATTACKS -> handleAttacksClick(plugin, player, holder, slot);
+            case ATTACK -> handleAttackClick(plugin, player, holder, slot, click);
         }
+    }
+
+    private static void handleAttacksClick(PurrtechPVE plugin, Player player, MobMenuHolder holder, int slot) {
+        if (slot == BACK_SLOT) {
+            openMob(plugin, player, holder.mobType(), holder.returnPage());
+            return;
+        }
+        if (slot == CLOSE_SLOT) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == PREV_SLOT) {
+            openAttacks(plugin, player, holder.mobType(), holder.page() - 1, holder.returnPage());
+            return;
+        }
+        if (slot == NEXT_SLOT) {
+            openAttacks(plugin, player, holder.mobType(), holder.page() + 1, holder.returnPage());
+            return;
+        }
+        if (slot < CONTENT_START) {
+            return;
+        }
+        List<String> attacks = attackIds(plugin, holder.mobType());
+        int index = holder.page() * PAGE_SIZE + (slot - CONTENT_START);
+        if (index >= 0 && index < attacks.size()) {
+            openAttack(plugin, player, holder.mobType(), attacks.get(index), holder.page(), holder.returnPage());
+        }
+    }
+
+    /**
+     * Left/right click adds/subtracts 1, with shift 10; Q resets the type to 0. Re-rendered in place
+     * rather than reopened, so repeated clicks don't keep resetting the cursor.
+     */
+    private static void handleAttackClick(PurrtechPVE plugin, Player player, MobMenuHolder holder, int slot, ClickType click) {
+        if (slot == BACK_SLOT) {
+            openAttacks(plugin, player, holder.mobType(), holder.page(), holder.returnPage());
+            return;
+        }
+        if (slot == CLOSE_SLOT) {
+            player.closeInventory();
+            return;
+        }
+        List<DamageType> types = attackTypes(plugin);
+        int index = slot - CONTENT_START;
+        if (index < 0 || index >= types.size()) {
+            return;
+        }
+        String typeKey = types.get(index).key();
+        double current = plugin.getMobAttackDamageRepository().findByAttack(holder.mobType(), holder.attackId()).getOrDefault(typeKey, 0.0);
+        double next = switch (click) {
+            case LEFT -> current + 1;
+            case RIGHT -> current - 1;
+            case SHIFT_LEFT -> current + 10;
+            case SHIFT_RIGHT -> current - 10;
+            case DROP, CONTROL_DROP -> 0;
+            default -> current;
+        };
+        if (next == current) {
+            return;
+        }
+        plugin.getMobAttackDamageRepository().set(holder.mobType(), holder.attackId(), typeKey, Math.max(0, next));
+        Inventory inventory = holder.getInventory();
+        inventory.clear();
+        renderAttack(plugin, inventory, holder.mobType(), holder.attackId(), player.locale());
     }
 
     private static void handleListClick(PurrtechPVE plugin, Player player, MobMenuHolder holder, int slot) {
@@ -277,6 +449,10 @@ public final class MobMenu {
         }
         if (slot == CLOSE_SLOT) {
             player.closeInventory();
+            return;
+        }
+        if (slot == ATTACKS_SLOT) {
+            openAttacks(plugin, player, holder.mobType(), 0, holder.returnPage());
             return;
         }
         for (int i = 0; i < SLOTS.length; i++) {
@@ -387,6 +563,13 @@ public final class MobMenu {
         } catch (Throwable t) {
             return -1;
         }
+    }
+
+    /** Attacks seen in loaded skills plus any this mob already has damage stored for, sorted. */
+    private static List<String> attackIds(PurrtechPVE plugin, String mobType) {
+        java.util.Set<String> ids = new java.util.TreeSet<>(plugin.getAttackRegistry().all());
+        ids.addAll(plugin.getMobAttackDamageRepository().findAttackIds(mobType));
+        return List.copyOf(ids);
     }
 
     private static List<String> mobTypes(PurrtechPVE plugin) {

@@ -9,6 +9,7 @@ import eu.purrtech.purrtechPVE.combat.DebugStatsReporter;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import eu.purrtech.purrtechPVE.combat.DpsTracker;
 import eu.purrtech.purrtechPVE.combat.EquipmentResolver;
+import eu.purrtech.purrtechPVE.combat.SkillDamageContext;
 import eu.purrtech.purrtechPVE.combat.WorldToggleEvaluator;
 import eu.purrtech.purrtechPVE.config.CombatFeedbackSettings;
 import eu.purrtech.purrtechPVE.config.WorldToggleSettings;
@@ -211,7 +212,12 @@ public final class CombatDamageListener implements Listener {
         // percent contributions (they scale with rawDamage) from being boosted twice.
         double vanillaCritFactor = event.isCritical() && event.getDamager() instanceof Player ? VANILLA_CRIT_MULTIPLIER : 1.0;
         double baseDamage = rawDamage / vanillaCritFactor;
-        Map<String, Double> typedDamage = equipmentResolver.resolveOutgoingTypedDamage(attacker, baseDamage);
+        // A MythicMobs pvedamage{id=...} skill hands over the typed damage configured for that attack
+        // (see SkillDamageContext) - used as-is instead of a split derived from the held weapon.
+        Map<String, Double> skillDamage = SkillDamageContext.current();
+        Map<String, Double> typedDamage = skillDamage != null
+                ? new HashMap<>(skillDamage)
+                : equipmentResolver.resolveOutgoingTypedDamage(attacker, baseDamage);
         Map<String, Double> resistance = equipmentResolver.resolveResistance(attacker, defender);
         DamagePipeline.Result result = DamagePipeline.applyDetailed(baseDamage, typedDamage, resistance);
 

@@ -14,12 +14,17 @@ import org.jetbrains.annotations.NotNull;
 public final class MobMenuHolder implements InventoryHolder {
 
     public enum View {
-        LIST, MOB, PICK
+        LIST, MOB, PICK,
+        /** One mob's {@code pvedamage} attacks. */
+        ATTACKS,
+        /** Per-damage-type amounts of one of those attacks. */
+        ATTACK
     }
 
     private final View view;
     private final String mobType;
     private final EquipmentSlot slot;
+    private final String attackId;
     private final int page;
     private final int returnPage;
     private Inventory inventory;
@@ -32,11 +37,21 @@ public final class MobMenuHolder implements InventoryHolder {
      *                   button always lands on the page the admin came from
      */
     public MobMenuHolder(View view, String mobType, EquipmentSlot slot, int page, int returnPage) {
+        this(view, mobType, slot, null, page, returnPage);
+    }
+
+    /** @param attackId the {@code pvedamage} attack being edited; only set on the {@link View#ATTACK} screen */
+    public MobMenuHolder(View view, String mobType, EquipmentSlot slot, String attackId, int page, int returnPage) {
         this.view = view;
         this.mobType = mobType;
         this.slot = slot;
+        this.attackId = attackId;
         this.page = page;
         this.returnPage = returnPage;
+    }
+
+    public String attackId() {
+        return attackId;
     }
 
     void setInventory(Inventory inventory) {
