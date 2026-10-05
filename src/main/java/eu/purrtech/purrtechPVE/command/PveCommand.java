@@ -17,6 +17,7 @@ import eu.purrtech.purrtechPVE.gui.ItemListMenu;
 import eu.purrtech.purrtechPVE.gui.MobMenu;
 import eu.purrtech.purrtechPVE.gui.UpgradeMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorMenu;
+import eu.purrtech.purrtechPVE.gui.SetListMenu;
 import eu.purrtech.purrtechPVE.gui.SetEditorTab;
 import eu.purrtech.purrtechPVE.gui.ArmorClassMenu;
 import eu.purrtech.purrtechPVE.item.ArmorClass;
@@ -524,6 +525,15 @@ public final class PveCommand {
                                         .executes(ctx -> listMobProfile(plugin, ctx)))))
                 .then(Commands.literal("set")
                         .requires(source -> source.getSender().hasPermission(PERMISSION))
+                        // no arguments: the menu - creating, deleting and configuring sets by clicking
+                        .executes(ctx -> {
+                            if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                ctx.getSource().getSender().sendMessage(plugin.getMessages().render(plugin.getDefaultLocale(), "error.player-only"));
+                                return 0;
+                            }
+                            SetListMenu.open(plugin, player, 0);
+                            return Command.SINGLE_SUCCESS;
+                        })
                         .then(Commands.literal("create")
                                 // key: no suggestions - creates a new set, same reasoning as item "create".
                                 .then(Commands.argument("key", StringArgumentType.word())

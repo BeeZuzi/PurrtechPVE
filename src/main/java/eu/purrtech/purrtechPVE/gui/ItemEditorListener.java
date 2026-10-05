@@ -42,7 +42,7 @@ public final class ItemEditorListener implements Listener {
         Object holder = event.getInventory().getHolder();
         if (!(holder instanceof ItemEditorHolder) && !(holder instanceof SetEditorHolder) && !(holder instanceof ItemListHolder)
                 && !(holder instanceof ArmorClassHolder) && !(holder instanceof ValueEditorHolder) && !(holder instanceof LoreOrderHolder)
-                && !(holder instanceof MobMenuHolder) && !(holder instanceof UpgradeMenuHolder)) {
+                && !(holder instanceof MobMenuHolder) && !(holder instanceof UpgradeMenuHolder) && !(holder instanceof SetListHolder)) {
             return;
         }
         int slot = event.getRawSlot();
@@ -62,7 +62,9 @@ public final class ItemEditorListener implements Listener {
         if (holder instanceof ItemEditorHolder itemHolder) {
             ItemEditorMenu.handleClick(plugin, player, itemHolder, slot, event.isShiftClick());
         } else if (holder instanceof SetEditorHolder setHolder) {
-            SetEditorMenu.handleClick(plugin, player, setHolder, slot);
+            SetEditorMenu.handleClick(plugin, player, setHolder, slot, event.getClick());
+        } else if (holder instanceof SetListHolder setListHolder) {
+            SetListMenu.handleClick(plugin, player, setListHolder, slot, event.getClick());
         } else if (holder instanceof ItemListHolder listHolder) {
             ItemListMenu.handleClick(plugin, player, listHolder, slot, event.getClick(), event.getCursor());
         } else if (holder instanceof ArmorClassHolder armorClassHolder) {
@@ -83,7 +85,7 @@ public final class ItemEditorListener implements Listener {
         Object holder = event.getInventory().getHolder();
         if (holder instanceof ItemEditorHolder || holder instanceof SetEditorHolder || holder instanceof ItemListHolder
                 || holder instanceof ArmorClassHolder || holder instanceof ValueEditorHolder || holder instanceof LoreOrderHolder
-                || holder instanceof MobMenuHolder || holder instanceof UpgradeMenuHolder) {
+                || holder instanceof MobMenuHolder || holder instanceof UpgradeMenuHolder || holder instanceof SetListHolder) {
             // rebasing happens by clicking the preview slot while holding the item, not dragging -
             // keeps these GUIs free of cursor/partial-stack edge cases
             event.setCancelled(true);
