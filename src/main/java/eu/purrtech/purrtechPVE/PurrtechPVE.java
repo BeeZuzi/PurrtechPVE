@@ -349,7 +349,7 @@ public final class PurrtechPVE extends JavaPlugin {
         }
         try {
             getServer().getPluginManager().registerEvents(
-                    new MythicMobDropListener(mobDropRepository, itemTemplateRepository, itemTemplateService), this);
+                    new MythicMobDropListener(mobDropRepository, itemTemplateRepository, itemTemplateService, getLogger()), this);
         } catch (Throwable t) {
             getLogger().log(Level.WARNING,
                     "Failed to register the MythicMobs mob-drop listener - mobs won't drop assigned loot.", t);
