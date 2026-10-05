@@ -24,7 +24,7 @@ import java.util.Set;
 
 /**
  * The {@code /pve set} GUI - every item set in one paginated list: a button to create a new one
- * (only the set's key and display name are typed in chat, everything else is configured in {@link
+ * (only the set's key is typed in chat, everything else is configured in {@link
  * SetEditorMenu}), a plain click to open the editor on one, shift+right-click to delete it. Same
  * layout and conventions as {@link ItemListMenu}.
  */
@@ -136,7 +136,7 @@ public final class SetListMenu {
         }
     }
 
-    /** Two chat prompts - the key, then the display name - because those are the only two values that are genuinely free text. */
+    /** One chat prompt - the key - because that is the only value that is genuinely free text. */
     private static void promptCreate(PurrtechPVE plugin, Player player, int page) {
         Locale locale = player.locale();
         Messages messages = plugin.getMessages();
@@ -160,25 +160,16 @@ public final class SetListMenu {
                 open(plugin, p, page);
                 return;
             }
-            p.sendMessage(messages.render(locale, "gui.set-list.prompt-name"));
-            p.sendMessage(messages.render(locale, "gui.set-list.prompt-name-hint"));
-            plugin.getItemEditorListener().awaitInput(p, (p2, rawName) -> {
-                if (isCancel(rawName)) {
-                    p2.sendMessage(messages.render(locale, "gui.prompt.cancelled"));
-                    open(plugin, p2, page);
-                    return;
-                }
-                String name = rawName.trim();
-                String displayName = name.isEmpty() || name.equals("-") ? key : name;
-                try {
-                    plugin.getItemSetService().create(key, displayName);
-                    p2.sendMessage(messages.render(locale, "gui.set-list.created", Placeholder.unparsed("key", key)));
-                    SetEditorMenu.open(plugin, p2, key, SetEditorTab.MEMBERS);
-                } catch (DuplicateSetKeyException e) {
-                    p2.sendMessage(messages.render(locale, "gui.set-list.duplicate", Placeholder.unparsed("key", key)));
-                    open(plugin, p2, page);
-                }
-            });
+            // A set's display name is stored but shown nowhere a player looks, so it is not asked for -
+            // the key stands in for it.
+            try {
+                plugin.getItemSetService().create(key, key);
+                p.sendMessage(messages.render(locale, "gui.set-list.created", Placeholder.unparsed("key", key)));
+                SetEditorMenu.open(plugin, p, key, SetEditorTab.MEMBERS);
+            } catch (DuplicateSetKeyException e) {
+                p.sendMessage(messages.render(locale, "gui.set-list.duplicate", Placeholder.unparsed("key", key)));
+                open(plugin, p, page);
+            }
         });
     }
 

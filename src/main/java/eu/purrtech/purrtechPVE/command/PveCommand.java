@@ -537,6 +537,8 @@ public final class PveCommand {
                         .then(Commands.literal("create")
                                 // key: no suggestions - creates a new set, same reasoning as item "create".
                                 .then(Commands.argument("key", StringArgumentType.word())
+                                        // displayName is optional - nothing a player sees uses it, so it defaults to the key
+                                        .executes(ctx -> createSet(plugin, ctx))
                                         .then(Commands.argument("displayName", StringArgumentType.greedyString())
                                                 .executes(ctx -> createSet(plugin, ctx)))))
                         .then(Commands.literal("delete")
@@ -1740,7 +1742,12 @@ public final class PveCommand {
         CommandSender sender = ctx.getSource().getSender();
         Locale locale = localeOf(plugin, sender);
         String key = StringArgumentType.getString(ctx, "key");
-        String displayName = StringArgumentType.getString(ctx, "displayName");
+        String displayName;
+        try {
+            displayName = StringArgumentType.getString(ctx, "displayName");
+        } catch (IllegalArgumentException e) {
+            displayName = key; // the optional name was left out
+        }
 
         try {
             plugin.getItemSetService().create(key, displayName);

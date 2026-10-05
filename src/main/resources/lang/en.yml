@@ -562,8 +562,6 @@ gui:
     hint-delete: "<red>Shift+right click: delete the set</red>"
     prompt-key: "<yellow>Type the new set's key (id) in chat, no spaces.</yellow>"
     prompt-key-example: "<gray>For example: dragon-armor   (or type 'cancel')</gray>"
-    prompt-name: "<yellow>Now type the set's display name.</yellow>"
-    prompt-name-hint: "<gray>Type '-' to use the key as the name.</gray>"
     invalid-key: "<red>Invalid key (no spaces), try again from the menu.</red>"
     created: "<green>Set <key> created.</green>"
     duplicate: "<red>A set with key <key> already exists.</red>"

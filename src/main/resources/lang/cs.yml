@@ -564,8 +564,6 @@ gui:
     hint-delete: "<red>Shift+pravý klik: smazat set</red>"
     prompt-key: "<yellow>Napiš do chatu klíč (id) nového setu, bez mezer.</yellow>"
     prompt-key-example: "<gray>Například: dragon-armor   (nebo napiš 'zrusit')</gray>"
-    prompt-name: "<yellow>Teď napiš zobrazované jméno setu.</yellow>"
-    prompt-name-hint: "<gray>Napiš '-' a použije se klíč jako jméno.</gray>"
     invalid-key: "<red>Neplatný klíč (bez mezer), zkus to znovu z menu.</red>"
     created: "<green>Set <key> vytvořen.</green>"
     duplicate: "<red>Set s klíčem <key> už existuje.</red>"
