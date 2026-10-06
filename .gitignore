@@ -12,3 +12,6 @@ out/
 /mclicense.txt
 /purrtechpve.db
 /purrtechpve.db-*
+
+# graphify knowledge graph output
+/graphify-out/

@@ -279,6 +279,10 @@ public final class PveCommand {
                                         .then(Commands.argument("key", StringArgumentType.word())
                                                 .suggests(templateKeys)
                                                 .executes(ctx -> giveTemplate(plugin, ctx)))))
+                        .then(Commands.literal("take")
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(templateKeys)
+                                        .executes(ctx -> takeTemplate(plugin, ctx))))
                         .then(Commands.literal("sync")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .suggests(templateKeys)
@@ -889,6 +893,40 @@ public final class PveCommand {
                 Placeholder.unparsed("key", key),
                 Placeholder.unparsed("player", targets.size() == 1 ? targets.get(0).getName() : targets.size() + "x")));
         return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * {@code /pve item take <key>} - removes ONE item of that template from the sender's inventory
+     * (hotbar, storage, armor, off-hand). Matches on the template stamp alone, so an item counts
+     * whatever version it is on and whatever it was upgraded with.
+     */
+    private static int takeTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        Locale locale = localeOf(plugin, sender);
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.getMessages().render(locale, "error.player-only"));
+            return 0;
+        }
+        String key = StringArgumentType.getString(ctx, "key");
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int slot = 0; slot < contents.length; slot++) {
+            ItemStack stack = contents[slot];
+            boolean matches = plugin.getItemRenderer().readStamp(stack)
+                    .filter(stamp -> stamp.templateKey().equals(key)).isPresent();
+            if (!matches) {
+                continue;
+            }
+            if (stack.getAmount() > 1) {
+                stack.setAmount(stack.getAmount() - 1);
+                player.getInventory().setItem(slot, stack);
+            } else {
+                player.getInventory().setItem(slot, null);
+            }
+            sender.sendMessage(plugin.getMessages().render(locale, "item.taken", Placeholder.unparsed("key", key)));
+            return Command.SINGLE_SUCCESS;
+        }
+        sender.sendMessage(plugin.getMessages().render(locale, "item.take-none", Placeholder.unparsed("key", key)));
+        return 0;
     }
 
     private static SuggestionProvider<CommandSourceStack> worldNames() {

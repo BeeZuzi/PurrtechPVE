@@ -286,6 +286,8 @@ item:
   unknown-damage-type: "<red>Neznámý typ poškození: <white><type></white>"
   non-contributable-damage-type: "<red>Typ poškození <white><type></white> nejde přidat jako normální poškození - nastav ho přes jeho vlastní stat (např. Krvácení).</red>"
   given: "<green>Předmět <white><key></white> předán hráči <white><player></white>."
+  taken: "<green>Odebrán 1 předmět <white><key></white>."
+  take-none: "<red>V inventáři nemáš žádný předmět šablony <white><key></white>."
   dropped: "<green>Dropnuto <white><amount>x <key></white> na <white><x> <y> <z></white> ve světě <white><world></white>.</green>"
   list-empty: "<yellow>Zatím nejsou vytvořené žádné šablony."
   list-entry: "<white><key></white> <gray>(<material>, v<version>)</gray>"
