@@ -280,9 +280,10 @@ public final class PveCommand {
                                                 .suggests(templateKeys)
                                                 .executes(ctx -> giveTemplate(plugin, ctx)))))
                         .then(Commands.literal("take")
-                                .then(Commands.argument("key", StringArgumentType.word())
-                                        .suggests(templateKeys)
-                                        .executes(ctx -> takeTemplate(plugin, ctx))))
+                                .then(Commands.argument("player", ArgumentTypes.player())
+                                        .then(Commands.argument("key", StringArgumentType.word())
+                                                .suggests(templateKeys)
+                                                .executes(ctx -> takeTemplate(plugin, ctx)))))
                         .then(Commands.literal("sync")
                                 .then(Commands.argument("key", StringArgumentType.word())
                                         .suggests(templateKeys)
@@ -896,24 +897,34 @@ public final class PveCommand {
     }
 
     /**
-     * {@code /pve item take <key>} - removes ONE item of that template from the sender's inventory
-     * (hotbar, storage, armor, off-hand). Matches on the template stamp alone, so an item counts
-     * whatever version it is on and whatever it was upgraded with.
+     * {@code /pve item take <player> <key>} - removes ONE item of that template from each selected
+     * player's inventory (hotbar, storage, armor, off-hand); usable from the console. Matches on the
+     * template stamp alone, so an item counts whatever version it is on and whatever it was upgraded with.
      */
-    private static int takeTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) {
+    private static int takeTemplate(PurrtechPVE plugin, CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         CommandSender sender = ctx.getSource().getSender();
         Locale locale = localeOf(plugin, sender);
-        if (!(sender instanceof Player player)) {
+        String key = StringArgumentType.getString(ctx, "key");
+        List<Player> targets = ctx.getArgument("player", PlayerSelectorArgumentResolver.class).resolve(ctx.getSource());
+        if (targets.isEmpty()) {
             sender.sendMessage(plugin.getMessages().render(locale, "error.player-only"));
             return 0;
         }
-        String key = StringArgumentType.getString(ctx, "key");
+        int taken = 0;
+        for (Player player : targets) {
+            boolean found = takeOne(plugin, player, key);
+            taken += found ? 1 : 0;
+            sender.sendMessage(plugin.getMessages().render(locale, found ? "item.taken" : "item.take-none",
+                    Placeholder.unparsed("key", key), Placeholder.unparsed("player", player.getName())));
+        }
+        return taken > 0 ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    private static boolean takeOne(PurrtechPVE plugin, Player player, String key) {
         ItemStack[] contents = player.getInventory().getContents();
         for (int slot = 0; slot < contents.length; slot++) {
             ItemStack stack = contents[slot];
-            boolean matches = plugin.getItemRenderer().readStamp(stack)
-                    .filter(stamp -> stamp.templateKey().equals(key)).isPresent();
-            if (!matches) {
+            if (plugin.getItemRenderer().readStamp(stack).filter(stamp -> stamp.templateKey().equals(key)).isEmpty()) {
                 continue;
             }
             if (stack.getAmount() > 1) {
@@ -922,11 +933,9 @@ public final class PveCommand {
             } else {
                 player.getInventory().setItem(slot, null);
             }
-            sender.sendMessage(plugin.getMessages().render(locale, "item.taken", Placeholder.unparsed("key", key)));
-            return Command.SINGLE_SUCCESS;
+            return true;
         }
-        sender.sendMessage(plugin.getMessages().render(locale, "item.take-none", Placeholder.unparsed("key", key)));
-        return 0;
+        return false;
     }
 
     private static SuggestionProvider<CommandSourceStack> worldNames() {
