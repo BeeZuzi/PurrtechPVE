@@ -1,4 +1,7 @@
 # PurrtechPVE configuration
+# Owner of the plugin: PurrTech
+# Owner of the server agrees with Terms And Conditions:
+# https://purrtech.eu/obchodni-podminky
 
 # storage.type is currently always sqlite; reserved for a future mysql backend
 storage:
